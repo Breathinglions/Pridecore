@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "pride_flashpoint_procedural",
+  "version": "${version}",
+  "name": "Pride Flashpoint Procedural — Staging",
+  "description": "Operator-only opt-in procedural dungeon generation for test worlds.",
+  "environment": "server",
+  "entrypoints": {
+    "main": ["com.prideregion.flashpoints.PrideFlashpointMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "=1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
