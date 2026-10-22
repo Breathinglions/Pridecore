@@ -44,6 +44,19 @@ public final class PrideFlashpointMod implements ModInitializer {
                 .then(CommandManager.literal("encounters")
                     .executes(ctx -> feedback(ctx.getSource(),JOBS.encounters(ctx.getSource().getWorld()))))
                 .then(CommandManager.literal("encounter")
+                    .then(CommandManager.literal("tracked")
+                        .executes(ctx -> feedback(ctx.getSource(),
+                            JOBS.trackedEncounters(ctx.getSource().getWorld()))))
+                    .then(CommandManager.literal("track")
+                        .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
+                            .executes(ctx -> feedback(ctx.getSource(),
+                                JOBS.trackNearbyEncounter(ctx.getSource().getWorld(),
+                                    IntegerArgumentType.getInteger(ctx,"room"))))))
+                    .then(CommandManager.literal("forget")
+                        .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
+                            .executes(ctx -> feedback(ctx.getSource(),
+                                JOBS.forgetEncounter(ctx.getSource().getWorld(),
+                                    IntegerArgumentType.getInteger(ctx,"room"))))))
                     .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
                         .executes(ctx -> feedback(ctx.getSource(),JOBS.encounter(
                             ctx.getSource().getWorld(),IntegerArgumentType.getInteger(ctx,"room")))))

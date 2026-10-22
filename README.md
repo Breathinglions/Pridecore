@@ -1,55 +1,56 @@
-# PrideCore Flashpoints v0.3.0 — Staging test build
+# PrideCore Flashpoint v0.3.1 — UUID encounter tracking prototype
 
-Minecraft **1.21.1** / Fabric / **Java 21**. This is a staging-only module, not yet the complete Pride Core MMORPG.
+**Minecraft 1.21.1 · Fabric server · Java 21 · disposable staging dimension only**
 
-## What v0.3 adds
+This is one part of the Pride Core MMORPG, **not** a production-ready MMORPG, boss battle, or raid encounter system.
 
-- **Automatic chunk readiness for generation, preflight, placement and cleanup.** No manual `/forceload` should be needed for an empty, isolated test world. Synchronous FULL chunk requests are capped at **one per server tick**; the normal Minecraft chunk manager handles eventual unloading. PrideCore does not add persistent force-load tickets. **Caution:** loading an ungenerated chunk may generate world terrain.
-- **Deterministic Standard dungeon encounter blueprint:** 16 rooms, including entrance, combat, two elites, puzzle, rest, treasure and boss rooms. Room coordinates are validated to be walkable in automated tests.
-- **Operator-only Cobblemon integration test:** uses Cobblemon's existing `/spawnpokemonat` command, only on a *completed Standard staging dungeon*, only when explicitly enabled, and at most once per combat room per running session. This is a manual spawn test, **not** an automatic encounter/battle/reward system.
-- Preserves v0.2.3 cleanup behavior: read-only journal recovery, no fresh-preflight cancellation, cleanup verification and persistent recovery journal.
+## What v0.3.1 adds
 
-## Operators: first test
+- A **checksummed, atomic, persistent ledger** of exact Pokémon entity UUIDs for the 16-room Standard dungeon. It lives at `config/pride_flashpoint_entities.bin`.
+- **Manual opt-in tracking** of a *single* existing Pokémon near a specific combat room, with exact UUID binding, only in the explicitly allowed test dimension.
+- **Read-only inspection** of tracked UUIDs, including whether an entity is currently loaded. "Not loaded/absent" does NOT imply it is dead, captured, despawned or safe to forget.
+- **Explicit forgetting** of a binding. Forgetting changes the ledger only; **does not delete, capture, despawn or otherwise modify the Pokémon**.
+- New dungeon creation and block cleanup are refused while tracked UUIDs remain unresolved. An operator must **handle the Pokémon separately** and explicitly forget its room association before clearing the structure.
+- Preserves v0.3.0 procedural geometry, automatic chunk readiness and manual opt-in test-spawn commands, plus the v0.2.3 recovery/cleanup fixes.
 
-**Before changing JARs, confirm the previous dungeon is visually cleared and `/pridefp status` reports no journal.** If there's a pending journal, back up and finish recovery before generating another test. Keep all testing in a **backed-up disposable Multiworld dimension** and preserve existing server configurations.
+This initial binding deliberately does **not** inspect Cobblemon species or native battle state. It identifies the mod's entity type `cobblemon:pokemon` using vanilla Minecraft's registry, and requires exactly **one** Pokémon entity in a bounded area around the room marker. The operator must verify visually that the candidate is the intended encounter. No heuristic auto-despawn or auto-capture is performed.
 
-1. Stop the server and back up `multiworld:fptest` plus `config/pride_flashpoint_active.bin` if present.
-2. Remove v0.2.3 from `mods/`. Install **only** the `pride-flashpoint-procedural-0.3.0.jar` from successful GitHub Actions.
-3. Start the server with Fabric 1.21.1 / Java 21 / Fabric API. Enter **multiworld:fptest** and use the existing `config/pride_flashpoint_dev.properties`:
-   ```properties
-   enabled=true
-   allowed_dimension=multiworld:fptest
-   enable_test_encounters=false
-   ```
-   The new opt-in key is **false when absent** from older config files. This mod reads configuration on each relevant command.
-4. Start in a large empty *disposable* area:
-   ```mcfunction
-   /pridefp preview standard 1047
-   /pridefp generate standard 1047
-   /pridefp status
-   ```
-   No manual `/forceload` should be needed. Initial chunk loading can produce brief server lag.
-5. Once `phase=COMPLETE`:
-   ```mcfunction
-   /pridefp encounters
-   /pridefp encounter 11
-   ```
-   These commands **only report** room roles and boss-marker details; they do not spawn Pokémon.
-6. For an optional, isolated Cobblemon spawn smoke test only, back up the test world and opt in via `enable_test_encounters=true`. Run:
-   ```mcfunction
-   /pridefp encounter spawn 11
-   ```
-   This issues `spawnpokemonat` as an operator if Cobblemon's command is installed. Check visually whether a wild Pokémon appears. **No encounter mobs are automatically tracked, removed or rewarded.** Don't test spawns near other players or valuable Pokémon.
-7. Run `/pridefp clear`, then `/pridefp status` until completion and verify the generated blocks disappeared and journal was removed. **Cleanup does not remove wild Pokémon spawned by the optional test command.**
+## Safe test sequence
 
-## Not included yet
+**First** back up `multiworld:fptest`, your `config/` directory and any active Flashpoint journals. Stop the server, remove the previous v0.3.0 JAR and install **only** the v0.3.1 JAR. Restart.
 
-- Automated encounter triggers, trainer battles, group/party/instance allocation, kill tracking, miniboss objectives, final boss phases, rewards, cinematics, cinematics client companion, economy or GTS.
-- Safe production-world chunk allocation or automatic persistent chunk-ticket ownership. This module uses synchronous chunk requests with bounded rate, which may generate terrain or briefly increase TPS cost.
-- Multi-party and true crash-recovery integration tests at scale.
+Keep:
+```properties
+enabled=true
+allowed_dimension=multiworld:fptest
+enable_test_encounters=true
+```
+The last property opts into **operator-controlled testing**, not automatic encounter spawning.
 
-The target Standard dungeon gameplay duration remains **15–25 minutes**, but it requires encounters and objectives before it can be measured. **Do not install this test module into the live Pride Region world.**
+In `multiworld:fptest`, the boss assigned for Standard seed 1047 was room 11, Garchomp level 55. If the **existing dungeon and Garchomp are still present** and the recovery journal is recognized, do **not** generate over them.
 
-## Source/testing
+Use:
+```mcfunction
+/pridefp status
+/pridefp encounter tracked
+/pridefp encounter track 11
+/pridefp encounter tracked
+```
 
-`bash tools/test-layout.sh` runs Classic, Standard, journal and encounter-plan tests. GitHub Actions compiles the remapped Fabric JAR and also runs `tools/audit-recovery-flow.py` and `tools/audit-v03.py`, which are static safety guards, not runtime Minecraft integration tests.
+- `/pridefp encounter track 11` searches only near room 11's recorded coordinate. It refuses if **zero or multiple** Pokémon are found. If exactly one is found, it persists the UUID without changing the Pokémon.
+- If it fails, **do not** spawn more Pokémon or try to bypass the safeguard.
+- You can restart, then run `/pridefp encounter tracked` to confirm the UUID is retained.
+- **When the Pokémon has been handled separately**, run `/pridefp encounter forget 11` to drop the association. This does **not** remove the Pokémon; the operator remains responsible for it.
+- Only then run `/pridefp clear` to remove the dungeon blocks. Cleanup never deletes Cobblemon entities.
+
+## What remains unbuilt
+
+- Authentic Cobblemon spawn-event ownership from creation time; a UUID must currently be associated manually.
+- Species validation, safe per-instance despawn logic, capture/battle-state checks, kill tracking, boss victory/defeat integration, rewards, party matchmaking, automatic objectives, cinematic presentation.
+- Full PvE balance to reach the agreed 15–25 minute Standard Flashpoint target.
+
+The `pride_flashpoint_entities.bin` file should not be deleted manually. If it is corrupted, the mod refuses tracking changes, and further diagnosis is necessary. Do not use the prototype on the live Pride Region world.
+
+## Regression checks
+
+GitHub Actions compiles the Fabric JAR, tests Classic/Standard layouts and persistent journals, runs the encounter ledger round-trip/corruption tests, and audits key source safety contracts. **Compiling is not an in-game test.** New entity tracking needs the server operator's staging verification.

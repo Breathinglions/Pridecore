@@ -2,6 +2,10 @@ package com.prideregion.flashpoints;
 
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.encounter.DungeonEncounterPlan;
+import com.prideregion.flashpoints.encounter.EncounterLedger;
+import net.minecraft.entity.Entity;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.math.Box;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -17,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.BitSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 
 public final class StagingJobManager {
@@ -26,6 +31,9 @@ public final class StagingJobManager {
     private StagingJournal.Snapshot recovery;
     private Path journalPath;
     private String journalError;
+    private Path entityLedgerPath;
+    private EncounterLedger.Snapshot entityLedger;
+    private String entityLedgerError;
 
     private static final BlockState[] PALETTE={
         Blocks.AIR.getDefaultState(), Blocks.DEEPSLATE_BRICKS.getDefaultState(),
@@ -39,6 +47,14 @@ public final class StagingJobManager {
     /** Read the persistent intent. Never automatically overwrite or remove on server startup. */
     public void initialize() {
         journalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_active.bin");
+        entityLedgerPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_entities.bin");
+        if(Files.exists(entityLedgerPath)) {
+            try { entityLedger=EncounterLedger.load(entityLedgerPath); }
+            catch(IOException ex) {
+                entityLedgerError=ex.getMessage();
+                PrideFlashpointMod.LOGGER.error("Cannot load encounter UUID ledger; preserve file and inspect logs",ex);
+            }
+        }
         if(!Files.exists(journalPath))return;
         try {
             recovery=StagingJournal.load(journalPath);
@@ -76,6 +92,8 @@ public final class StagingJobManager {
         if(recovery!=null || Files.exists(journalPath))
             return "A persistent dungeon is pending cleanup. Enter its world and run /pridefp clear.";
         if(job!=null)return "Complete or clear previous staging job first: /pridefp clear";
+        if(entityLedgerError!=null || entityLedger!=null && !entityLedger.bindings().isEmpty())
+            return "Encounter Pokémon UUIDs are still tracked. Review /pridefp encounter tracked before starting another dungeon.";
         if(!config.enabled())return "Disabled: config/pride_flashpoint_dev.properties enabled=false";
         if(config.dimension().equals("pride:staging_unconfigured"))
             return "Configure allowed_dimension to the exact test world dimension identifier.";
@@ -206,6 +224,112 @@ public final class StagingJobManager {
         }
     }
 
+    private EncounterLedger.Key dungeonKey() {
+        if(job!=null) {
+            return new EncounterLedger.Key(job.world.getRegistryKey().getValue().toString(),
+                job.layout.seed(),job.origin.getX(),job.origin.getY(),job.origin.getZ());
+        }
+        if(recovery!=null) {
+            return new EncounterLedger.Key(recovery.dimension(),recovery.layout().seed(),
+                recovery.x(),recovery.y(),recovery.z());
+        }
+        return null;
+    }
+
+    /** Explicit, non-destructive UUID association. Never despawns or edits Pokémon. */
+    public String trackNearbyEncounter(ServerWorld world,int roomId) {
+        reloadRecoveryIfNecessary();
+        if(roomId<0 || roomId>=16)return "Room ID must be 0–15.";
+        if(entityLedgerError!=null)return "Cannot edit damaged entity ledger; preserve it and inspect server logs.";
+        EncounterLedger.Key key=dungeonKey();
+        if(key==null)return "No dungeon or recovery journal in this server session.";
+        if(!key.dimension().equals(world.getRegistryKey().getValue().toString()))
+            return "Return to the tracked Flashpoint dimension.";
+        DevConfig config;
+        try { config=DevConfig.load(); }
+        catch(IOException ex) { return "Cannot read staging configuration."; }
+        if(!config.enabled() || !config.testEncounters() || !config.dimension().equals(key.dimension()))
+            return "Tracking is disabled. Restrict it to your disposable world and set enable_test_encounters=true.";
+        DungeonLayout layout=job!=null?job.layout:recovery.layout();
+        if(layout.width()!=188 || layout.length()!=164 || layout.height()!=14)
+            return "Entity tracking is only supported for a Standard dungeon.";
+        var room=DungeonEncounterPlan.standard(key.seed(),layout).room(roomId);
+        if(!room.combat())return "Only combat/elite/boss rooms have encounter Pokémon.";
+        if(entityLedger!=null && !entityLedger.key().equals(key))
+            return "An older encounter ledger belongs to another dungeon. Inspect and forget its UUIDs first.";
+        if(entityLedger!=null && entityLedger.bindings().containsKey(roomId))
+            return "This room already has a tracked UUID. Use /pridefp encounter tracked.";
+        int x=key.x()+room.localX(), y=key.y()+1, z=key.z()+room.localZ();
+        // This locates candidates using only Minecraft's base entity registry.
+        // It cannot validate the Cobblemon species; operator must confirm visually.
+        Box bounds=new Box(x-10,y-4,z-10,x+11,y+7,z+11);
+        List<Entity> matches=world.getEntitiesByClass(Entity.class,bounds,
+            entity->entity.isAlive() &&
+                "cobblemon:pokemon".equals(Registries.ENTITY_TYPE.getId(entity.getType()).toString()));
+        if(matches.size()!=1)
+            return "Refusing ambiguous tracking: found "+matches.size()+
+                " Pokémon entities near room "+roomId+". Must be exactly one.";
+        UUID uuid=matches.get(0).getUuid();
+        if(entityLedger!=null && entityLedger.bindings().containsValue(uuid))
+            return "This UUID is already registered to another room.";
+        EncounterLedger.Snapshot next;
+        try {
+            next=(entityLedger==null
+                ? new EncounterLedger.Snapshot(key,java.util.Map.of())
+                : entityLedger).bind(roomId,uuid);
+            EncounterLedger.save(entityLedgerPath,next);
+        } catch(IOException | IllegalArgumentException ex) {
+            PrideFlashpointMod.LOGGER.error("Cannot persist encounter UUID association",ex);
+            return "Tracking failed; no ownership recorded. Preserve files and inspect logs.";
+        }
+        entityLedger=next;
+        return "Recorded UUID "+uuid+" for room "+roomId+" ("+room.kind()+") at "+
+            x+","+y+","+z+". This is UUID tracking ONLY: species, battles and cleanup are not managed yet.";
+    }
+
+    public String trackedEncounters(ServerWorld world) {
+        if(entityLedgerError!=null)return "CORRUPT encounter ledger: "+entityLedgerError+
+            ". File preserved; new tracking disabled.";
+        if(entityLedger==null)return "No encounter Pokémon UUID associations recorded.";
+        if(!entityLedger.key().dimension().equals(world.getRegistryKey().getValue().toString()))
+            return "Encounter records belong to "+entityLedger.key().dimension()+
+                ". Inspect them from that world.";
+        StringBuilder out=new StringBuilder("Tracked encounter UUIDs for seed "+
+            entityLedger.key().seed()+", origin "+entityLedger.key().x()+","+
+            entityLedger.key().y()+","+entityLedger.key().z()+": ");
+        for(var e:entityLedger.bindings().entrySet()) {
+            Entity entity=world.getEntity(e.getValue());
+            out.append("room ").append(e.getKey()).append("=")
+                .append(e.getValue()).append(" [")
+                .append(entity==null?"not loaded/absent":
+                    entity.isAlive()?"loaded":"not alive").append("]; ");
+        }
+        return out.toString()+"Tracking does NOT mean battles or cleanup are managed.";
+    }
+
+    public String forgetEncounter(ServerWorld world,int roomId) {
+        if(entityLedgerError!=null)
+            return "Damaged encounter ledger. Do not modify it; inspect server logs.";
+        if(entityLedger==null || !entityLedger.bindings().containsKey(roomId))
+            return "No UUID recorded for that room.";
+        if(!entityLedger.key().dimension().equals(world.getRegistryKey().getValue().toString()))
+            return "Return to the recorded test dimension.";
+        try {
+            EncounterLedger.Snapshot next=entityLedger.forget(roomId);
+            if(next.bindings().isEmpty()) {
+                Files.delete(entityLedgerPath);
+                entityLedger=null;
+            } else {
+                EncounterLedger.save(entityLedgerPath,next);
+                entityLedger=next;
+            }
+            return "Forgot room "+roomId+" UUID association. No Pokémon was removed or modified.";
+        } catch(IOException | IllegalArgumentException ex) {
+            PrideFlashpointMod.LOGGER.error("Encounter ledger change failed",ex);
+            return "Failed to save association change. Original ledger preserved.";
+        }
+    }
+
     public String status() {
         reloadRecoveryIfNecessary();
         if(journalError!=null)return "CORRUPT persistent journal: "+journalError+". New builds disabled.";
@@ -264,6 +388,11 @@ public final class StagingJobManager {
             return "Cannot clear without persistent journal. No blocks changed; investigate server logs.";
         if(job.phase==Phase.CLEANING || job.phase==Phase.VERIFYING)
             return "Cleanup already in progress.";
+        if(entityLedgerError!=null ||
+            entityLedger!=null && entityLedger.key().equals(dungeonKey()) &&
+            !entityLedger.bindings().isEmpty())
+            return "Tracked encounter Pokémon remain. Inspect /pridefp encounter tracked; "+
+                "handle Pokémon separately, then /pridefp encounter forget <room> before clearing.";
         job.phase=Phase.CLEANING;job.cursor=0;
         return "Cleaning persistent dungeon journal. Matching generated blocks only; modified blocks preserved.";
     }
