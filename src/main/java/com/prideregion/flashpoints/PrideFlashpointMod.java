@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.server.command.CommandManager;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.prideregion.flashpoints.layout.DungeonGenerator;
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
@@ -51,15 +52,15 @@ public final class PrideFlashpointMod implements ModInitializer {
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> orphanCommands() {
-        var coordsZ=CommandManager.argument("z", IntegerArgumentType.integer())
+        RequiredArgumentBuilder<ServerCommandSource,Integer> coordsZ=CommandManager.argument("z", IntegerArgumentType.integer())
             .executes(ctx -> inspectOrphan(ctx.getSource(),
                 LongArgumentType.getLong(ctx,"seed"),
                 IntegerArgumentType.getInteger(ctx,"x"),
                 IntegerArgumentType.getInteger(ctx,"y"),
                 IntegerArgumentType.getInteger(ctx,"z")));
-        var coordsY=CommandManager.argument("y", IntegerArgumentType.integer()).then(coordsZ);
-        var coordsX=CommandManager.argument("x", IntegerArgumentType.integer()).then(coordsY);
-        var seed=CommandManager.argument("seed",LongArgumentType.longArg()).then(coordsX);
+        RequiredArgumentBuilder<ServerCommandSource,Integer> coordsY=CommandManager.argument("y", IntegerArgumentType.integer()).then(coordsZ);
+        RequiredArgumentBuilder<ServerCommandSource,Integer> coordsX=CommandManager.argument("x", IntegerArgumentType.integer()).then(coordsY);
+        RequiredArgumentBuilder<ServerCommandSource,Long> seed=CommandManager.argument("seed",LongArgumentType.longArg()).then(coordsX);
         return CommandManager.literal("orphan")
             .then(CommandManager.literal("inspect")
                 .then(CommandManager.literal("standard").then(seed)))
