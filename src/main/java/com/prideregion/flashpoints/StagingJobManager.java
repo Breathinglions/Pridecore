@@ -16,7 +16,7 @@ import java.util.BitSet;
 import java.util.UUID;
 
 public final class StagingJobManager {
-    enum Phase { PREFLIGHT, PLACING, COMPLETE, ABORTED, CLEANING }
+    enum Phase { PREFLIGHT, PLACING, COMPLETE, ABORTED, CLEANING, VERIFYING, ORPHAN_SCAN, ORPHAN_READY }
 
     private Job job;
     private StagingJournal.Snapshot recovery;
@@ -69,6 +69,47 @@ public final class StagingJobManager {
             +" volume at "+coords(origin)+". A recovery journal will be saved BEFORE block placement.";
     }
 
+    /** Non-destructive, tick-budgeted forensic inspection of a known dungeon. */
+    public String inspectOrphan(ServerWorld world, UUID player, BlockPos origin,
+                                DungeonLayout layout, DevConfig config) {
+        if(job != null) return "Another Flashpoint job is active. Use /pridefp status.";
+        if(journalError != null || recovery != null || journalPath == null || Files.exists(journalPath))
+            return "Cannot inspect orphan while a recovery journal is pending or unavailable.";
+        if(!config.enabled()) return "Staging is disabled in the config.";
+        String dimension = world.getRegistryKey().getValue().toString();
+        if(!dimension.equals(config.dimension()) || dimension.equals("minecraft:overworld")
+            || dimension.equals("minecraft:the_nether") || dimension.equals("minecraft:the_end"))
+            return "Orphan inspection requires the explicitly allowed disposable staging dimension.";
+        if(origin.getY()<world.getBottomY()+1 || origin.getY()+layout.height()>=world.getTopY())
+            return "Requested scan is outside the world's vertical bounds.";
+        job = new Job(world,player,origin,layout,config);
+        job.phase = Phase.ORPHAN_SCAN;
+        return "READ-ONLY orphan inspection at "+coords(origin)+" seed="+layout.seed()+
+            ". No blocks will be changed. Check /pridefp status.";
+    }
+
+    /** The operator must separately authorize adoption of a highly matched layout. */
+    public String adoptOrphan(ServerWorld world) {
+        if(job == null || job.phase != Phase.ORPHAN_READY)
+            return "No approved orphan inspection. Run /pridefp orphan inspect first.";
+        if(job.world != world) return "Return to the exact inspected staging dimension.";
+        if(journalError != null || recovery != null || journalPath == null || Files.exists(journalPath))
+            return "Existing or damaged journal detected; adoption refused.";
+        Job j=job;
+        try {
+            StagingJournal.save(journalPath,new StagingJournal.Snapshot(
+                j.world.getRegistryKey().getValue().toString(),j.player,
+                j.origin.getX(),j.origin.getY(),j.origin.getZ(),j.layout));
+            j.journaled=true;
+            j.phase=Phase.ABORTED;
+            return "Orphan adopted: journal saved; NO blocks altered. "+
+                "Back up the world, then /pridefp clear to remove matching generated blocks.";
+        } catch(IOException ex) {
+            PrideFlashpointMod.LOGGER.error("Orphan adoption journal save failed",ex);
+            return "Adoption failed; NO blocks changed. Review server log and journal directory.";
+        }
+    }
+
     public String status() {
         if(journalError!=null)return "CORRUPT persistent journal: "+journalError+". New builds disabled.";
         if(recovery!=null)
@@ -85,10 +126,11 @@ public final class StagingJobManager {
     public String cancel() {
         if(recovery!=null)return "Recovered dungeon needs /pridefp clear.";
         if(job==null)return "No active dungeon job.";
-        if(job.phase==Phase.PREFLIGHT) {
-            job=null;return "Preflight canceled without changes.";
+        if(job.phase==Phase.PREFLIGHT || job.phase==Phase.ORPHAN_SCAN || job.phase==Phase.ORPHAN_READY) {
+            job=null;return "Read-only job cancelled without changes.";
         }
-        if(job.phase==Phase.CLEANING)return "Cleanup cannot be cancelled.";
+        if(job.phase==Phase.CLEANING || job.phase==Phase.VERIFYING)
+            return "Cleanup/verification cannot be cancelled.";
         if(job.phase==Phase.COMPLETE)return "Completed; use /pridefp clear.";
         job.phase=Phase.ABORTED;
         return "Placement stopped. Persistent cleanup remains available via /pridefp clear.";
@@ -109,7 +151,10 @@ public final class StagingJobManager {
         if(job.phase==Phase.PREFLIGHT) {
             job=null;return "Preflight cancelled without changes.";
         }
-        if(job.phase==Phase.CLEANING)return "Cleanup already in progress.";
+        if(job.phase==Phase.ORPHAN_SCAN || job.phase==Phase.ORPHAN_READY)
+            return "Orphan scan is read-only; run /pridefp orphan adopt before /pridefp clear.";
+        if(job.phase==Phase.CLEANING || job.phase==Phase.VERIFYING)
+            return "Cleanup already in progress.";
         job.phase=Phase.CLEANING;job.cursor=0;
         return "Cleaning persistent dungeon journal. Matching generated blocks only; modified blocks preserved.";
     }
@@ -144,6 +189,14 @@ public final class StagingJobManager {
                 }
                 j.placed.set(index);
                 writes++;
+            } else if(j.phase==Phase.ORPHAN_SCAN) {
+                int mat=Byte.toUnsignedInt(j.layout.material(index));
+                if(mat==0)continue;
+                j.orphanExpected++;
+                if(j.world.getBlockState(j.pos).equals(PALETTE[mat])) j.orphanMatching++;
+            } else if(j.phase==Phase.VERIFYING) {
+                int mat=Byte.toUnsignedInt(j.layout.material(index));
+                if(mat!=0 && j.world.getBlockState(j.pos).equals(PALETTE[mat])) j.residual++;
             } else if(j.phase==Phase.CLEANING) {
                 int mat=Byte.toUnsignedInt(j.layout.material(index));
                 if(mat==0)continue;
@@ -178,9 +231,29 @@ public final class StagingJobManager {
                 +(j.origin.getX()+j.layout.entranceX())+" "+(j.origin.getY()+1)+" "
                 +(j.origin.getZ()+j.layout.entranceZ())
                 +". Use /pridefp clear even after restart to clean it.");
+        } else if(j.phase==Phase.ORPHAN_SCAN) {
+            if(j.orphanExpected < 1000 || (long)j.orphanMatching*100 < (long)j.orphanExpected*99) {
+                message(server,j.player,"Orphan inspection REJECTED: "+j.orphanMatching+"/"+
+                    j.orphanExpected+" expected blocks match. No blocks changed.");
+                job=null;
+                return;
+            }
+            j.phase=Phase.ORPHAN_READY;
+            message(server,j.player,"Orphan inspection PASSED: "+j.orphanMatching+"/"+
+                j.orphanExpected+" expected blocks match. No blocks changed. "+
+                "If these coordinates and seed are correct, use /pridefp orphan adopt.");
         } else if(j.phase==Phase.CLEANING) {
+            j.phase=Phase.VERIFYING; j.cursor=0; j.residual=0;
+            message(server,j.player,"Cleanup scan complete; verifying no matching generated blocks remain before journal deletion.");
+        } else if(j.phase==Phase.VERIFYING) {
+            if(j.residual > 0) {
+                j.phase=Phase.ABORTED;
+                message(server,j.player,"Cleanup verification found "+j.residual+
+                    " expected blocks still present. JOURNAL RETAINED; reload chunks and /pridefp clear.");
+                return;
+            }
             try {
-                // The journal is retained until the entire scan finishes successfully.
+                // Journal only removed after a complete verification pass.
                 StagingJournal.remove(journalPath);
                 job=null;
                 message(server,j.player,"Cleanup complete; "+j.preserved+
@@ -194,7 +267,7 @@ public final class StagingJobManager {
     }
 
     private void abort(MinecraftServer server,Job j,String reason) {
-        if(j.phase==Phase.PREFLIGHT) {
+        if(j.phase==Phase.PREFLIGHT || j.phase==Phase.ORPHAN_SCAN) {
             job=null;
             message(server,j.player,"Preflight refused: "+reason+". No blocks placed.");
         } else {
@@ -223,6 +296,9 @@ public final class StagingJobManager {
         boolean journaled;
         int cursor;
         int preserved;
+        int orphanExpected;
+        int orphanMatching;
+        int residual;
         Job(ServerWorld world,UUID player,BlockPos origin,DungeonLayout layout,DevConfig config) {
             this.world=world;this.player=player;this.origin=origin.toImmutable();
             this.layout=layout;this.config=config;this.placed=new BitSet(layout.volume());
