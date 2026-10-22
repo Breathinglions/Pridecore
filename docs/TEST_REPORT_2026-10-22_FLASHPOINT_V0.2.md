@@ -33,3 +33,10 @@
 ## Safety reminder
 
 Testing stays in the backed-up disposable world only; do not enable generation in the production Pride Region dimension.
+
+
+## Follow-up — cleanup outcome reported October 22, 2026
+
+The operator subsequently reported: **“journal removed and dungeon cleared.”** This is a successful user-observed cleanup outcome for the v0.2 Standard Flashpoint test, with the persistent journal removed. This report occurred immediately after instructions to restart, check `/pridefp status`, and clear the recovered dungeon. The user did **not explicitly reiterate that a restart occurred**, so cross-restart recovery should remain *awaiting explicit confirmation* rather than being marked unequivocally passed. No server log or automated assertions were supplied.
+
+**Next quality gates:** verify explicit restart/recovery sequence if not already completed, confirm no residual blocks and no pending journal, remove temporary `/forceload` tickets, and begin isolated Cobblemon encounter integration planning. Always retain backup/staging-only restrictions.
