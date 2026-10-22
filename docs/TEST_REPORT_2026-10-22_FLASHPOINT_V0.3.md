@@ -32,3 +32,12 @@ The operator supplied an in-game screenshot of three successful admin commands:
 **Result:** Read-only encounter blueprint reporting and final boss placement command are **confirmed working in game**. This does NOT demonstrate that Garchomp physically spawned, a boss battle ran, rewards were issued, or that cleanup completed for this generated dungeon. Opt-in spawning remains disabled until intentionally tested in the disposable backed-up world.
 
 **Next isolated test:** To test exactly one Cobblemon spawn, operator may enable `enable_test_encounters=true` in `config/pride_flashpoint_dev.properties` and run `/pridefp encounter spawn 11`. The command emits Cobblemon `spawnpokemonat` but currently only dispatches it, and a successful dispatch does not prove an entity appeared. Wild test-spawned Pokémon are **not managed by block cleanup**. A user confirmation of the physical Pokémon and manual controlled cleanup will be required before marking integration passed.
+
+
+## First physical Cobblemon spawn confirmed
+
+The operator shared an in-game screenshot confirming a **physically visible Garchomp labeled Lv. 55** inside the previously generated deepslate Standard Flashpoint boss room. Prior test screenshot had assigned **Room 11 BOSS**, species `garchomp`, level `55`, at coordinates `132,-19,100` for seed `1047`. The current image independently confirms the Pokémon entity exists in the game and its displayed level matches the blueprint; the precise XYZ spawn coordinate is not shown in this latest image.
+
+**Result:** First end-to-end **manual** Cobblemon wild Pokémon spawn test from PrideCore encounter hook reported/visually confirmed **PASS**. This does **not** verify party ownership, managed boss battles, persistence, despawning/cleanup of spawned entities, loot or cinematics. The Pokémon appears close to a wall; check model clearance and spawn offset before automating.
+
+**Follow-up safety:** Test-spawned wild Pokémon are not managed by `/pridefp clear`; ensure the spawn is handled safely before removing the dungeon, or reset the disposable test world from backup. Keep spawn opt-in off between tests. Next issue #2: track and own encounter entities by UUID, record lifecycle, implement safe battle result and objective state handling.
