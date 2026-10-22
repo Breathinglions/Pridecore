@@ -7,12 +7,14 @@ import net.minecraft.block.Blocks;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.BitSet;
+import java.util.HashSet;
 import java.util.UUID;
 
 public final class StagingJobManager {
@@ -196,14 +198,55 @@ public final class StagingJobManager {
         Job j=job;
         if(j.phase==Phase.COMPLETE || j.phase==Phase.ABORTED || j.phase==Phase.ORPHAN_READY)return;
         int checked=0,writes=0;
+        boolean requestedChunkThisTick=false;
         while(j.cursor<j.layout.volume() && checked<j.config.scanBudget()
                 && writes<j.config.writeBudget()) {
             int index=j.cursor++;
             checked++;
+            int material=Byte.toUnsignedInt(j.layout.material(index));
+
+            // IMPORTANT: Cleanup/verification must never require an unloaded chunk
+            // when the procedural layout did not place anything at this coordinate.
+            // Preflight is different: it must inspect ALL air, including empty margins.
+            if(j.phase!=Phase.PREFLIGHT && material==0)continue;
+
             int x=j.origin.getX()+j.layout.x(index),y=j.origin.getY()+j.layout.y(index);
             int z=j.origin.getZ()+j.layout.z(index);
-            if(!j.world.isChunkLoaded(ChunkPos.toLong(x>>4,z>>4))) {
-                abort(server,j,"Chunk not loaded at "+x+","+z+". Load area and retry cleanup.");return;
+            int cx=x>>4,cz=z>>4;
+            long chunkKey=ChunkPos.toLong(cx,cz);
+            boolean recoveryPass=j.phase==Phase.CLEANING || j.phase==Phase.VERIFYING;
+            boolean accessible=j.world.isChunkLoaded(chunkKey);
+            if(!accessible && recoveryPass) {
+                accessible=j.warmedChunks.contains(chunkKey) ||
+                    j.world.getChunkManager().getWorldChunk(cx,cz)!=null;
+            }
+            if(!accessible) {
+                if(!recoveryPass) {
+                    abort(server,j,"Chunk not loaded at "+x+","+z+". Load area and retry cleanup.");
+                    return;
+                }
+                if(requestedChunkThisTick) {
+                    // At most one potentially expensive synchronous chunk load per tick.
+                    j.cursor--;
+                    return;
+                }
+                try {
+                    if(j.world.getChunkManager().getChunk(cx,cz,ChunkStatus.FULL,true)==null) {
+                        abort(server,j,"Chunk unavailable at "+cx+","+cz+
+                            ". Journal retained; retry after checking chunk health.");
+                        return;
+                    }
+                    j.warmedChunks.add(chunkKey);
+                    requestedChunkThisTick=true;
+                    if(j.chunkLoads++<8)
+                        PrideFlashpointMod.LOGGER.info("Flashpoint recovery loaded missing chunk {},{}",
+                            cx,cz);
+                } catch(RuntimeException ex) {
+                    PrideFlashpointMod.LOGGER.error("Flashpoint chunk load failed {},{}",cx,cz,ex);
+                    abort(server,j,"Chunk load failed at "+cx+","+cz+
+                        ". Journal retained; inspect server logs.");
+                    return;
+                }
             }
             j.pos.set(x,y,z);
             if(j.phase==Phase.PREFLIGHT) {
@@ -323,6 +366,9 @@ public final class StagingJobManager {
         final DungeonLayout layout;
         final DevConfig config;
         final BitSet placed;
+        // Only valid during this job. Successful load-on-demand prevents repeated
+        // synchronous I/O when a server's isChunkLoaded flag lags force-load tickets.
+        final HashSet<Long> warmedChunks=new HashSet<>();
         final BlockPos.Mutable pos=new BlockPos.Mutable();
         Phase phase=Phase.PREFLIGHT;
         boolean journaled;
@@ -331,6 +377,7 @@ public final class StagingJobManager {
         int orphanExpected;
         int orphanMatching;
         int residual;
+        int chunkLoads;
         Job(ServerWorld world,UUID player,BlockPos origin,DungeonLayout layout,DevConfig config) {
             this.world=world;this.player=player;this.origin=origin.toImmutable();
             this.layout=layout;this.config=config;this.placed=new BitSet(layout.volume());
