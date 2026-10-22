@@ -20,3 +20,15 @@ After receiving v0.3 and the test instructions to generate a Standard dungeon wi
 6. Measure TPS and generation timings; gameplay length of 15–25 min remains a design target, not a measured result.
 
 **Status:** Automatic chunk-loading test reported PASS. Encounter blueprint, optional Cobblemon spawning, and v0.3 cleanup still need explicit confirmation.
+
+
+## Confirmed encounter blueprint and boss marker (operator screenshot)
+
+The operator supplied an in-game screenshot of three successful admin commands:
+- `/pridefp status` showed `Seed 1047, phase=COMPLETE, cursor=431648/431648, placed this session=52884, persistent journal=true, origin=-29,-20,1`.
+- `/pridefp encounters` showed all 16 Standard room types, including the two elites, puzzle, rest, treasure and boss assignments.
+- `/pridefp encounter 11` reported `Room 11 BOSS at 132,-19,100 — garchomp level 55`.
+
+**Result:** Read-only encounter blueprint reporting and final boss placement command are **confirmed working in game**. This does NOT demonstrate that Garchomp physically spawned, a boss battle ran, rewards were issued, or that cleanup completed for this generated dungeon. Opt-in spawning remains disabled until intentionally tested in the disposable backed-up world.
+
+**Next isolated test:** To test exactly one Cobblemon spawn, operator may enable `enable_test_encounters=true` in `config/pride_flashpoint_dev.properties` and run `/pridefp encounter spawn 11`. The command emits Cobblemon `spawnpokemonat` but currently only dispatches it, and a successful dispatch does not prove an entity appeared. Wild test-spawned Pokémon are **not managed by block cleanup**. A user confirmation of the physical Pokémon and manual controlled cleanup will be required before marking integration passed.
