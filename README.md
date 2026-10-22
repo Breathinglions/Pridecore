@@ -1,3 +1,29 @@
+# v0.2.2 — Fix confirmed restart cleanup regression (staging only)
+
+**Issue #1 root cause confirmed from source:** In v0.2.1, `clear()` recreated a recovered dungeon with the default `Phase.PREFLIGHT`, so it immediately took the `Preflight cancelled without changes` branch and dropped the in-memory journal reference. The on-disk journal remained intact. A subsequent server restart restored its in-memory reference.
+
+**Changes in v0.2.2:**
+- Recovered jobs are explicitly marked `Phase.ABORTED` (already generated) before entering the `CLEANING` phase. This bypasses the erroneous fresh-preflight cancellation.
+- `/pridefp status` and `/pridefp clear` can reload the existing valid journal from disk if the in-memory pointer becomes empty.
+- The status command no longer incorrectly asserts that no journal exists when the disk record is present.
+- Cleanup is refused without an existing journal. The v0.2.1 second-pass verification remains in place before journal deletion.
+- Build workflow includes source-level recovery contract checks; **these aren't a substitute for actual Minecraft restart/cleanup testing**.
+
+**Current operator recovery, ONLY on a backed-up disposable Multiworld test world:**
+1. Back up the world and `config/pride_flashpoint_active.bin`. Preserve the original journal file.
+2. Stop the server and replace only the old `pride-flashpoint-procedural-0.2.1.jar` with `pride-flashpoint-procedural-0.2.2.jar` (both must not coexist).
+3. Start the server, enter `multiworld:fptest` and ensure the 188×164 target footprint is loaded. For the known dungeon at origin `-76,-39,-8`, previous test coverage was `/forceload add -80 -16 111 159` in **that same dimension**.
+4. Run `/pridefp status`; verify **seed 1047**, world `multiworld:fptest`, origin `-76,-39,-8`.
+5. Run `/pridefp clear`, then `/pridefp status`. Allow cleanup and the verification pass to finish over server ticks; visually confirm the dungeon disappeared.
+6. Only after completed verified cleanup, release the temporary force-loading tickets (if desired) and remove backup per your normal retention policy.
+7. If seed/dimension/origin don't match, or any error occurs, **stop and preserve the journal**. No manual blind clearing.
+
+`/pridefp orphan inspect` and `orphan adopt` are unnecessary if the original journal exists.
+
+**Status:** Java CI compilation/build checked after commit; real in-game restart cleanup with v0.2.2 is **not yet verified**. Standard gameplay still lacks encounters and boss mechanics.
+
+---
+
 # v0.2.1 — Staging-only orphan recovery patch
 
 **Context:** An operator confirmed a Standard dungeon remained after a server restart, while the v0.2 status said `No dungeon tracked; no recovery journal`. Exact cause of the missing file has NOT been established. This patch adds a cautious recovery route; it does not assert that the missing-journal cause is solved.

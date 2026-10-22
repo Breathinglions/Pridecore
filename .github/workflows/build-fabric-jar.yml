@@ -23,17 +23,19 @@ jobs:
           gradle-version: '8.12.1'
       - name: Property tests (classic and standard layouts; journal)
         run: bash tools/test-layout.sh
+      - name: Audit recovery state transition source contract
+        run: python3 tools/audit-recovery-flow.py
       - name: Compile and remap Fabric mod
         run: gradle --no-daemon clean build
       - name: Check JAR entrypoint
         run: |
-          test -s build/libs/pride-flashpoint-procedural-0.2.1.jar
-          jar tf build/libs/pride-flashpoint-procedural-0.2.1.jar | grep -Fx 'fabric.mod.json'
-          jar tf build/libs/pride-flashpoint-procedural-0.2.1.jar | grep -Fx 'com/prideregion/flashpoints/PrideFlashpointMod.class'
-          jar tf build/libs/pride-flashpoint-procedural-0.2.1.jar | grep -Fx 'com/prideregion/flashpoints/StagingJournal.class'
+          test -s build/libs/pride-flashpoint-procedural-0.2.2.jar
+          jar tf build/libs/pride-flashpoint-procedural-0.2.2.jar | grep -Fx 'fabric.mod.json'
+          jar tf build/libs/pride-flashpoint-procedural-0.2.2.jar | grep -Fx 'com/prideregion/flashpoints/PrideFlashpointMod.class'
+          jar tf build/libs/pride-flashpoint-procedural-0.2.2.jar | grep -Fx 'com/prideregion/flashpoints/StagingJournal.class'
       - name: Upload installable Fabric mod
         uses: actions/upload-artifact@v4
         with:
-          name: PrideFlashpoint-Fabric-1.21.1-v0.2.1-JAR
-          path: build/libs/pride-flashpoint-procedural-0.2.1.jar
+          name: PrideFlashpoint-Fabric-1.21.1-v0.2.2-JAR
+          path: build/libs/pride-flashpoint-procedural-0.2.2.jar
           if-no-files-found: error
