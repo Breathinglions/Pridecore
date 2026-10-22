@@ -162,7 +162,7 @@ public final class StagingJobManager {
     public void tick(MinecraftServer server) {
         if(job==null)return;
         Job j=job;
-        if(j.phase==Phase.COMPLETE || j.phase==Phase.ABORTED)return;
+        if(j.phase==Phase.COMPLETE || j.phase==Phase.ABORTED || j.phase==Phase.ORPHAN_READY)return;
         int checked=0,writes=0;
         while(j.cursor<j.layout.volume() && checked<j.config.scanBudget()
                 && writes<j.config.writeBudget()) {
