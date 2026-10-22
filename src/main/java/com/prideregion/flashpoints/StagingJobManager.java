@@ -47,6 +47,25 @@ public final class StagingJobManager {
         }
     }
 
+    /**
+     * Restore an on-disk journal if another command previously lost the
+     * in-memory recovery pointer. Called both by status and clear so a
+     * second restart is never a prerequisite for recovering the journal.
+     */
+    private void reloadRecoveryIfNecessary() {
+        if(job!=null || recovery!=null || journalError!=null
+            || journalPath==null || !Files.exists(journalPath))return;
+        try {
+            recovery=StagingJournal.load(journalPath);
+            PrideFlashpointMod.LOGGER.warn("Flashpoint recovery journal restored from disk for {} at {},{},{}",
+                recovery.dimension(),recovery.x(),recovery.y(),recovery.z());
+        } catch(IOException ex) {
+            journalError=ex.getMessage();
+            PrideFlashpointMod.LOGGER.error("Flashpoint recovery journal exists but could not be read; "
+                +"refusing cleanup and generation",ex);
+        }
+    }
+
     public String start(ServerWorld world,UUID player,BlockPos origin,DungeonLayout layout,DevConfig config) {
         if(journalPath==null)return "Generator not initialized.";
         if(journalError!=null)return "Invalid recovery journal; refusing new generation. Check logs.";
@@ -111,12 +130,19 @@ public final class StagingJobManager {
     }
 
     public String status() {
+        reloadRecoveryIfNecessary();
         if(journalError!=null)return "CORRUPT persistent journal: "+journalError+". New builds disabled.";
         if(recovery!=null)
             return "RECOVERED pending dungeon: seed "+recovery.layout().seed()+" in "+recovery.dimension()
                 +" at "+recovery.x()+","+recovery.y()+","+recovery.z()
                 +". Enter that dimension and run /pridefp clear. Do not generate over it.";
-        if(job==null)return "No dungeon tracked; no recovery journal.";
+        if(job==null) {
+            if(journalPath!=null && Files.exists(journalPath))
+                return "RECOVERY FILE STILL EXISTS on disk, but could not be loaded into this session. "
+                    +"Run /pridefp clear in the recorded dimension; if refused, inspect server logs. "
+                    +"Do not delete the journal.";
+            return "No dungeon tracked; no recovery journal.";
+        }
         Job j=job;
         return "Seed "+j.layout.seed()+", phase="+j.phase+", cursor="+j.cursor+"/"
             +j.layout.volume()+", placed this session="+j.placed.cardinality()
@@ -137,6 +163,7 @@ public final class StagingJobManager {
     }
 
     public String clear(ServerWorld world) {
+        reloadRecoveryIfNecessary();
         if(journalError!=null)return "Corrupted recovery journal: manual operator inspection required. No destructive action taken.";
         if(recovery!=null && job==null) {
             if(!world.getRegistryKey().getValue().toString().equals(recovery.dimension()))
@@ -144,6 +171,9 @@ public final class StagingJobManager {
             job=new Job(world,recovery.owner(),new BlockPos(recovery.x(),recovery.y(),recovery.z()),
                 recovery.layout(),new DevConfig(false,recovery.dimension(),3000,250));
             job.journaled=true;
+            // IMPORTANT: A recovered job already wrote its blocks before restart.
+            // Never treat its first /pridefp clear as a fresh generation preflight.
+            job.phase=Phase.ABORTED;
             recovery=null;
         }
         if(job==null)return "No tracked dungeon.";
@@ -153,6 +183,8 @@ public final class StagingJobManager {
         }
         if(job.phase==Phase.ORPHAN_SCAN || job.phase==Phase.ORPHAN_READY)
             return "Orphan scan is read-only; run /pridefp orphan adopt before /pridefp clear.";
+        if(journalPath==null || !Files.exists(journalPath))
+            return "Cannot clear without persistent journal. No blocks changed; investigate server logs.";
         if(job.phase==Phase.CLEANING || job.phase==Phase.VERIFYING)
             return "Cleanup already in progress.";
         job.phase=Phase.CLEANING;job.cursor=0;
