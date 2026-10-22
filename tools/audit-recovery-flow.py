@@ -18,3 +18,12 @@ assert recovered.index("job.phase=Phase.ABORTED;") < recovered.index("if(job.pha
 assert 'if(journalPath==null || !Files.exists(journalPath))' in src, "Missing on-disk safety check"
 assert "j.phase=Phase.VERIFYING" in src and "StagingJournal.remove(journalPath)" in src, "Missing cleanup verification path"
 print("PASS: source-level checks for journal reload, recovered state transition, cleanup verification")
+
+# v0.2.3: Guard against loading empty-margin chunks during cleanup and verify.
+assert "if(j.phase!=Phase.PREFLIGHT && material==0)continue;" in src, (
+    "Cleanup is inspecting unloaded chunks for voxels absent from the layout")
+assert "ChunkStatus.FULL,true" in src, "Missing bounded recovery chunk loading"
+assert "boolean requestedChunkThisTick=false;" in src, "Unbounded sync chunk loads"
+assert "if(requestedChunkThisTick)" in src, "Chunk load per tick budget missing"
+assert "j.warmedChunks.add(chunkKey);" in src, "Missing chunk warmup caching"
+print("PASS: staging cleanup skips air voxels and budgets on-demand chunk loading")

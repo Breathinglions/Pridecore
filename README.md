@@ -1,3 +1,25 @@
+# v0.2.3 — Recovery chunk-loading regression fix (STAGING ONLY)
+
+**Confirmed screenshot:** In a backed-up disposable `multiworld:fptest`, the dungeon journal survived restart and cleanup began, but the job halted at X=96, Z=-8 because a chunk was not reported as loaded **even though chunk [6,-1] had a force-load ticket**. Restart-safe cleanup is **NOT YET verified end-to-end**.
+
+**Patch scope:**
+- **Skip air-only layout voxels before chunk readiness checks** during cleanup, verification, placement, and forensic orphan inspection. The failure at Z=-8 was on an empty perimeter row with no dungeon blocks. Full empty-volume preflight remains unchanged.
+- For non-air positions during **cleanup or verification**, request a FULL chunk synchronously on demand if the server reports it unavailable. Bound requests to at most **one chunk per server tick**. Cache recovered chunks for the job.
+- Any true loading/write failure still halts cleanup and **retains the existing journal**. The v0.2.2 recovered-job state correction and v0.2.1 post-cleanup verification remain intact.
+- Does not add automatic permanent `/forceload` tickets or remove operator-created tickets; avoid altering tickets to unrelated structures.
+
+**Safe test procedure (must be a backed-up disposable test world):**
+1. Stop server. Copy/back up `multiworld:fptest` and `config/pride_flashpoint_active.bin`. Do NOT delete the journal or regenerate.
+2. Replace only v0.2.2 JAR with v0.2.3 JAR; install one copy. Restart server.
+3. Enter `multiworld:fptest`; `/pridefp status` should show **seed 1047, origin -76,-39,-8**. If it doesn't, **stop**.
+4. Run `/pridefp clear`. The chunk warming code attempts to load required chunks at most one per server tick. It may take several seconds. Progress: `/pridefp status`.
+5. Wait for `Cleanup complete ... Recovery journal removed.`, then **visually** inspect the area. If any dungeon blocks remain, stop and report the output; do not delete/overwrite files.
+6. After confirmed clearance, release operator-added force-load tickets with `/forceload remove -80 -16 111 159` **only** if those are the tickets you added for this test.
+
+**Limitations:** On-demand `getChunk(..., FULL, true)` may generate missing chunks, so this patch is **not for production dimensions**. It is capped at one synchronous request per server tick, but disk operations may cause noticeable lag. Cleanup still only removes blocks whose state matches the recorded palette in the persistent journal. No actual server smoke test has yet validated this release; CI compilation and audits are not a substitute. Known issue: new instance creation still needs better automated chunk management, and crash recovery is single-journal.
+
+---
+
 # v0.2.2 — Fix confirmed restart cleanup regression (staging only)
 
 **Issue #1 root cause confirmed from source:** In v0.2.1, `clear()` recreated a recovered dungeon with the default `Phase.PREFLIGHT`, so it immediately took the `Preflight cancelled without changes` branch and dropped the in-memory journal reference. The on-disk journal remained intact. A subsequent server restart restored its in-memory reference.
