@@ -41,6 +41,16 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .then(CommandManager.literal("standard")
                         .then(CommandManager.argument("seed",LongArgumentType.longArg())
                             .executes(ctx -> generate(ctx.getSource(),LongArgumentType.getLong(ctx,"seed"),true)))))
+                .then(CommandManager.literal("encounters")
+                    .executes(ctx -> feedback(ctx.getSource(),JOBS.encounters(ctx.getSource().getWorld()))))
+                .then(CommandManager.literal("encounter")
+                    .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
+                        .executes(ctx -> feedback(ctx.getSource(),JOBS.encounter(
+                            ctx.getSource().getWorld(),IntegerArgumentType.getInteger(ctx,"room")))))
+                    .then(CommandManager.literal("spawn")
+                        .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
+                            .executes(ctx -> feedback(ctx.getSource(),JOBS.testSpawn(
+                                ctx.getSource(),IntegerArgumentType.getInteger(ctx,"room")))))))
                 .then(orphanCommands())
                 .then(CommandManager.literal("status").executes(ctx -> feedback(ctx.getSource(),JOBS.status())))
                 .then(CommandManager.literal("cancel").executes(ctx -> feedback(ctx.getSource(),JOBS.cancel())))
@@ -48,7 +58,7 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .executes(ctx -> feedback(ctx.getSource(),JOBS.clear(ctx.getSource().getWorld()))))
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
-        LOGGER.info("Pride Flashpoint v0.2 loaded. Journaled, staging-only dungeon generator.");
+        LOGGER.info("Pride Flashpoint v0.3 loaded: automatic staging chunk readiness and encounter test framework.");
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> orphanCommands() {

@@ -1,10 +1,12 @@
 package com.prideregion.flashpoints;
 
 import com.prideregion.flashpoints.layout.DungeonLayout;
+import com.prideregion.flashpoints.encounter.DungeonEncounterPlan;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.chunk.ChunkStatus;
@@ -131,6 +133,79 @@ public final class StagingJobManager {
         }
     }
 
+    /** Read-only inventory of the deterministic Standard encounter blueprint. */
+    public String encounters(ServerWorld world) {
+        if(job == null || job.world != world || job.phase != Phase.COMPLETE)
+            return "Generate a Standard dungeon first and wait for phase=COMPLETE.";
+        if(job.layout.width()!=188 || job.layout.length()!=164)
+            return "Encounter plans are currently available for Standard dungeons only.";
+        var plan=DungeonEncounterPlan.standard(job.layout.seed(),job.layout);
+        StringBuilder out=new StringBuilder("Standard rooms (0–15): ");
+        for(var room:plan.rooms()) {
+            if(room.id()>0)out.append(", ");
+            out.append(room.id()).append(":").append(room.kind().name());
+        }
+        out.append(". Use /pridefp encounter <id> to inspect; spawning is opt-in.");
+        return out.toString();
+    }
+
+    public String encounter(ServerWorld world,int id) {
+        if(job == null || job.world != world || job.phase != Phase.COMPLETE ||
+                job.layout.width()!=188 || job.layout.length()!=164)
+            return "No completed Standard dungeon tracked in this world.";
+        if(id<0 || id>=16)return "Encounter room ID must be 0–15.";
+        var r=DungeonEncounterPlan.standard(job.layout.seed(),job.layout).room(id);
+        int x=job.origin.getX()+r.localX(),y=job.origin.getY()+1,z=job.origin.getZ()+r.localZ();
+        return "Room "+id+" "+r.kind()+" at "+x+","+y+","+z+
+            (r.combat()?" — "+r.species()+" level "+r.level():" — no Pokemon spawn");
+    }
+
+    /**
+     * One explicit wild-Pokemon spawn attempt per combat room, per session.
+     * No automated rewards or combat completion logic. Staging-only feature.
+     */
+    public String testSpawn(ServerCommandSource source,int id) {
+        ServerWorld world=source.getWorld();
+        if(job==null || job.world!=world || job.phase!=Phase.COMPLETE ||
+                job.layout.width()!=188 || job.layout.length()!=164)
+            return "A completed Standard dungeon in the current staging world is required.";
+        if(id<0 || id>=16)return "Encounter room ID must be 0–15.";
+        DevConfig config;
+        try { config=DevConfig.load(); }
+        catch(IOException ex) { return "Unable to read staging test encounter config."; }
+        if(!config.enabled() || !config.testEncounters() ||
+            !world.getRegistryKey().getValue().toString().equals(config.dimension()))
+            return "Enable test spawns only in your allowed disposable world: enable_test_encounters=true.";
+        var room=DungeonEncounterPlan.standard(job.layout.seed(),job.layout).room(id);
+        if(!room.combat())return "That room is not a combat, elite, or boss encounter.";
+        if(job.spawnedRooms.get(id))return "This room already received a test spawn this session.";
+        if(source.getServer().getCommandManager().getDispatcher().getRoot().getChild("spawnpokemonat")==null)
+            return "Cobblemon spawnpokemonat command is unavailable; no Pokemon spawned.";
+        int x=job.origin.getX()+room.localX(),y=job.origin.getY()+1,z=job.origin.getZ()+room.localZ();
+        BlockPos spawn=new BlockPos(x,y,z);
+        if(!world.isChunkLoaded(ChunkPos.toLong(x>>4,z>>4)) &&
+           world.getChunkManager().getWorldChunk(x>>4,z>>4)==null)
+            return "Encounter room chunk isn't loaded; visit its coordinates first.";
+        if(!world.getBlockState(spawn).isAir() ||
+           !world.getBlockState(spawn.down()).isSolidBlock(world,spawn.down()))
+            return "Encounter room spawn point is obstructed or missing a solid floor.";
+        // Deliberately no arbitrary user-provided species/commands: only known
+        // deterministic command text is issued with a level-4 operator source.
+        String command="spawnpokemonat "+x+" "+y+" "+z+" "+room.species()+
+            " level="+room.level();
+        try {
+            source.getServer().getCommandManager().executeWithPrefix(source,command);
+            job.spawnedRooms.set(id);
+            PrideFlashpointMod.LOGGER.info("Operator test-spawn command dispatched in {}: {}",
+                config.dimension(),command);
+            return "Dispatched Cobblemon "+room.species()+" level "+room.level()+
+                " at "+x+","+y+","+z+". Check it appeared. Wild Pokemon are NOT automatically removed by dungeon clear.";
+        } catch(RuntimeException ex) {
+            PrideFlashpointMod.LOGGER.error("Cobblemon staging test-spawn command failed",ex);
+            return "Cobblemon command failed; no repeat suppressed. Check server logs.";
+        }
+    }
+
     public String status() {
         reloadRecoveryIfNecessary();
         if(journalError!=null)return "CORRUPT persistent journal: "+journalError+". New builds disabled.";
@@ -171,7 +246,7 @@ public final class StagingJobManager {
             if(!world.getRegistryKey().getValue().toString().equals(recovery.dimension()))
                 return "Wrong world; recovered dungeon belongs to "+recovery.dimension();
             job=new Job(world,recovery.owner(),new BlockPos(recovery.x(),recovery.y(),recovery.z()),
-                recovery.layout(),new DevConfig(false,recovery.dimension(),3000,250));
+                recovery.layout(),new DevConfig(false,recovery.dimension(),3000,250,false));
             job.journaled=true;
             // IMPORTANT: A recovered job already wrote its blocks before restart.
             // Never treat its first /pridefp clear as a fresh generation preflight.
@@ -214,15 +289,16 @@ public final class StagingJobManager {
             int z=j.origin.getZ()+j.layout.z(index);
             int cx=x>>4,cz=z>>4;
             long chunkKey=ChunkPos.toLong(cx,cz);
-            boolean recoveryPass=j.phase==Phase.CLEANING || j.phase==Phase.VERIFYING;
-            boolean accessible=j.world.isChunkLoaded(chunkKey);
-            if(!accessible && recoveryPass) {
-                accessible=j.warmedChunks.contains(chunkKey) ||
-                    j.world.getChunkManager().getWorldChunk(cx,cz)!=null;
-            }
+            // Full-volume preflight and placement can now load their own chunks.
+            // No permanent /forceload ticket is created or left behind.
+            boolean canLoad=j.phase==Phase.PREFLIGHT || j.phase==Phase.PLACING ||
+                j.phase==Phase.CLEANING || j.phase==Phase.VERIFYING ||
+                j.phase==Phase.ORPHAN_SCAN;
+            boolean accessible=j.world.isChunkLoaded(chunkKey) ||
+                j.world.getChunkManager().getWorldChunk(cx,cz)!=null;
             if(!accessible) {
-                if(!recoveryPass) {
-                    abort(server,j,"Chunk not loaded at "+x+","+z+". Load area and retry cleanup.");
+                if(!canLoad) {
+                    abort(server,j,"Chunk unavailable at "+x+","+z+". Persistent journal retained when present.");
                     return;
                 }
                 if(requestedChunkThisTick) {
@@ -366,6 +442,7 @@ public final class StagingJobManager {
         final DungeonLayout layout;
         final DevConfig config;
         final BitSet placed;
+        final BitSet spawnedRooms=new BitSet(16);
         // Only valid during this job. Successful load-on-demand prevents repeated
         // synchronous I/O when a server's isChunkLoaded flag lags force-load tickets.
         final HashSet<Long> warmedChunks=new HashSet<>();

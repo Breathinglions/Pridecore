@@ -1,120 +1,55 @@
-# v0.2.3 — Recovery chunk-loading regression fix (STAGING ONLY)
+# PrideCore Flashpoints v0.3.0 — Staging test build
 
-**Confirmed screenshot:** In a backed-up disposable `multiworld:fptest`, the dungeon journal survived restart and cleanup began, but the job halted at X=96, Z=-8 because a chunk was not reported as loaded **even though chunk [6,-1] had a force-load ticket**. Restart-safe cleanup is **NOT YET verified end-to-end**.
+Minecraft **1.21.1** / Fabric / **Java 21**. This is a staging-only module, not yet the complete Pride Core MMORPG.
 
-**Patch scope:**
-- **Skip air-only layout voxels before chunk readiness checks** during cleanup, verification, placement, and forensic orphan inspection. The failure at Z=-8 was on an empty perimeter row with no dungeon blocks. Full empty-volume preflight remains unchanged.
-- For non-air positions during **cleanup or verification**, request a FULL chunk synchronously on demand if the server reports it unavailable. Bound requests to at most **one chunk per server tick**. Cache recovered chunks for the job.
-- Any true loading/write failure still halts cleanup and **retains the existing journal**. The v0.2.2 recovered-job state correction and v0.2.1 post-cleanup verification remain intact.
-- Does not add automatic permanent `/forceload` tickets or remove operator-created tickets; avoid altering tickets to unrelated structures.
+## What v0.3 adds
 
-**Safe test procedure (must be a backed-up disposable test world):**
-1. Stop server. Copy/back up `multiworld:fptest` and `config/pride_flashpoint_active.bin`. Do NOT delete the journal or regenerate.
-2. Replace only v0.2.2 JAR with v0.2.3 JAR; install one copy. Restart server.
-3. Enter `multiworld:fptest`; `/pridefp status` should show **seed 1047, origin -76,-39,-8**. If it doesn't, **stop**.
-4. Run `/pridefp clear`. The chunk warming code attempts to load required chunks at most one per server tick. It may take several seconds. Progress: `/pridefp status`.
-5. Wait for `Cleanup complete ... Recovery journal removed.`, then **visually** inspect the area. If any dungeon blocks remain, stop and report the output; do not delete/overwrite files.
-6. After confirmed clearance, release operator-added force-load tickets with `/forceload remove -80 -16 111 159` **only** if those are the tickets you added for this test.
+- **Automatic chunk readiness for generation, preflight, placement and cleanup.** No manual `/forceload` should be needed for an empty, isolated test world. Synchronous FULL chunk requests are capped at **one per server tick**; the normal Minecraft chunk manager handles eventual unloading. PrideCore does not add persistent force-load tickets. **Caution:** loading an ungenerated chunk may generate world terrain.
+- **Deterministic Standard dungeon encounter blueprint:** 16 rooms, including entrance, combat, two elites, puzzle, rest, treasure and boss rooms. Room coordinates are validated to be walkable in automated tests.
+- **Operator-only Cobblemon integration test:** uses Cobblemon's existing `/spawnpokemonat` command, only on a *completed Standard staging dungeon*, only when explicitly enabled, and at most once per combat room per running session. This is a manual spawn test, **not** an automatic encounter/battle/reward system.
+- Preserves v0.2.3 cleanup behavior: read-only journal recovery, no fresh-preflight cancellation, cleanup verification and persistent recovery journal.
 
-**Limitations:** On-demand `getChunk(..., FULL, true)` may generate missing chunks, so this patch is **not for production dimensions**. It is capped at one synchronous request per server tick, but disk operations may cause noticeable lag. Cleanup still only removes blocks whose state matches the recorded palette in the persistent journal. No actual server smoke test has yet validated this release; CI compilation and audits are not a substitute. Known issue: new instance creation still needs better automated chunk management, and crash recovery is single-journal.
+## Operators: first test
 
----
+**Before changing JARs, confirm the previous dungeon is visually cleared and `/pridefp status` reports no journal.** If there's a pending journal, back up and finish recovery before generating another test. Keep all testing in a **backed-up disposable Multiworld dimension** and preserve existing server configurations.
 
-# v0.2.2 — Fix confirmed restart cleanup regression (staging only)
+1. Stop the server and back up `multiworld:fptest` plus `config/pride_flashpoint_active.bin` if present.
+2. Remove v0.2.3 from `mods/`. Install **only** the `pride-flashpoint-procedural-0.3.0.jar` from successful GitHub Actions.
+3. Start the server with Fabric 1.21.1 / Java 21 / Fabric API. Enter **multiworld:fptest** and use the existing `config/pride_flashpoint_dev.properties`:
+   ```properties
+   enabled=true
+   allowed_dimension=multiworld:fptest
+   enable_test_encounters=false
+   ```
+   The new opt-in key is **false when absent** from older config files. This mod reads configuration on each relevant command.
+4. Start in a large empty *disposable* area:
+   ```mcfunction
+   /pridefp preview standard 1047
+   /pridefp generate standard 1047
+   /pridefp status
+   ```
+   No manual `/forceload` should be needed. Initial chunk loading can produce brief server lag.
+5. Once `phase=COMPLETE`:
+   ```mcfunction
+   /pridefp encounters
+   /pridefp encounter 11
+   ```
+   These commands **only report** room roles and boss-marker details; they do not spawn Pokémon.
+6. For an optional, isolated Cobblemon spawn smoke test only, back up the test world and opt in via `enable_test_encounters=true`. Run:
+   ```mcfunction
+   /pridefp encounter spawn 11
+   ```
+   This issues `spawnpokemonat` as an operator if Cobblemon's command is installed. Check visually whether a wild Pokémon appears. **No encounter mobs are automatically tracked, removed or rewarded.** Don't test spawns near other players or valuable Pokémon.
+7. Run `/pridefp clear`, then `/pridefp status` until completion and verify the generated blocks disappeared and journal was removed. **Cleanup does not remove wild Pokémon spawned by the optional test command.**
 
-**Issue #1 root cause confirmed from source:** In v0.2.1, `clear()` recreated a recovered dungeon with the default `Phase.PREFLIGHT`, so it immediately took the `Preflight cancelled without changes` branch and dropped the in-memory journal reference. The on-disk journal remained intact. A subsequent server restart restored its in-memory reference.
+## Not included yet
 
-**Changes in v0.2.2:**
-- Recovered jobs are explicitly marked `Phase.ABORTED` (already generated) before entering the `CLEANING` phase. This bypasses the erroneous fresh-preflight cancellation.
-- `/pridefp status` and `/pridefp clear` can reload the existing valid journal from disk if the in-memory pointer becomes empty.
-- The status command no longer incorrectly asserts that no journal exists when the disk record is present.
-- Cleanup is refused without an existing journal. The v0.2.1 second-pass verification remains in place before journal deletion.
-- Build workflow includes source-level recovery contract checks; **these aren't a substitute for actual Minecraft restart/cleanup testing**.
+- Automated encounter triggers, trainer battles, group/party/instance allocation, kill tracking, miniboss objectives, final boss phases, rewards, cinematics, cinematics client companion, economy or GTS.
+- Safe production-world chunk allocation or automatic persistent chunk-ticket ownership. This module uses synchronous chunk requests with bounded rate, which may generate terrain or briefly increase TPS cost.
+- Multi-party and true crash-recovery integration tests at scale.
 
-**Current operator recovery, ONLY on a backed-up disposable Multiworld test world:**
-1. Back up the world and `config/pride_flashpoint_active.bin`. Preserve the original journal file.
-2. Stop the server and replace only the old `pride-flashpoint-procedural-0.2.1.jar` with `pride-flashpoint-procedural-0.2.2.jar` (both must not coexist).
-3. Start the server, enter `multiworld:fptest` and ensure the 188×164 target footprint is loaded. For the known dungeon at origin `-76,-39,-8`, previous test coverage was `/forceload add -80 -16 111 159` in **that same dimension**.
-4. Run `/pridefp status`; verify **seed 1047**, world `multiworld:fptest`, origin `-76,-39,-8`.
-5. Run `/pridefp clear`, then `/pridefp status`. Allow cleanup and the verification pass to finish over server ticks; visually confirm the dungeon disappeared.
-6. Only after completed verified cleanup, release the temporary force-loading tickets (if desired) and remove backup per your normal retention policy.
-7. If seed/dimension/origin don't match, or any error occurs, **stop and preserve the journal**. No manual blind clearing.
+The target Standard dungeon gameplay duration remains **15–25 minutes**, but it requires encounters and objectives before it can be measured. **Do not install this test module into the live Pride Region world.**
 
-`/pridefp orphan inspect` and `orphan adopt` are unnecessary if the original journal exists.
+## Source/testing
 
-**Status:** Java CI compilation/build checked after commit; real in-game restart cleanup with v0.2.2 is **not yet verified**. Standard gameplay still lacks encounters and boss mechanics.
-
----
-
-# v0.2.1 — Staging-only orphan recovery patch
-
-**Context:** An operator confirmed a Standard dungeon remained after a server restart, while the v0.2 status said `No dungeon tracked; no recovery journal`. Exact cause of the missing file has NOT been established. This patch adds a cautious recovery route; it does not assert that the missing-journal cause is solved.
-
-Before use, **back up the test world and its config folder** and replace v0.2.0 with the new JAR; never load both JARs. In the same disposable Multiworld dimension used previously, with the matching allowlist config and all intersecting chunks loaded:
-
-```mcfunction
-/pridefp orphan inspect standard 1047 -76 -39 -8
-/pridefp status
-```
-
-This is a **read-only scan**, looking for at least **99%** of expected seed-1047 generated blocks at the exact known origin. It never changes blocks. If the match threshold fails, **stop** and do not attempt a blind world edit. If inspection reports PASSED and you confirm the dimension and origin are correct:
-
-```mcfunction
-/pridefp orphan adopt
-/pridefp status
-```
-
-This writes a durable recovery journal but **does not modify blocks**. After making/confirming a backup, run `/pridefp clear` in the same world, with the entire region loaded. Cleanup only removes blocks matching the expected palette at their expected positions. A second verification pass checks that those matching generated blocks are gone **before deleting the journal**.
-
-**Limits:** This process can also remove indistinguishable matching blocks at expected positions, even if somebody replaced them. Keep the test region private and isolated. Successful staging verification of this patch is still pending. Do **NOT** run on a live world. The persistence loss root cause still needs startup logs and a check of `config/pride_flashpoint_active.bin` before/after restart.
-
----
-
-# PrideCore — Procedural Flashpoint v0.2 STAGING
-
-Minecraft **1.21.1** / Fabric / Java **21**. This standalone server-side test mod is **one module of PrideCore**, not the full MMORPG.
-
-## What changed since v0.1
-
-- **Classic** remains the tested 100×76×9, 12-room procedural Deepslate Ruins layout.
-- **Standard** adds a 188×164×14, 16-room layout with wider corridors, larger rooms and 11-block vertical clearance, plus a larger boss arena. Target gameplay duration is **15–25 minutes once encounter gameplay exists**; empty traversal is not yet timed.
-- **Staging recovery journal:** saved to `config/pride_flashpoint_active.bin` before the first block is placed. On restart, `/pridefp status` identifies a recovered dungeon; enter its exact dimension and use `/pridefp clear` to remove expected generated blocks. The journal stays until cleanup finishes. Corrupt journals stop generation rather than being deleted.
-- Still one dungeon at a time; not a multi-party instance system.
-
-## Commands (operator level 4)
-
-```mcfunction
-/pridefp preview 1047
-/pridefp generate 1047
-/pridefp preview standard 1047
-/pridefp generate standard 1047
-/pridefp status
-/pridefp cancel
-/pridefp clear
-```
-
-The old commands keep generating the **Classic** v0.1 layout. Preview edits **nothing**. Standard generation requires many loaded chunks; do not use it on your main world.
-
-## Installation & cautious testing
-
-1. **Remove the old v0.1 JAR** from `mods/` before installing v0.2; never install both.
-2. Back up the disposable Multiworld test dimension before generating. Confirm Fabric API and Minecraft 1.21.1 with Java 21.
-3. Install the `pride-flashpoint-procedural-0.2.1.jar` built by GitHub Actions. Start server.
-4. Existing staging config: `config/pride_flashpoint_dev.properties` with `enabled=true` and `allowed_dimension=EXACT_TEST_DIMENSION_REGISTRY_ID`. The world label may not equal its registry ID; **never use a vanilla overworld/nether/end dimension**.
-5. Start with `/pridefp preview standard 1047` (no world writes).
-6. For generation, work over a large completely empty area, well above ground. Ensure all chunks in the approximately **188×164** build footprint are already loaded (for example via temporary `/forceload` within the test dimension); this v0.2 prototype refuses unloaded chunks rather than forcing them to load. The build origin is located roughly 12 blocks above the player's feet at the layout entrance.
-7. Run `/pridefp generate standard 1047` and watch `/pridefp status`. Verify interior paths before cleanup.
-8. Run `/pridefp clear` in that test dimension. Watch `/pridefp status` until it reports no journal. Do not delete `pride_flashpoint_active.bin` manually.
-9. Restart **only inside this disposable world** to test recovery if desired: after generating, restart, run `/pridefp status` and `/pridefp clear` in the original dimension. No automatic post-restart cleanup is attempted.
-
-## Safety limitations
-
-- Recovery cleanup deletes **only blocks with the expected generated palette/block state at expected coordinates**. If another person places an indistinguishable matching block inside the reserved test build volume, it may also be cleared. Keep the entire region private/isolated while the recovery journal exists.
-- The journal is flushed to disk before writing blocks. This gives a best-effort recovery path after restart, but does **not** replace a server backup and isn't yet validated under power loss, plugin reloads, or simultaneous mod instances.
-- A failed or unloaded chunk halts generation or cleanup while retaining the journal. Load the region, then run `/pridefp clear` again.
-- Journal schema is versioned and stores the entire block layout, so a later change to the generator does not invalidate the saved coordinates. Only one outstanding journal is supported.
-- Not production ready: no persistent party instances, Cobblemon battles, rewards, matchmaking, crash/power-loss-integration tests, or cinematics.
-
-## Development
-
-GitHub Actions builds/remaps the JAR and runs standalone regression tests. Validated in-game **v0.1** previously; **v0.2** needs a new staging-world smoke test before production use.
+`bash tools/test-layout.sh` runs Classic, Standard, journal and encounter-plan tests. GitHub Actions compiles the remapped Fabric JAR and also runs `tools/audit-recovery-flow.py` and `tools/audit-v03.py`, which are static safety guards, not runtime Minecraft integration tests.
