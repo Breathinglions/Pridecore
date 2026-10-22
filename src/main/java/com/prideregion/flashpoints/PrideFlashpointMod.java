@@ -1,13 +1,15 @@
 package com.prideregion.flashpoints;
 
 import com.mojang.brigadier.arguments.LongArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.minecraft.server.command.CommandManager;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.prideregion.flashpoints.layout.DungeonGenerator;
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -38,6 +40,7 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .then(CommandManager.literal("standard")
                         .then(CommandManager.argument("seed",LongArgumentType.longArg())
                             .executes(ctx -> generate(ctx.getSource(),LongArgumentType.getLong(ctx,"seed"),true)))))
+                .then(orphanCommands())
                 .then(CommandManager.literal("status").executes(ctx -> feedback(ctx.getSource(),JOBS.status())))
                 .then(CommandManager.literal("cancel").executes(ctx -> feedback(ctx.getSource(),JOBS.cancel())))
                 .then(CommandManager.literal("clear")
@@ -45,6 +48,36 @@ public final class PrideFlashpointMod implements ModInitializer {
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
         LOGGER.info("Pride Flashpoint v0.2 loaded. Journaled, staging-only dungeon generator.");
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> orphanCommands() {
+        var coordsZ=CommandManager.argument("z", IntegerArgumentType.integer())
+            .executes(ctx -> inspectOrphan(ctx.getSource(),
+                LongArgumentType.getLong(ctx,"seed"),
+                IntegerArgumentType.getInteger(ctx,"x"),
+                IntegerArgumentType.getInteger(ctx,"y"),
+                IntegerArgumentType.getInteger(ctx,"z")));
+        var coordsY=CommandManager.argument("y", IntegerArgumentType.integer()).then(coordsZ);
+        var coordsX=CommandManager.argument("x", IntegerArgumentType.integer()).then(coordsY);
+        var seed=CommandManager.argument("seed",LongArgumentType.longArg()).then(coordsX);
+        return CommandManager.literal("orphan")
+            .then(CommandManager.literal("inspect")
+                .then(CommandManager.literal("standard").then(seed)))
+            .then(CommandManager.literal("adopt")
+                .executes(ctx -> feedback(ctx.getSource(),
+                    JOBS.adoptOrphan(ctx.getSource().getWorld()))));
+    }
+
+    private static int inspectOrphan(ServerCommandSource source,long seed,int x,int y,int z) {
+        ServerPlayerEntity player=source.getPlayer();
+        if(player==null)return feedback(source,"Use an in-game operator in the disposable test dimension.");
+        try {
+            return feedback(source,JOBS.inspectOrphan(source.getWorld(),player.getUuid(),
+                new BlockPos(x,y,z),StandardDungeonGenerator.generate(seed),DevConfig.load()));
+        } catch(IOException | RuntimeException ex) {
+            LOGGER.error("Orphan inspection refused",ex);
+            return feedback(source,"Inspection failed without changing blocks. See server logs.");
+        }
     }
 
     private static DungeonLayout layout(long seed,boolean standard) {
