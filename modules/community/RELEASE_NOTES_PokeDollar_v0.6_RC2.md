@@ -15,7 +15,7 @@ This is a **code and Polymer resource-pack pair**. Both are needed when using th
   "economyBackend": "IMPACTOR",
   "payoutsEnabled": false,
   "dailyCapPokeDollars": 2000,
-  "currencySymbol": "\\uE122",
+  "currencySymbol": "\uE122",
   "tiers": {
     "EASY": 100,
     "MEDIUM": 200,

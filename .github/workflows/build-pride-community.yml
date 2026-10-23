@@ -36,6 +36,7 @@ jobs:
         run: |
           bash qa/run_question_validation_tests.sh
           python3 qa/audit_questions.py
+          python3 qa/audit_currency_config.py
       - name: Test reward announcements
         working-directory: modules/community
         run: bash qa/run_reward_notice_tests.sh
