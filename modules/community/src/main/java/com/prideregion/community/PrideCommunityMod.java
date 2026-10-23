@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -41,6 +42,7 @@ public final class PrideCommunityMod implements ModInitializer {
     private final EnumMap<QuizEngine.Difficulty, Integer> rewardTiers = new EnumMap<>(QuizEngine.Difficulty.class);
     private int scrambleReward = 150;
     private RewardPayoutCoordinator payoutCoordinator;
+    private QuizLeaderboard leaderboard;
     private final Set<String> recentIds = new LinkedHashSet<>();
     private final Path directory = FabricLoader.getInstance().getConfigDir().resolve("pride_community");
 
@@ -48,6 +50,12 @@ public final class PrideCommunityMod implements ModInitializer {
         loadConfiguration();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             lastRoundMillis = System.currentTimeMillis();
+            try {
+                leaderboard = new QuizLeaderboard(directory.resolve("leaderboard.tsv"));
+            } catch (Exception problem) {
+                leaderboard = null;
+                LOG.error("Quiz leaderboard unavailable: scoreboard disabled, retain file for recovery", problem);
+            }
             try {
                 // A failed/corrupt ledger must never permit payments.
                 var ledger = new RewardLedger(directory.resolve("rewards.tsv"));
@@ -85,6 +93,9 @@ public final class PrideCommunityMod implements ModInitializer {
                 .then(CommandManager.literal("reload").requires(s -> s.hasPermissionLevel(2)).executes(ctx -> {
                     if (engine.active().isPresent()) return 0;
                     loadConfiguration(); return 1;
+                }))
+                .then(CommandManager.literal("leaderboard").executes(ctx -> {
+                    showLeaderboard(ctx.getSource()); return 1;
                 }))
                 .then(CommandManager.literal("status").executes(ctx -> {
                     ctx.getSource().sendFeedback(() -> Text.literal("Pride Community: " +
@@ -136,38 +147,78 @@ public final class PrideCommunityMod implements ModInitializer {
     }
     private void onWinner(MinecraftServer server, QuizEngine.Result result) {
         String tag = result.round().question().kind() == QuizEngine.Kind.SCRAMBLE ? "SCRAMBLE" : "QUIZ";
-        String winner = result.playerName() + " answered " + result.round().question().answer() + " correctly!";
+        String winnerText = " answered " + result.round().question().answer() + " correctly!";
+        Text styledName = RankName.display(result.player(), result.playerName());
         lastRoundMillis = System.currentTimeMillis();
+        if (leaderboard != null) {
+            try {
+                leaderboard.record(result.round().id(), result.player(), result.playerName(),
+                    result.round().question().kind(), lastRoundMillis);
+            } catch (Exception problem) {
+                LOG.error("Failed to durably record quiz leaderboard win; retain file and investigate", problem);
+            }
+        }
         if (!payoutsEnabled || payoutCoordinator == null) {
-            broadcast(server, tag, Formatting.GREEN, winner + " (economy rewards off)");
+            broadcastWinner(server, tag, styledName, winnerText + " (economy rewards off)");
             return;
         }
         int amount = result.round().question().kind() == QuizEngine.Kind.SCRAMBLE
                 ? scrambleReward : rewardTiers.getOrDefault(result.round().question().difficulty(), 0);
         if (amount <= 0) {
-            broadcast(server, tag, Formatting.GREEN, winner + " (no prize configured)");
+            broadcastWinner(server, tag, styledName, winnerText + " (no prize configured)");
             return;
         }
         payoutCoordinator.award(result.player(), result.round().id(), amount).whenComplete((paid, error) ->
             server.execute(() -> {
                 if (error != null || paid == null) {
                     LOG.error("Quiz payout failed unexpectedly for round {}", result.round().id(), error);
-                    broadcast(server, tag, Formatting.YELLOW, winner + " Payment needs staff review.");
+                    broadcastWinner(server, tag, styledName, winnerText + " Payment needs staff review.");
                     return;
                 }
                 switch (paid.outcome()) {
-                    case PAID -> broadcast(server, tag, Formatting.GREEN,
-                        winner + " Earned " + amount + " PokéDollars!");
-                    case BLOCKED -> broadcast(server, tag, Formatting.GREEN,
-                        winner + " Daily cap reached or reward already processed.");
+                    case PAID -> broadcastWinner(server, tag, styledName,
+                        winnerText + " Earned " + amount + " PokéDollars!");
+                    case BLOCKED -> broadcastWinner(server, tag, styledName,
+                        winnerText + " Daily cap reached or reward already processed.");
                     case REVIEW, LEDGER_ERROR -> {
                         LOG.error("Pride quiz payout needs manual reconciliation: {} {}",
                             paid.transactionId(), paid.diagnostic());
-                        broadcast(server, tag, Formatting.YELLOW,
-                            winner + " Reward processing needs staff review.");
+                        broadcastWinner(server, tag, styledName,
+                            winnerText + " Reward processing needs staff review.");
                     }
                 }
             }));
+    }
+    private static void broadcastWinner(MinecraftServer server, String tag, Text styledName, String trailing) {
+        Text message = Text.empty()
+            .append(Text.literal("[" + tag + "] ").formatted(Formatting.GOLD, Formatting.BOLD))
+            .append(styledName.copy())
+            .append(Text.literal(trailing).formatted(Formatting.WHITE));
+        server.getPlayerManager().broadcast(message, false);
+    }
+    private void showLeaderboard(ServerCommandSource source) {
+        source.sendFeedback(() -> Text.literal("[QUIZ LEADERBOARD]").formatted(Formatting.GOLD, Formatting.BOLD), false);
+        if (leaderboard == null) {
+            source.sendFeedback(() -> Text.literal("Leaderboard unavailable; check server logs.").formatted(Formatting.RED), false);
+            return;
+        }
+        List<QuizLeaderboard.Entry> top = leaderboard.top(10);
+        if (top.isEmpty()) {
+            source.sendFeedback(() -> Text.literal("No quiz wins recorded yet.").formatted(Formatting.GRAY), false);
+            return;
+        }
+        int position = 1;
+        for (QuizLeaderboard.Entry entry : top) {
+            final int rank = position++;
+            Text identity = RankName.display(entry.player(), entry.name());
+            Text line = Text.empty()
+                .append(Text.literal("#" + rank + " ").formatted(Formatting.YELLOW))
+                .append(identity)
+                .append(Text.literal("  " + entry.wins() + " wins  (Trivia "
+                    + entry.triviaWins() + " | Scramble " + entry.scrambleWins() + ")")
+                    .formatted(Formatting.GRAY));
+            source.sendFeedback(() -> line, false);
+        }
     }
     private static void broadcast(MinecraftServer server, String tag, Formatting color, String message) {
         Text txt = Text.empty().append(Text.literal("[" + tag + "] ").formatted(color, Formatting.BOLD))

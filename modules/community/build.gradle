@@ -18,6 +18,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     // Exact Impactor Fabric 5.3.5/1.21.1 release. Compile only; never bundled.
     modCompileOnly "maven.modrinth:LdBYVaPS:KwNU9SQW"
+    compileOnly "net.luckperms:api:5.4"
 }
 
 processResources {
