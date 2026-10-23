@@ -42,3 +42,26 @@ assert 'CommandManager.literal("boss")' in mod
 assert 'CommandManager.literal("simulate")' in mod
 assert 'CommandManager.literal("reset")' in mod
 print("PASS: manual-only boss state transitions guarded by test-world permissions and active journal")
+
+
+# v0.3.3 exact-UUID native Cobblemon 1.8.1 capture only
+bridge=Path("src/main/java/com/prideregion/flashpoints/encounter/NativeCaptureBridge.java").read_text()
+native=Path("src/main/java/com/prideregion/flashpoints/encounter/NativeCaptureJournal.java").read_text()
+assert 'private static final String SUPPORTED="1.8.1+1.21.1";' in bridge
+assert 'getField("POKEMON_CAPTURED")' in bridge
+assert 'getMethod("subscribe",Consumer.class)' in bridge
+assert 'getMethod("getPokemon")' in bridge
+assert 'getMethod("getPlayer")' in bridge
+assert 'getMethod("getUuid")' in bridge
+assert 'server.execute(()->listener.accept(pokemonUuid,actor))' in bridge
+assert 'public void onRealPokemonCaptured(MinecraftServer server,UUID pokemonId,UUID catcher)' in src
+assert 'captureRecord.pokemon().equals(pokemonId)' in src
+assert 'captureRecord.operator().equals(catcher)' in src
+assert 'NativeCaptureJournal.save(captureJournalPath,completed)' in src
+assert 'captureRecord.stage()==NativeCaptureJournal.Stage.ARMED' in src
+assert 'getMethod("getPokemon")' in src
+assert 'CommandManager.literal("native")' in mod
+assert 'CommandManager.literal("arm")' in mod
+assert 'ServerLifecycleEvents.SERVER_STARTED.register' in mod
+assert 'Stage { ARMED, CAPTURED }' in native
+print("PASS: 1.8.1 capture bridge event field, exact Pokemon/player identity, durable capture state, staging gate")

@@ -1,72 +1,64 @@
-# PrideCore Flashpoints v0.3.2 — Boss outcome simulation and persistence (STAGING ONLY)
+# Pride Core Flashpoints v0.3.3 — Native Cobblemon 1.8.1 boss capture TEST (STAGING ONLY)
 
-**Minecraft 1.21.1 / Fabric / Java 21.** This small release is a testable, server-side boss state-machine foundation. It does **not** automatically detect Cobblemon captures, battle victories, or party wipes.
+Minecraft **1.21.1 · Fabric · Java 21 · Cobblemon exactly `1.8.1+1.21.1`**.
 
-## New in v0.3.2
+## What actually changed
 
-- Durable, CRC-checked and atomically replaced simulated boss progression stored in `config/pride_flashpoint_boss.bin`.
-- Exactly one progression record bound to a specific staging dungeon dimension, seed and block origin.
-- Supported state transitions: `READY -> ACTIVE -> CAPTURED/DEFEATED/WIPED` and `WIPED -> ACTIVE` on explicit `retry`. Both `CAPTURED` and `DEFEATED` are terminal. No double resolution or transition skipping.
-- Admin-only **`/pridefp boss simulate`** commands are a *test harness*, not callbacks from Cobblemon. The game has **NOT** detected or attributed any capture/battle/wipe.
-- The simulated result has no reward impact, player party changes, Pokémon entity changes, battle control, or dungeon block modifications.
-- Existing v0.3.1 persistent encounter UUID tracking and v0.2.3 restart-safe cleanup remain intact.
+- Verified upstream Cobblemon 1.8.1 source tag: `CobblemonEvents.POKEMON_CAPTURED` is an `EventObservable<PokemonCapturedEvent>`, and the event exposes `pokemon` and `player`. Pokemon has its own stable `uuid`, which is **not the same identity as the transient Minecraft entity UUID**.
+- Adds a **version-gated subscriber** using the published Java Consumer observable API. It is installed only if the loaded Cobblemon version string matches `1.8.1+1.21.1`. It registers after server startup; if API reflection fails, registration is disabled and errors are logged instead of crashing or pretending an event was detected.
+- Operator command `/pridefp boss native arm` explicitly registers the **persistent Pokemon UUID** of exactly one live Cobblemon Pokemon within the Standard boss-room marker area, and binds it to the current dimension, seed, block origin, and **operator player UUID**.
+- Capturing **that exact Pokémon with that exact player** triggers a real Cobblemon event; the capture state is durably saved to `config/pride_flashpoint_capture.bin` as `CAPTURED`. Only the first correct capture counts.
+- `/pridefp boss native status` reports the real captured/armed state. **No item rewards, XP, party credit, battle victory detection, automated despawning, camera cinematics or block cleanup** have been added.
+- Separate from the v0.3.2 operator simulation journal; old `/pridefp boss status` is still simulation-only. Native capture state uses a **different file** and command subtree. This prevents mislabeling a simulated capture as real.
+- `/pridefp clear` **refuses** cleanup while the boss is still ARMED. Once CAPTURED, block cleanup is permitted. `/pridefp boss native reset` can remove the completed association **only after dungeon cleanup**.
+- Preserves existing Classic/Standard generator, chunk readiness, prior recovery fixes and UUID ledger.
 
-## Installation
+Cobblemon upstream 1.8.1 reference:
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/events/CobblemonEvents.kt
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/events/pokemon/PokemonCapturedEvent.kt
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/reactive/Observable.kt
 
-1. **Back up** the disposable `multiworld:fptest` world and entire `config/` directory before replacing the JAR.
-2. If there is a tracked Pokémon UUID from a previous test, handle its in-world status first. `/pridefp encounter forget <room>` only forgets a UUID; it never deletes a Pokémon. Do not remove active journals manually.
-3. Remove the previous `pride-flashpoint-procedural-0.3.1.jar`, install **only** `pride-flashpoint-procedural-0.3.2.jar`, then restart Minecraft.
-4. Keep `config/pride_flashpoint_dev.properties` pointing at your *disposable* Multiworld dimension:
+## Install + safe test procedure
+
+**Do not test in production.** First back up `multiworld:fptest` and your `config/` directory, especially the journal files. Never delete active journals manually. If the old seed 1047 dungeon is still running its v0.3.2 CAPTURED simulation, clear its blocks via `/pridefp clear` and then `/pridefp boss reset` before starting a new run. If there are tracked room UUIDs, resolve those separately; forgetting a room UUID does not remove a Pokémon.
+
+1. Stop the server, remove the v0.3.2 JAR and install **only** the v0.3.3 JAR. Restart the Fabric 1.21.1 server. Confirm your Cobblemon mod is still `1.8.1+1.21.1`.
+2. Keep `config/pride_flashpoint_dev.properties` set to your backed-up **disposable** world:
    ```properties
-   allowed_dimension=multiworld:fptest
    enabled=true
+   allowed_dimension=multiworld:fptest
    enable_test_encounters=true
    ```
-   The last setting permits testing of UUID tracking and boss simulations. Turn it back off when not testing.
+3. In `multiworld:fptest`, run `/pridefp compat`. It should explicitly say native capture listener installed. If not, **stop** and send server logs.
+4. In a new large empty staging area, generate a new dungeon:
+   ```mcfunction
+   /pridefp generate standard 1047
+   /pridefp status
+   ```
+   Wait until `phase=COMPLETE`.
+5. Find the expected boss species/level/coords via `/pridefp encounter 11`. While in the same world, spawn exactly **one** boss using `/pridefp encounter spawn 11`, after confirming the room is clear of unrelated Pokémon.
+6. **Before capturing it**, and as the player who intends to capture it, run:
+   ```mcfunction
+   /pridefp boss native arm
+   /pridefp boss native status
+   ```
+   If this reports zero or multiple Pokémon, stop; do not arm any unrelated Pokémon. Verify the wild Pokémon is the expected boss. The initial arm command requires an operator and is *not* group/party enabled.
+7. Capture the registered boss using a Poké Ball. Then run:
+   ```mcfunction
+   /pridefp boss native status
+   ```
+   The expected server message is `[PRIDE FP NATIVE] Confirmed boss Pokémon captured!`, and `status` should read `[NATIVE CAPTURE CAPTURED]`. This result should also survive a server restart.
+8. After recording the result, run `/pridefp clear` and visually confirm cleanup and journal deletion. Then run `/pridefp boss native reset` to clear the completed capture-association file and enable a fresh test. **Reset does not alter captured Pokémon.**
 
-## Cobblemon compatibility
+## Limitations and safeguards
 
-Run `/pridefp compat` in Minecraft to display the Cobblemon mod version actually loaded on your server. This does not modify the world and will help us pin the correct native capture and battle event API in the next development increment. The simulated outcomes do **not** call Cobblemon battle or capture APIs.
+- **Capture-only native detection:** defeat, party wipe, fled battles, tournament results and capture by someone other than the arming player are **not automatically tracked**. Continue using manual v0.3.2 simulation for those; automatic event-driven battle recognition is a later increment.
+- The initial arm scans exactly one Cobblemon Pokémon near boss room 11. It does not validate species or level against a server callback: use the blueprint and operator visual inspection in the disposable test world. Exact UUID is then required to resolve a capture.
+- Only if the server advertises exact Cobblemon `1.8.1+1.21.1` is the native subscriber installed; a nonmatching dependency disables native features but preserves world and journals.
+- No rewards are issued; no Pokémon are despawned or modified. The player keeps any legitimately caught Pokémon. The journal is a **progress record**, not a capture control.
+- Don't leave permanently armed test encounters unattended. A failed/ambiguous capture should leave the ledger and dungeon intact for diagnosis.
+- Automatic chunk loading/placement remains a prototype suitable only for a disposable world.
 
-## Operator smoke test
+## Tests
 
-If the existing Standard dungeon and its recovery journal are still present, `/pridefp status` should identify its seed/world/origin. If no dungeon is active, generate a new Standard dungeon **only in a new empty area**; never generate over any existing structure.
-
-```mcfunction
-/pridefp status
-/pridefp boss status
-/pridefp boss simulate start
-/pridefp boss simulate capture
-/pridefp boss status
-```
-
-**Expected:** Boss status says `[SIMULATION ONLY] Boss CAPTURED attempts=1` with the dungeon seed/origin. This simulates the outcome observed earlier when the player captured Garchomp; it is **not** proof of an in-game Cobblemon capture event.
-
-To test wipe/retry instead, use a fresh boss simulation record in a separate test after cleanup/reset:
-
-```mcfunction
-/pridefp boss simulate start
-/pridefp boss simulate wipe
-/pridefp boss simulate retry
-/pridefp boss simulate defeat
-```
-
-**Restart test:** With the simulation ledger still present, restart the server and run `/pridefp boss status`; it should report the same saved state. The server must also preserve any active dungeon recovery journal.
-
-`/pridefp boss simulate capture` cannot be repeated after a terminal outcome. No rewards are issued, and no Pokémon will be changed. Capturing actual wild Pokémon still uses ordinary Cobblemon gameplay.
-
-After resolving any tracked Pokémon and clearing the dungeon blocks with `/pridefp clear` (verify the journal is removed), you may run:
-
-```mcfunction
-/pridefp boss reset
-```
-
-`reset` deletes **only** the boss simulation journal and is refused while a dungeon/job/recovery journal exists. It never deletes Pokémon or the dungeon itself.
-
-## Not yet implemented
-
-- Native Cobblemon capture/battle callbacks, party attribution, defeated-versus-despawned distinction, server-restart event reconciliation.
-- Reward distribution, lockouts/anti-duplication, matchmaking, actual boss objectives, cinematic camera work.
-- Automated end-to-end gameplay for the 15–25 minute Standard Flashpoint goal.
-
-**Release gate:** Compile tests for this stage machine are not a substitute for Minecraft integration tests. Keep this staging mod off your production Pride Region world. Before integrating Cobblemon event hooks, pin the exact server-side Cobblemon version: APIs across the supported Minecraft 1.21.1 releases may differ.
+CI tests Classic/Standard geometry, journal recovery, operator-only simulated boss state and native exact-UUID capture journal transitions, wrong Pokémon/player rejection, duplicate capture rejection, restart persistence, and CRC corruption. Source audits verify the version gate and subscriber call. **No CI test replaces the actual runtime Cobblemon 1.8.1 capture test** on your Fabric server.

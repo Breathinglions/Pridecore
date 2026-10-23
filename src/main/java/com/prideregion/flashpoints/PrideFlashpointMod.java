@@ -9,10 +9,12 @@ import com.prideregion.flashpoints.layout.DungeonGenerator;
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
 import com.prideregion.flashpoints.encounter.BossProgress;
+import com.prideregion.flashpoints.encounter.NativeCaptureBridge;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -76,7 +78,10 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .executes(ctx -> feedback(ctx.getSource(),JOBS.clear(ctx.getSource().getWorld()))))
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
-        LOGGER.info("Pride Flashpoint v0.3.2 loaded: persistent boss simulation state machine (no native capture events).");
+        ServerLifecycleEvents.SERVER_STARTED.register(server ->
+            NativeCaptureBridge.install(server,(pokemonId,playerId) ->
+                JOBS.onRealPokemonCaptured(server,pokemonId,playerId)));
+        LOGGER.info("Pride Flashpoint v0.3.3 loaded: opt-in Cobblemon 1.8.1 exact-UUID native capture detection; no rewards.");
     }
 
     /** Inspect the actual installed Cobblemon API version without linking its classes. */
@@ -85,8 +90,8 @@ public final class PrideFlashpointMod implements ModInitializer {
             .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
             .orElse("NOT INSTALLED");
         return feedback(source,"Cobblemon: "+version+
-            ". Pride FP native battle/capture callbacks NOT integrated; "+
-            "boss outcomes are currently operator simulations.");
+            ". "+NativeCaptureBridge.status()+
+            ". Defeat/wipe are still operator simulations; native capture requires explicit arm.");
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> bossCommands() {
@@ -100,6 +105,16 @@ public final class PrideFlashpointMod implements ModInitializer {
                 .executes(ctx->simulateBoss(ctx.getSource(),action)));
         }
         boss.then(simulation);
+        boss.then(CommandManager.literal("native")
+            .then(CommandManager.literal("status")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.nativeCaptureStatus(ctx.getSource().getWorld()))))
+            .then(CommandManager.literal("arm")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.armNativeCapture(ctx.getSource()))))
+            .then(CommandManager.literal("reset")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.resetNativeCapture(ctx.getSource().getWorld())))));
         boss.then(CommandManager.literal("reset")
             .executes(ctx->feedback(ctx.getSource(),
                 JOBS.resetBoss(ctx.getSource().getWorld()))));
