@@ -1,0 +1,28 @@
+plugins { id 'fabric-loom' version '1.10.5' }
+version = project.mod_version
+group = 'com.prideregion'
+base { archivesName = 'pride-community' }
+
+repositories {
+    mavenCentral()
+    exclusiveContent {
+        forRepository { maven { url = 'https://api.modrinth.com/maven' } }
+        filter { includeGroup 'maven.modrinth' }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // Exact Impactor Fabric 5.3.5/1.21.1 release. Compile only; never bundled.
+    modCompileOnly "maven.modrinth:LdBYVaPS:KwNU9SQW"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
+}
+tasks.withType(JavaCompile).configureEach { options.release = 21 }
+java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }

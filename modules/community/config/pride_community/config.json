@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "autoRounds": false,
+  "intervalSeconds": 300,
+  "answerSeconds": 30,
+  "minimumPlayers": 1,
+  "rewards": {
+    "economyBackend": "IMPACTOR",
+    "payoutsEnabled": false,
+    "dailyCapPokeDollars": 2000,
+    "tiers": {
+      "EASY": 100,
+      "MEDIUM": 200,
+      "HARD": 350,
+      "ULTRA": 500,
+      "SCRAMBLE": 150
+    }
+  },
+  "announcements": {
+    "deduplicateCooldownSeconds": 15,
+    "channels": [
+      "PRIDE",
+      "EVENT",
+      "SHINY",
+      "RAID",
+      "LEGENDARY",
+      "WORLD-BOSS",
+      "QUIZ",
+      "SCRAMBLE"
+    ]
+  }
+}

@@ -1,0 +1,446 @@
+[
+  {
+    "id": "sc_001",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Pikachu",
+    "aliases": []
+  },
+  {
+    "id": "sc_002",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Lucario",
+    "aliases": []
+  },
+  {
+    "id": "sc_003",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Garchomp",
+    "aliases": []
+  },
+  {
+    "id": "sc_004",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Gengar",
+    "aliases": []
+  },
+  {
+    "id": "sc_005",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Dragonite",
+    "aliases": []
+  },
+  {
+    "id": "sc_006",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Bulbasaur",
+    "aliases": []
+  },
+  {
+    "id": "sc_007",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Charmander",
+    "aliases": []
+  },
+  {
+    "id": "sc_008",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Squirtle",
+    "aliases": []
+  },
+  {
+    "id": "sc_009",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Magikarp",
+    "aliases": []
+  },
+  {
+    "id": "sc_010",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Gyarados",
+    "aliases": []
+  },
+  {
+    "id": "sc_011",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Eevee",
+    "aliases": []
+  },
+  {
+    "id": "sc_012",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Sylveon",
+    "aliases": []
+  },
+  {
+    "id": "sc_013",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Mimikyu",
+    "aliases": []
+  },
+  {
+    "id": "sc_014",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Tyranitar",
+    "aliases": []
+  },
+  {
+    "id": "sc_015",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Togekiss",
+    "aliases": []
+  },
+  {
+    "id": "sc_016",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Blastoise",
+    "aliases": []
+  },
+  {
+    "id": "sc_017",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Greninja",
+    "aliases": []
+  },
+  {
+    "id": "sc_018",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Tinkaton",
+    "aliases": []
+  },
+  {
+    "id": "sc_019",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Fuecoco",
+    "aliases": []
+  },
+  {
+    "id": "sc_020",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Umbreon",
+    "aliases": []
+  },
+  {
+    "id": "sc_021",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Rayquaza",
+    "aliases": []
+  },
+  {
+    "id": "sc_022",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Mudkip",
+    "aliases": []
+  },
+  {
+    "id": "sc_023",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Scizor",
+    "aliases": []
+  },
+  {
+    "id": "sc_024",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Rotom",
+    "aliases": []
+  },
+  {
+    "id": "sc_025",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Snorlax",
+    "aliases": []
+  },
+  {
+    "id": "sc_026",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Metagross",
+    "aliases": []
+  },
+  {
+    "id": "sc_027",
+    "kind": "SCRAMBLE",
+    "difficulty": "ULTRA",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Sableye",
+    "aliases": []
+  },
+  {
+    "id": "sc_028",
+    "kind": "SCRAMBLE",
+    "difficulty": "EASY",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Lapras",
+    "aliases": []
+  },
+  {
+    "id": "sc_029",
+    "kind": "SCRAMBLE",
+    "difficulty": "MEDIUM",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Dragonair",
+    "aliases": []
+  },
+  {
+    "id": "sc_030",
+    "kind": "SCRAMBLE",
+    "difficulty": "HARD",
+    "prompt": "Unscramble this Pokémon",
+    "answer": "Psyduck",
+    "aliases": []
+  },
+  {
+    "id": "tr_001",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "Which type is immune to Dragon-type attacks?",
+    "answer": "Fairy",
+    "aliases": []
+  },
+  {
+    "id": "tr_002",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which item evolves Eevee into Leafeon in modern Pokémon games?",
+    "answer": "Leaf Stone",
+    "aliases": []
+  },
+  {
+    "id": "tr_003",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "What type is super effective against Water Pokémon?",
+    "answer": "Electric",
+    "aliases": []
+  },
+  {
+    "id": "tr_004",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "What is the evolved form of Riolu?",
+    "answer": "Lucario",
+    "aliases": []
+  },
+  {
+    "id": "tr_005",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "Which Pokémon evolves into Gyarados?",
+    "answer": "Magikarp",
+    "aliases": []
+  },
+  {
+    "id": "tr_006",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which region introduced Rowlet, Litten and Popplio?",
+    "answer": "Alola",
+    "aliases": []
+  },
+  {
+    "id": "tr_007",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Pokémon evolves from Beldum after Metang?",
+    "answer": "Metagross",
+    "aliases": []
+  },
+  {
+    "id": "tr_008",
+    "kind": "TRIVIA",
+    "difficulty": "HARD",
+    "prompt": "Which is the signature move of Dialga?",
+    "answer": "Roar of Time",
+    "aliases": []
+  },
+  {
+    "id": "tr_009",
+    "kind": "TRIVIA",
+    "difficulty": "HARD",
+    "prompt": "What is the name of the move associated with Palkia?",
+    "answer": "Spacial Rend",
+    "aliases": []
+  },
+  {
+    "id": "tr_010",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "What is Eevee’s Electric-type evolution?",
+    "answer": "Jolteon",
+    "aliases": []
+  },
+  {
+    "id": "tr_011",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "What is Eevee’s Ice-type evolution?",
+    "answer": "Glaceon",
+    "aliases": []
+  },
+  {
+    "id": "tr_012",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "What is the Electric/Ghost Pokémon that possesses appliances?",
+    "answer": "Rotom",
+    "aliases": []
+  },
+  {
+    "id": "tr_013",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Pokémon evolves from Dragonair?",
+    "answer": "Dragonite",
+    "aliases": []
+  },
+  {
+    "id": "tr_014",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Gen II Pokémon evolves from Onix after trading with a Metal Coat?",
+    "answer": "Steelix",
+    "aliases": []
+  },
+  {
+    "id": "tr_015",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which type is immune to Ground-type attacks without special conditions?",
+    "answer": "Flying",
+    "aliases": []
+  },
+  {
+    "id": "tr_016",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "Which Pokémon is #001 in the National Pokédex?",
+    "answer": "Bulbasaur",
+    "aliases": []
+  },
+  {
+    "id": "tr_017",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which region introduced the three original Regis?",
+    "answer": "Hoenn",
+    "aliases": []
+  },
+  {
+    "id": "tr_018",
+    "kind": "TRIVIA",
+    "difficulty": "HARD",
+    "prompt": "Which legendary Pokémon is associated with the Distortion World?",
+    "answer": "Giratina",
+    "aliases": []
+  },
+  {
+    "id": "tr_019",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Pokémon evolves from Feebas?",
+    "answer": "Milotic",
+    "aliases": []
+  },
+  {
+    "id": "tr_020",
+    "kind": "TRIVIA",
+    "difficulty": "EASY",
+    "prompt": "What item normally evolves Pikachu into Raichu?",
+    "answer": "Thunder Stone",
+    "aliases": []
+  },
+  {
+    "id": "tr_021",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Pokémon evolves into Gabite?",
+    "answer": "Gible",
+    "aliases": []
+  },
+  {
+    "id": "tr_022",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "What type is strong against Psychic and Dark Pokémon alike?",
+    "answer": "Bug",
+    "aliases": []
+  },
+  {
+    "id": "tr_023",
+    "kind": "TRIVIA",
+    "difficulty": "HARD",
+    "prompt": "What is the name of the ultra-rare red-and-white event Poké Ball?",
+    "answer": "Cherish Ball",
+    "aliases": []
+  },
+  {
+    "id": "tr_024",
+    "kind": "TRIVIA",
+    "difficulty": "MEDIUM",
+    "prompt": "Which Gen III mythical Pokémon can change between multiple formes?",
+    "answer": "Deoxys",
+    "aliases": []
+  },
+  {
+    "id": "tr_025",
+    "kind": "TRIVIA",
+    "difficulty": "HARD",
+    "prompt": "What typing does Tinkaton have?",
+    "answer": "Fairy Steel",
+    "aliases": [
+      "Steel Fairy",
+      "Fairy/Steel",
+      "Steel/Fairy"
+    ]
+  }
+]
