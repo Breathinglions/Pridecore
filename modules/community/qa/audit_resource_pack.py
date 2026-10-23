@@ -1,7 +1,7 @@
 """Pride Community v0.5: release-grade resource-pack structure and translation smoke audit."""
 import json, pathlib, re, zipfile
 root=pathlib.Path(__file__).resolve().parent.parent
-pack=root/'resourcepack'/'Pride_Region_Community_Identity_v0.5.1_AlphaPill_1.21.1.zip'
+pack=root/'resourcepack'/'Pride_Region_Community_Identity_v0.6_RC2_PokeDollar_1.21.1.zip'
 with zipfile.ZipFile(pack) as z:
     assert z.testzip() is None
     allfiles=set(z.namelist())
@@ -27,5 +27,7 @@ with zipfile.ZipFile(pack) as z:
     assert chr(0xE11F) in lang['pride_community.label.rare']
     assert chr(0xE121) in lang['pride_community.label.ultra_rare']
     for code in (0xE11D,0xE11E,0xE11F,0xE121): assert chr(code) in glyphs
+    assert any(chr(0xE122) in row for provider in providers for row in provider['chars']), 'Missing PokéDollar glyph U+E122'
+    assert 'assets/pride_identity/textures/individual/pokedollar.png' in allfiles
     assert len(lang)>=20
 print('PASS Pride Community resource pack glyphs, preserved player IDs, JSON, spawn translations')

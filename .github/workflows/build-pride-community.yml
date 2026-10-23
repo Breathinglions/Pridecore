@@ -48,12 +48,12 @@ jobs:
       - name: Validate Fabric JAR
         working-directory: modules/community
         run: |
-          test -s build/libs/pride-community-0.6.0-rc1.jar
-          jar tf build/libs/pride-community-0.6.0-rc1.jar | grep -Fx 'fabric.mod.json'
-          jar tf build/libs/pride-community-0.6.0-rc1.jar | grep -Fx 'com/prideregion/community/PrideCommunityMod.class'
+          test -s build/libs/pride-community-0.6.0-rc2.jar
+          jar tf build/libs/pride-community-0.6.0-rc2.jar | grep -Fx 'fabric.mod.json'
+          jar tf build/libs/pride-community-0.6.0-rc2.jar | grep -Fx 'com/prideregion/community/PrideCommunityMod.class'
       - name: Upload development JAR for review
         uses: actions/upload-artifact@v4
         with:
-          name: PrideCommunity-0.6.0-rc1-Fabric-1.21.1
-          path: modules/community/build/libs/pride-community-0.6.0-rc1.jar
+          name: PrideCommunity-0.6.0-rc2-Fabric-1.21.1
+          path: modules/community/build/libs/pride-community-0.6.0-rc2.jar
           if-no-files-found: error

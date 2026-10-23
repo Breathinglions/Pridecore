@@ -41,6 +41,7 @@ public final class PrideCommunityMod implements ModInitializer {
     private int dailyRewardCap = 2000;
     private final EnumMap<QuizEngine.Difficulty, Integer> rewardTiers = new EnumMap<>(QuizEngine.Difficulty.class);
     private int scrambleReward = 150;
+    private String currencySymbol = RewardNotice.DEFAULT_CURRENCY_SYMBOL;
     private RewardPayoutCoordinator payoutCoordinator;
     private QuizLeaderboard leaderboard;
     private final Set<String> recentIds = new LinkedHashSet<>();
@@ -180,7 +181,8 @@ public final class PrideCommunityMod implements ModInitializer {
         server.getPlayerManager().broadcast(announcement, false);
         int prize = kind == QuizEngine.Kind.SCRAMBLE ? scrambleReward : rewardTiers.getOrDefault(q.difficulty(), 0);
         broadcast(server, kindLabel, Formatting.WHITE,
-            RewardNotice.invitation(prize, durationSeconds, payoutsEnabled && payoutCoordinator != null));
+            RewardNotice.invitation(prize, durationSeconds, payoutsEnabled && payoutCoordinator != null,
+                currencySymbol));
         return 1;
     }
     private void onWinner(MinecraftServer server, QuizEngine.Result result) {
@@ -216,7 +218,7 @@ public final class PrideCommunityMod implements ModInitializer {
                 }
                 switch (paid.outcome()) {
                     case PAID -> broadcastWinner(server, tag, styledName,
-                        winnerText + " +$" + amount);
+                        winnerText + RewardNotice.paidAmount(amount, currencySymbol));
                     case BLOCKED -> broadcastWinner(server, tag, styledName,
                         winnerText + " Daily cap reached or reward already processed.");
                     case REVIEW, LEDGER_ERROR -> {
@@ -238,7 +240,7 @@ public final class PrideCommunityMod implements ModInitializer {
     }
     private void showAudit(ServerCommandSource source) {
         source.sendFeedback(() -> Text.literal("[PRIDE QUIZ] Payouts enabled: " + payoutsEnabled
-            + " | configured daily cap: $" + dailyRewardCap), false);
+            + " | configured daily cap: " + RewardNotice.money(dailyRewardCap, currencySymbol)), false);
         if (payoutCoordinator == null) {
             source.sendFeedback(() -> Text.literal("Payout ledger unavailable — deposits blocked.")
                 .formatted(Formatting.RED), false);
@@ -252,7 +254,7 @@ public final class PrideCommunityMod implements ModInitializer {
         }
         for (RewardLedger.Claim claim : payoutCoordinator.unresolvedClaims(5)) {
             source.sendFeedback(() -> Text.literal(claim.state() + " | " + claim.player()
-                + " | $" + claim.amount() + " | " + claim.transaction())
+                + " | " + RewardNotice.money(claim.amount(), currencySymbol) + " | " + claim.transaction())
                 .formatted(Formatting.YELLOW), false);
         }
     }
@@ -315,6 +317,11 @@ public final class PrideCommunityMod implements ModInitializer {
                 LOG.warn("Reward enablement requires a cold restart; payouts remain disabled");
             } else { payoutsEnabled = requested; }
             dailyRewardCap = between(rewards, "dailyCapPokeDollars", 2000, 1, 100000);
+            // Existing server configs remain compatible: use new glyph unless overridden.
+            currencySymbol = RewardNotice.validateCurrencySymbol(
+                rewards.has("currencySymbol")
+                    ? rewards.get("currencySymbol").getAsString()
+                    : RewardNotice.DEFAULT_CURRENCY_SYMBOL);
             JsonObject tiers = rewards.getAsJsonObject("tiers");
             rewardTiers.clear();
             for (QuizEngine.Difficulty diff : QuizEngine.Difficulty.values()) {

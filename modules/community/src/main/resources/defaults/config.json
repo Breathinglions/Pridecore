@@ -8,6 +8,7 @@
     "economyBackend": "IMPACTOR",
     "payoutsEnabled": false,
     "dailyCapPokeDollars": 2000,
+    "currencySymbol": "\\uE122",
     "tiers": {
       "EASY": 100,
       "MEDIUM": 200,
