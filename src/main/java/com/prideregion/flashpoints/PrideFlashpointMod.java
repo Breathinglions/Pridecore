@@ -10,6 +10,7 @@ import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
 import com.prideregion.flashpoints.encounter.BossProgress;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.command.ServerCommandSource;
@@ -65,6 +66,8 @@ public final class PrideFlashpointMod implements ModInitializer {
                         .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
                             .executes(ctx -> feedback(ctx.getSource(),JOBS.testSpawn(
                                 ctx.getSource(),IntegerArgumentType.getInteger(ctx,"room")))))))
+                .then(CommandManager.literal("compat")
+                    .executes(ctx->compatibility(ctx.getSource())))
                 .then(bossCommands())
                 .then(orphanCommands())
                 .then(CommandManager.literal("status").executes(ctx -> feedback(ctx.getSource(),JOBS.status())))
@@ -74,6 +77,16 @@ public final class PrideFlashpointMod implements ModInitializer {
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
         LOGGER.info("Pride Flashpoint v0.3.2 loaded: persistent boss simulation state machine (no native capture events).");
+    }
+
+    /** Inspect the actual installed Cobblemon API version without linking its classes. */
+    private static int compatibility(ServerCommandSource source) {
+        String version=FabricLoader.getInstance().getModContainer("cobblemon")
+            .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
+            .orElse("NOT INSTALLED");
+        return feedback(source,"Cobblemon: "+version+
+            ". Pride FP native battle/capture callbacks NOT integrated; "+
+            "boss outcomes are currently operator simulations.");
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> bossCommands() {
