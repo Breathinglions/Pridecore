@@ -53,6 +53,21 @@ public final class RewardPayoutCoordinatorTest {
                 "synchronous startup failure is safe");
         ok(malformed.award(other, UUID.randomUUID(), 0).join().outcome() == RewardPayoutCoordinator.Outcome.BLOCKED,
                 "zero reward rejected");
+        // Even if another player attempts the SAME round ID, only one wallet may be credited.
+        UUID winnerRound = UUID.randomUUID();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        int before = deposits[0];
+        var perRound = new RewardPayoutCoordinator(ledger, wallet, 1000);
+        ok(perRound.award(first, winnerRound, 100).join().outcome() == RewardPayoutCoordinator.Outcome.PAID,
+            "first player has winning claim");
+        ok(perRound.award(second, winnerRound, 100).join().outcome() == RewardPayoutCoordinator.Outcome.BLOCKED,
+            "second player cannot collect same round");
+        ok(deposits[0] == before + 1, "cross-player duplicate never touches wallet");
+        perRound = new RewardPayoutCoordinator(new RewardLedger(ledgerPath), wallet, 1000);
+        ok(perRound.award(second, winnerRound, 100).join().outcome() == RewardPayoutCoordinator.Outcome.BLOCKED,
+            "cross-player claim blocked after restart");
+        ok(perRound.unresolvedClaims(5).size() >= 1, "staff audit can inspect unresolved claims");
         System.out.println("PASS " + checks + " Impactor reward-coordinator checks");
     }
 }

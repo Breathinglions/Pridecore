@@ -94,6 +94,8 @@ public final class PrideCommunityMod implements ModInitializer {
                     if (engine.active().isPresent()) return 0;
                     loadConfiguration(); return 1;
                 }))
+                .then(CommandManager.literal("audit").requires(s -> s.hasPermissionLevel(2))
+                    .executes(ctx -> { showAudit(ctx.getSource()); return 1; }))
                 .then(CommandManager.literal("leaderboard").executes(ctx -> {
                     showLeaderboard(ctx.getSource()); return 1;
                 }))
@@ -234,6 +236,27 @@ public final class PrideCommunityMod implements ModInitializer {
             .append(Text.literal(trailing).formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(message, false);
     }
+    private void showAudit(ServerCommandSource source) {
+        source.sendFeedback(() -> Text.literal("[PRIDE QUIZ] Payouts enabled: " + payoutsEnabled
+            + " | configured daily cap: $" + dailyRewardCap), false);
+        if (payoutCoordinator == null) {
+            source.sendFeedback(() -> Text.literal("Payout ledger unavailable — deposits blocked.")
+                .formatted(Formatting.RED), false);
+            return;
+        }
+        int pending = payoutCoordinator.unresolvedCount();
+        source.sendFeedback(() -> Text.literal("Unresolved payout claims: " + pending), false);
+        if (pending > 0) {
+            source.sendFeedback(() -> Text.literal("Do not retry unknown deposits. Compare Impactor account history with config/pride_community/rewards.tsv.")
+                .formatted(Formatting.YELLOW), false);
+        }
+        for (RewardLedger.Claim claim : payoutCoordinator.unresolvedClaims(5)) {
+            source.sendFeedback(() -> Text.literal(claim.state() + " | " + claim.player()
+                + " | $" + claim.amount() + " | " + claim.transaction())
+                .formatted(Formatting.YELLOW), false);
+        }
+    }
+
     private void showLeaderboard(ServerCommandSource source) {
         source.sendFeedback(() -> Text.empty()
             .append(Text.literal(badge("QUIZ")).formatted(Formatting.WHITE))
@@ -314,6 +337,7 @@ public final class PrideCommunityMod implements ModInitializer {
                     v.get("prompt").getAsString(), v.get("answer").getAsString(), aliases,
                     QuizEngine.Difficulty.valueOf(v.get("difficulty").getAsString().toUpperCase(Locale.ROOT)), 0));
             }
+            QuizQuestionValidator.validate(built);
             questions = List.copyOf(built);
             LOG.info("Pride Community loaded {} original questions. autoRounds={}", questions.size(), autoRounds);
         } catch (Exception ex) {

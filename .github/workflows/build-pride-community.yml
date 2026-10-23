@@ -31,6 +31,11 @@ jobs:
       - name: Persistent leaderboard tests
         working-directory: modules/community
         run: bash qa/run_leaderboard_tests.sh
+      - name: Validate question-bank data
+        working-directory: modules/community
+        run: |
+          bash qa/run_question_validation_tests.sh
+          python3 qa/audit_questions.py
       - name: Test reward announcements
         working-directory: modules/community
         run: bash qa/run_reward_notice_tests.sh
@@ -43,12 +48,12 @@ jobs:
       - name: Validate Fabric JAR
         working-directory: modules/community
         run: |
-          test -s build/libs/pride-community-0.5.0-dev.jar
-          jar tf build/libs/pride-community-0.5.0-dev.jar | grep -Fx 'fabric.mod.json'
-          jar tf build/libs/pride-community-0.5.0-dev.jar | grep -Fx 'com/prideregion/community/PrideCommunityMod.class'
+          test -s build/libs/pride-community-0.6.0-rc1.jar
+          jar tf build/libs/pride-community-0.6.0-rc1.jar | grep -Fx 'fabric.mod.json'
+          jar tf build/libs/pride-community-0.6.0-rc1.jar | grep -Fx 'com/prideregion/community/PrideCommunityMod.class'
       - name: Upload development JAR for review
         uses: actions/upload-artifact@v4
         with:
-          name: PrideCommunity-0.5.0-dev-Fabric-1.21.1
-          path: modules/community/build/libs/pride-community-0.5.0-dev.jar
+          name: PrideCommunity-0.6.0-rc1-Fabric-1.21.1
+          path: modules/community/build/libs/pride-community-0.6.0-rc1.jar
           if-no-files-found: error

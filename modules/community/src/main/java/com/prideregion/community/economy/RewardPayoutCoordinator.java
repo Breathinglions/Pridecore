@@ -78,4 +78,10 @@ public final class RewardPayoutCoordinator {
         return ledger.reservedOrPaidToday(player, LocalDate.now(ZoneOffset.UTC));
     }
     public int unresolvedCount() { return ledger.unresolved().size(); }
+    public java.util.List<RewardLedger.Claim> unresolvedClaims(int limit) {
+        return ledger.unresolved().stream()
+            .sorted(java.util.Comparator.comparing(RewardLedger.Claim::date))
+            .limit(Math.max(0, Math.min(limit, 20)))
+            .toList();
+    }
 }

@@ -259,8 +259,8 @@
     "id": "tr_003",
     "kind": "TRIVIA",
     "difficulty": "EASY",
-    "prompt": "What type is super effective against Water Pokémon?",
-    "answer": "Electric",
+    "prompt": "Which type is both super effective against Water and resistant to Electric attacks?",
+    "answer": "Grass",
     "aliases": []
   },
   {

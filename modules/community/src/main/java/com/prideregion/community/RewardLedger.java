@@ -26,6 +26,15 @@ public final class RewardLedger {
             for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
                 if (line.isBlank()) continue;
                 Claim claim = fromLine(line);
+                if (!claim.transaction().equals(claim.roundId() + ":" + claim.player())
+                    || claim.amount() <= 0)
+                    throw new IOException("Invalid reward claim; rewards disabled");
+                Claim prior = latest.get(claim.transaction());
+                if (prior != null && (!prior.player().equals(claim.player()) ||
+                    !prior.roundId().equals(claim.roundId()) ||
+                    prior.amount() != claim.amount() || !prior.date().equals(claim.date()))) {
+                    throw new IOException("Tampered reward transaction; rewards disabled");
+                }
                 latest.put(claim.transaction(), claim);
             }
         }
@@ -37,9 +46,11 @@ public final class RewardLedger {
     public synchronized Optional<Claim> reserve(UUID player, UUID roundId, int amount, int dailyCap) throws IOException {
         if (amount <= 0 || dailyCap <= 0) return Optional.empty();
         String id = roundId.toString() + ":" + player;
-        if (latest.containsKey(id)) return Optional.empty();
+        // A quiz round has one winner globally; another UUID cannot collect the same prize.
+        if (latest.containsKey(id) ||
+            latest.values().stream().anyMatch(c -> c.roundId().equals(roundId.toString()))) return Optional.empty();
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        if (reservedOrPaidToday(player, today) + amount > dailyCap) return Optional.empty();
+        if ((long) reservedOrPaidToday(player, today) + amount > dailyCap) return Optional.empty();
         Claim claim = new Claim(id, player, roundId.toString(), amount, today, State.PENDING);
         append(claim); latest.put(id, claim); return Optional.of(claim);
     }
