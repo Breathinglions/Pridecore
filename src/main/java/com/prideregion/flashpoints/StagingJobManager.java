@@ -7,6 +7,10 @@ import com.prideregion.flashpoints.encounter.BossProgress;
 import com.prideregion.flashpoints.encounter.BossProgressJournal;
 import com.prideregion.flashpoints.encounter.NativeCaptureJournal;
 import com.prideregion.flashpoints.encounter.NativeCaptureBridge;
+import com.prideregion.flashpoints.encounter.NativeBattleBridge;
+import com.prideregion.flashpoints.encounter.NativeBattleProgress;
+import com.prideregion.flashpoints.encounter.NativeBattleJournal;
+import com.prideregion.flashpoints.encounter.BattleOutcomeRules;
 import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.math.Box;
@@ -44,6 +48,9 @@ public final class StagingJobManager {
     private Path captureJournalPath;
     private NativeCaptureJournal.Snapshot captureRecord;
     private String captureJournalError;
+    private Path battleJournalPath;
+    private NativeBattleProgress.Snapshot battleRecord;
+    private String battleJournalError;
 
     private static final BlockState[] PALETTE={
         Blocks.AIR.getDefaultState(), Blocks.DEEPSLATE_BRICKS.getDefaultState(),
@@ -60,6 +67,14 @@ public final class StagingJobManager {
         entityLedgerPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_entities.bin");
         bossJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_boss.bin");
         captureJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_capture.bin");
+        battleJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_native_battle.bin");
+        if(Files.exists(battleJournalPath)) {
+            try {battleRecord=NativeBattleJournal.load(battleJournalPath);}
+            catch(IOException ex) {
+                battleJournalError=ex.getMessage();
+                PrideFlashpointMod.LOGGER.error("Native battle ledger damaged; keep file for diagnosis",ex);
+            }
+        }
         if(Files.exists(captureJournalPath)) {
             try { captureRecord=NativeCaptureJournal.load(captureJournalPath); }
             catch(IOException ex) {
@@ -124,6 +139,8 @@ public final class StagingJobManager {
             return "Previous boss simulation ledger exists; after clearing the old dungeon use /pridefp boss reset.";
         if(captureJournalError!=null || captureRecord!=null || captureJournalPath!=null && Files.exists(captureJournalPath))
             return "Native boss capture association remains; after safely ending the prior dungeon use /pridefp boss native reset.";
+        if(battleJournalError!=null || battleRecord!=null || battleJournalPath!=null && Files.exists(battleJournalPath))
+            return "Native battle record remains; after cleanup run /pridefp boss battle reset.";
         if(!config.enabled())return "Disabled: config/pride_flashpoint_dev.properties enabled=false";
         if(config.dimension().equals("pride:staging_unconfigured"))
             return "Configure allowed_dimension to the exact test world dimension identifier.";
@@ -457,6 +474,8 @@ public final class StagingJobManager {
             return "Native Cobblemon listener is offline: "+NativeCaptureBridge.status();
         if(captureRecord!=null || Files.exists(captureJournalPath))
             return "Already armed or completed. Run /pridefp boss native status; do not overwrite the record.";
+        if(battleJournalError!=null || battleRecord!=null || battleJournalPath!=null && Files.exists(battleJournalPath))
+            return "Native battle record still exists. Reset its completed record after dungeon cleanup.";
         DevConfig config;
         try { config=DevConfig.load(); }
         catch(IOException ex) {return "Cannot load Flashpoint staging config.";}
@@ -517,6 +536,146 @@ public final class StagingJobManager {
         } catch(IOException ex) {
             PrideFlashpointMod.LOGGER.error("Cannot save native boss identity",ex);
             return "Failed to durably save capture association. No capture listener armed.";
+        }
+    }
+
+    /**
+     * Arm a single wild Pokemon for native BATTLE_VICTORY (never capture).
+     * This duplicates the deliberately conservative capture-arm checks
+     * without reusing or changing the known-good capture journal path.
+     */
+    public String armNativeBattle(ServerCommandSource source) {
+        reloadRecoveryIfNecessary();
+        ServerWorld world=source.getWorld();
+        if(battleJournalError!=null || battleJournalPath==null)
+            return "Native battle ledger damaged/unavailable. Preserve files.";
+        if(!NativeBattleBridge.active())
+            return "Native battle listener unavailable: "+NativeBattleBridge.status();
+        if(battleRecord!=null || Files.exists(battleJournalPath))
+            return "Existing native battle record. Use /pridefp boss battle status.";
+        if(captureRecord!=null || captureJournalError!=null ||
+            captureJournalPath!=null && Files.exists(captureJournalPath))
+            return "Native capture record exists; finish capture and reset it after clearing its dungeon.";
+        if(bossProgress!=null || bossJournalError!=null)
+            return "A simulated boss record exists; reset it after clearing its dungeon.";
+        DevConfig config;
+        try { config=DevConfig.load(); }
+        catch(IOException ex){return "Cannot read Flashpoint config.";}
+        String dim=world.getRegistryKey().getValue().toString();
+        if(!config.enabled() || !config.testEncounters() ||
+            !dim.equals(config.dimension()) || dim.equals("minecraft:overworld") ||
+            dim.equals("minecraft:the_nether") || dim.equals("minecraft:the_end"))
+            return "Native battle arming requires opted-in disposable staging dimension.";
+        EncounterLedger.Key key=dungeonKey();
+        if(key==null || !dim.equals(key.dimension()) ||
+            journalPath==null || !Files.exists(journalPath))
+            return "A valid, persistent Standard dungeon is required.";
+        if(job!=null && job.phase!=Phase.COMPLETE)
+            return "Wait until dungeon phase=COMPLETE.";
+        DungeonLayout layout=job!=null?job.layout:recovery.layout();
+        if(layout.width()!=188 || layout.length()!=164 || layout.height()!=14)
+            return "Native boss battle tracking is Standard-only.";
+        var boss=DungeonEncounterPlan.standard(key.seed(),layout).room(11);
+        int x=key.x()+boss.localX(), y=key.y()+1, z=key.z()+boss.localZ();
+        Box area=new Box(x-8,y-3,z-8,x+9,y+7,z+9);
+        List<Entity> candidates=world.getEntitiesByClass(Entity.class,area,
+            entity->entity.isAlive() && "cobblemon:pokemon".equals(
+                Registries.ENTITY_TYPE.getId(entity.getType()).toString()));
+        if(candidates.size()!=1)
+            return "Battle arm refused: found "+candidates.size()+" Pokemon near boss marker, expected one.";
+        UUID id;
+        try {
+            Object pokemon=candidates.get(0).getClass().getMethod("getPokemon").invoke(candidates.get(0));
+            Object rawId=pokemon.getClass().getMethod("getUuid").invoke(pokemon);
+            Object species=pokemon.getClass().getMethod("getSpecies").invoke(pokemon);
+            Object name=species.getClass().getMethod("getName").invoke(species);
+            Object level=pokemon.getClass().getMethod("getLevel").invoke(pokemon);
+            if(!(rawId instanceof UUID uuid) || !(name instanceof String actual) ||
+                !(level instanceof Integer lvl))
+                throw new IllegalStateException("Cobblemon Pokemon metadata unavailable");
+            if(!actual.equalsIgnoreCase(boss.species()) || lvl!=boss.level())
+                return "Battle arm refused: expected "+boss.species()+" lv"+boss.level()+
+                    ", observed "+actual+" lv"+lvl;
+            id=uuid;
+        } catch(ReflectiveOperationException | RuntimeException ex) {
+            PrideFlashpointMod.LOGGER.error("Cannot identify exact Cobblemon battle boss",ex);
+            return "Native boss identity unavailable. No journal written.";
+        }
+        ServerPlayerEntity player=source.getPlayer();
+        if(player==null)return "Only an in-game operator may arm a test battle.";
+        try {
+            var snapshot=new NativeBattleProgress.Snapshot(key,id,player.getUuid(),
+                NativeBattleProgress.Stage.ARMED,null,0L);
+            NativeBattleJournal.save(battleJournalPath,snapshot);
+            battleRecord=snapshot;
+            return "[NATIVE BATTLE ARMED] BossPokemonUUID="+id+
+                ". Win or lose an actual wild battle against this Pokémon using the arming account.";
+        }catch(IOException ex) {
+            PrideFlashpointMod.LOGGER.error("Could not persist native battle association",ex);
+            return "Native battle arm failed to save; no progress recorded.";
+        }
+    }
+
+    public String nativeBattleStatus(ServerWorld world) {
+        if(battleJournalError!=null)
+            return "CORRUPT native battle record: "+battleJournalError+". Do not remove it.";
+        if(battleRecord==null)return "No native battle association recorded.";
+        var b=battleRecord;
+        return "[NATIVE BATTLE "+b.stage()+"] seed="+b.dungeon().seed()+
+            " in "+b.dungeon().dimension()+" origin="+b.dungeon().x()+","+
+            b.dungeon().y()+","+b.dungeon().z()+" bossUUID="+b.bossPokemon()+
+            " player="+b.player()+(b.battleId()==null?"":" battleUUID="+b.battleId())+
+            ". No rewards, auto cleanup, or inferred party wipe.";
+    }
+
+    /** Server main-thread event, not a player command or simulated outcome. */
+    public void onNativeBattleVictory(MinecraftServer server,NativeBattleBridge.EventData event) {
+        if(battleRecord==null || battleRecord.stage()!=NativeBattleProgress.Stage.ARMED)return;
+        var result=BattleOutcomeRules.classify(battleRecord.bossPokemon(),
+            battleRecord.player(),event.winners(),event.losers(),event.wildCapture());
+        if(result.isEmpty())return;
+        if(journalPath==null || !Files.exists(journalPath)) {
+            PrideFlashpointMod.LOGGER.error("Valid native battle ignored: dungeon journal missing");
+            return;
+        }
+        try {
+            var resolved=battleRecord.resolve(result.get(),event.battleId(),System.currentTimeMillis());
+            NativeBattleJournal.save(battleJournalPath,resolved);
+            battleRecord=resolved;
+            PrideFlashpointMod.LOGGER.info("Native boss battle resolved {} for Pokémon UUID {} battle {}",
+                resolved.stage(),resolved.bossPokemon(),resolved.battleId());
+            ServerPlayerEntity player=server.getPlayerManager().getPlayer(resolved.player());
+            if(player!=null)player.sendMessage(Text.literal(
+                "[PRIDE FP NATIVE] Boss battle "+resolved.stage()+" recorded. "+
+                "No rewards, automatic cleanup, or party-wipe determination."),false);
+        }catch(IOException | RuntimeException ex){
+            PrideFlashpointMod.LOGGER.error("Matched native battle but could not persist outcome",ex);
+        }
+    }
+
+    public String resetNativeBattle(ServerWorld world) {
+        reloadRecoveryIfNecessary();
+        if(battleJournalError!=null)return "Corrupt battle record; do not delete.";
+        if(battleRecord==null)return "No native battle record.";
+        String dim=world.getRegistryKey().getValue().toString();
+        if(!dim.equals(battleRecord.dungeon().dimension()))
+            return "Wrong dimension; expected "+battleRecord.dungeon().dimension();
+        DevConfig config;
+        try {config=DevConfig.load();}
+        catch(IOException ex){return "Unable to read staging config.";}
+        if(!config.enabled() || !config.testEncounters() || !dim.equals(config.dimension()))
+            return "Native battle reset restricted to opted-in test dimension.";
+        if(battleRecord.stage()==NativeBattleProgress.Stage.ARMED)
+            return "Cannot reset ARMED battle. Complete the battle and inspect outcome first.";
+        if(job!=null || recovery!=null || journalPath!=null && Files.exists(journalPath))
+            return "Clear the original dungeon and verify its journal is gone first.";
+        try {
+            Files.delete(battleJournalPath);
+            battleRecord=null;
+            return "Removed only the native battle result journal; no Pokémon or blocks affected.";
+        }catch(IOException ex){
+            PrideFlashpointMod.LOGGER.error("Unable to reset native battle record",ex);
+            return "Native battle record could not be reset; preserve file.";
         }
     }
 
@@ -645,6 +804,10 @@ public final class StagingJobManager {
             return "Cleanup already in progress.";
         if(captureRecord!=null && captureRecord.stage()==NativeCaptureJournal.Stage.ARMED)
             return "Exact boss Pokemon still ARMED for native capture. Resolve the capture before clearing; journal retained.";
+        if(battleJournalError!=null)
+            return "Damaged native battle ledger; refusing cleanup until diagnosed.";
+        if(battleRecord!=null && battleRecord.stage()==NativeBattleProgress.Stage.ARMED)
+            return "Exact boss Pokémon ARMED for native battle. Resolve combat before clearing.";
         if(entityLedgerError!=null ||
             entityLedger!=null && entityLedger.key().equals(dungeonKey()) &&
             !entityLedger.bindings().isEmpty())

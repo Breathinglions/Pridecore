@@ -10,6 +10,7 @@ import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
 import com.prideregion.flashpoints.encounter.BossProgress;
 import com.prideregion.flashpoints.encounter.NativeCaptureBridge;
+import com.prideregion.flashpoints.encounter.NativeBattleBridge;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -78,10 +79,12 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .executes(ctx -> feedback(ctx.getSource(),JOBS.clear(ctx.getSource().getWorld()))))
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
-        ServerLifecycleEvents.SERVER_STARTED.register(server ->
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             NativeCaptureBridge.install(server,(pokemonId,playerId) ->
-                JOBS.onRealPokemonCaptured(server,pokemonId,playerId)));
-        LOGGER.info("Pride Flashpoint v0.3.3 loaded: opt-in Cobblemon 1.8.1 exact-UUID native capture detection; no rewards.");
+                JOBS.onRealPokemonCaptured(server,pokemonId,playerId));
+            NativeBattleBridge.install(server,event -> JOBS.onNativeBattleVictory(server,event));
+        });
+        LOGGER.info("Pride Flashpoint v0.3.4 loaded: Cobblemon 1.8.1 exact-UUID capture and battle victory event tests.");
     }
 
     /** Inspect the actual installed Cobblemon API version without linking its classes. */
@@ -90,8 +93,9 @@ public final class PrideFlashpointMod implements ModInitializer {
             .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
             .orElse("NOT INSTALLED");
         return feedback(source,"Cobblemon: "+version+
-            ". "+NativeCaptureBridge.status()+
-            ". Defeat/wipe are still operator simulations; native capture requires explicit arm.");
+            ". Capture: "+NativeCaptureBridge.status()+
+            ". Battle: "+NativeBattleBridge.status()+
+            ". Both require explicit arm; rewards are off.");
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> bossCommands() {
@@ -105,6 +109,16 @@ public final class PrideFlashpointMod implements ModInitializer {
                 .executes(ctx->simulateBoss(ctx.getSource(),action)));
         }
         boss.then(simulation);
+        boss.then(CommandManager.literal("battle")
+            .then(CommandManager.literal("status")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.nativeBattleStatus(ctx.getSource().getWorld()))))
+            .then(CommandManager.literal("arm")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.armNativeBattle(ctx.getSource()))))
+            .then(CommandManager.literal("reset")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.resetNativeBattle(ctx.getSource().getWorld())))));
         boss.then(CommandManager.literal("native")
             .then(CommandManager.literal("status")
                 .executes(ctx->feedback(ctx.getSource(),

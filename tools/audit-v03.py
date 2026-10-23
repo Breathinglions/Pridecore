@@ -65,3 +65,23 @@ assert 'CommandManager.literal("arm")' in mod
 assert 'ServerLifecycleEvents.SERVER_STARTED.register' in mod
 assert 'Stage { ARMED, CAPTURED }' in native
 print("PASS: 1.8.1 capture bridge event field, exact Pokemon/player identity, durable capture state, staging gate")
+
+
+# v0.3.4 native Cobblemon battle victory — exact matching and no reward paths.
+bridge=Path("src/main/java/com/prideregion/flashpoints/encounter/NativeBattleBridge.java").read_text()
+rules=Path("src/main/java/com/prideregion/flashpoints/encounter/BattleOutcomeRules.java").read_text()
+assert 'getField("BATTLE_VICTORY")' in bridge
+assert 'getMethod("subscribe",Consumer.class)' in bridge
+assert 'getWasWildCapture' in bridge
+assert 'getOriginalPokemon' in bridge
+assert 'getPlayerUUIDs' in bridge
+assert 'server.execute(()->listener.accept(snapshot))' in bridge
+assert 'if(wildCapture || winners.size()!=1 || losers.size()!=1)' in rules
+assert 'a.pokemon().size()==1 && a.pokemon().contains(uuid)' in rules
+assert 'a.playerIds().size()==1' in rules
+assert 'public String armNativeBattle(ServerCommandSource source)' in src
+assert 'NativeBattleJournal.save(battleJournalPath,resolved)' in src
+assert 'if(battleRecord!=null && battleRecord.stage()==NativeBattleProgress.Stage.ARMED)' in src
+assert 'CommandManager.literal("battle")' in mod
+assert 'NativeBattleBridge.install(server,event -> JOBS.onNativeBattleVictory(server,event))' in mod
+print("PASS: native battle-victory exact boss+player validation, wild-capture exclusion and durable outcome")

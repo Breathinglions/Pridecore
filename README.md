@@ -1,64 +1,57 @@
-# Pride Core Flashpoints v0.3.3 — Native Cobblemon 1.8.1 boss capture TEST (STAGING ONLY)
+# PrideCore Flashpoints v0.3.4 — Native Cobblemon Battle Victory Prototype
 
-Minecraft **1.21.1 · Fabric · Java 21 · Cobblemon exactly `1.8.1+1.21.1`**.
+**Staging only · Minecraft 1.21.1 · Fabric · Java 21 · Cobblemon exactly 1.8.1+1.21.1**
 
-## What actually changed
+v0.3.4 adds **real native Cobblemon BATTLE_VICTORY event tracking** for one operator-registered boss. It does NOT grant rewards, manage parties, classify forfeits as wipes or automatically clear dungeons. Preserve all proven v0.3.3 capture behavior.
 
-- Verified upstream Cobblemon 1.8.1 source tag: `CobblemonEvents.POKEMON_CAPTURED` is an `EventObservable<PokemonCapturedEvent>`, and the event exposes `pokemon` and `player`. Pokemon has its own stable `uuid`, which is **not the same identity as the transient Minecraft entity UUID**.
-- Adds a **version-gated subscriber** using the published Java Consumer observable API. It is installed only if the loaded Cobblemon version string matches `1.8.1+1.21.1`. It registers after server startup; if API reflection fails, registration is disabled and errors are logged instead of crashing or pretending an event was detected.
-- Operator command `/pridefp boss native arm` explicitly registers the **persistent Pokemon UUID** of exactly one live Cobblemon Pokemon within the Standard boss-room marker area, and binds it to the current dimension, seed, block origin, and **operator player UUID**.
-- Capturing **that exact Pokémon with that exact player** triggers a real Cobblemon event; the capture state is durably saved to `config/pride_flashpoint_capture.bin` as `CAPTURED`. Only the first correct capture counts.
-- `/pridefp boss native status` reports the real captured/armed state. **No item rewards, XP, party credit, battle victory detection, automated despawning, camera cinematics or block cleanup** have been added.
-- Separate from the v0.3.2 operator simulation journal; old `/pridefp boss status` is still simulation-only. Native capture state uses a **different file** and command subtree. This prevents mislabeling a simulated capture as real.
-- `/pridefp clear` **refuses** cleanup while the boss is still ARMED. Once CAPTURED, block cleanup is permitted. `/pridefp boss native reset` can remove the completed association **only after dungeon cleanup**.
-- Preserves existing Classic/Standard generator, chunk readiness, prior recovery fixes and UUID ledger.
+## What changed
 
-Cobblemon upstream 1.8.1 reference:
-- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/events/CobblemonEvents.kt
-- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/events/pokemon/PokemonCapturedEvent.kt
-- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/reactive/Observable.kt
+- `CobblemonEvents.BATTLE_VICTORY` is subscribed using the exact Cobblemon 1.8.1 public event observable, version-gated and fail-closed via reflection (no compile-time dependency on Cobblemon's Kotlin jar).
+- The event exposes its `battle`, `winners`, `losers`, and `wasWildCapture`. Each battle actor has a `pokemonList` and `playerUUIDs`. A battle Pokémon has a persistent `originalPokemon.uuid` matching the pre-battle persistent Pokémon UUID (not the entity UUID).
+- A *single PLAYER actor* fighting a *single WILD actor* qualifies only if the PLAYER actor is the operator who armed the boss, and the WILD actor contains exactly the armed Pokémon UUID. Wild-capture-ending battles are excluded to avoid mislabeling catches as defeats.
+- Outcomes: **DEFEATED** if the registered player wins; **PLAYER_LOST** if the registered wild boss wins. PLAYER_LOST is NOT automatically classified as a party wipe (forfeits and other battle-ending conditions may be involved).
+- Exactly one durable result per armed boss (CRC-checked atomic `config/pride_flashpoint_native_battle.bin`), survives Minecraft restarts, cannot be overwritten by another battle.
+- New commands `/pridefp boss battle arm`, `/pridefp boss battle status` and `/pridefp boss battle reset`. Existing capture commands remain unchanged; capture and battle modes cannot be armed simultaneously.
+- No production rewards, no auto removal of Pokémon, no automated dungeon clearing and no cinematics.
 
-## Install + safe test procedure
+## Safe testing
 
-**Do not test in production.** First back up `multiworld:fptest` and your `config/` directory, especially the journal files. Never delete active journals manually. If the old seed 1047 dungeon is still running its v0.3.2 CAPTURED simulation, clear its blocks via `/pridefp clear` and then `/pridefp boss reset` before starting a new run. If there are tracked room UUIDs, resolve those separately; forgetting a room UUID does not remove a Pokémon.
-
-1. Stop the server, remove the v0.3.2 JAR and install **only** the v0.3.3 JAR. Restart the Fabric 1.21.1 server. Confirm your Cobblemon mod is still `1.8.1+1.21.1`.
-2. Keep `config/pride_flashpoint_dev.properties` set to your backed-up **disposable** world:
+1. Confirm the **previous captured boss run is finished**. If the old seed-1047 dungeon is still standing, back up `multiworld:fptest` and `config/`, clear it with `/pridefp clear`, wait for `No dungeon tracked; no recovery journal`, and verify the blocks are gone. Then use `/pridefp boss native reset` to clear the *completed* native capture journal; do not delete its files manually. A previous simulated boss journal should be reset only after cleanup using `/pridefp boss reset`. Resolve any separately tracked entity UUIDs safely before clearing.
+2. Stop the server; replace **only** the v0.3.3 JAR with v0.3.4. Restart. Do NOT install both versions together.
+3. Keep the disposable staging dimension allowlisted in `config/pride_flashpoint_dev.properties`:
    ```properties
    enabled=true
    allowed_dimension=multiworld:fptest
    enable_test_encounters=true
    ```
-3. In `multiworld:fptest`, run `/pridefp compat`. It should explicitly say native capture listener installed. If not, **stop** and send server logs.
-4. In a new large empty staging area, generate a new dungeon:
+4. Run `/pridefp compat` and confirm **both** the capture listener and battle listener report installed. If battle subscription is OFF, stop and send logs; do not arm. The event reflection path has not yet been validated by an actual battle in-game.
+5. In a **new empty test location** in `multiworld:fptest`, generate a Standard dungeon (e.g. seed 1047). Wait until `/pridefp status` says `COMPLETE`. Use `/pridefp encounter 11` to verify its boss Pokémon and location, and then run `/pridefp encounter spawn 11` once.
+6. As the SAME operator who intends to battle the boss, register its UUID **before the fight**:
    ```mcfunction
-   /pridefp generate standard 1047
-   /pridefp status
+   /pridefp boss battle arm
+   /pridefp boss battle status
    ```
-   Wait until `phase=COMPLETE`.
-5. Find the expected boss species/level/coords via `/pridefp encounter 11`. While in the same world, spawn exactly **one** boss using `/pridefp encounter spawn 11`, after confirming the room is clear of unrelated Pokémon.
-6. **Before capturing it**, and as the player who intends to capture it, run:
+   Arming refuses zero or multiple nearby Pokémon, or a species/level mismatch, and will not overwrite capture/boss-simulation records.
+7. **Battle the wild boss and defeat it normally, do not capture it for this specific test.** Once the battle ends:
    ```mcfunction
-   /pridefp boss native arm
-   /pridefp boss native status
+   /pridefp boss battle status
    ```
-   If this reports zero or multiple Pokémon, stop; do not arm any unrelated Pokémon. Verify the wild Pokémon is the expected boss. The initial arm command requires an operator and is *not* group/party enabled.
-7. Capture the registered boss using a Poké Ball. Then run:
-   ```mcfunction
-   /pridefp boss native status
-   ```
-   The expected server message is `[PRIDE FP NATIVE] Confirmed boss Pokémon captured!`, and `status` should read `[NATIVE CAPTURE CAPTURED]`. This result should also survive a server restart.
-8. After recording the result, run `/pridefp clear` and visually confirm cleanup and journal deletion. Then run `/pridefp boss native reset` to clear the completed capture-association file and enable a fresh test. **Reset does not alter captured Pokémon.**
+   Expect `[NATIVE BATTLE DEFEATED]` including its exact Pokémon UUID, operator UUID and battle UUID. No rewards or Pokémon cleanup is performed. If the registered player loses to the boss, expect `PLAYER_LOST` instead—not `WIPED`.
+8. Before wiping this test instance, restart and run `/pridefp boss battle status` again to verify journal persistence.
+9. Only after backing up and confirming no live encounter risk, `/pridefp clear` removes dungeon blocks with the existing journal. After visually confirming that the dungeon and block journal are gone, run `/pridefp boss battle reset` to remove the *result record only*. Do NOT use WorldEdit to clear unknown structures.
 
-## Limitations and safeguards
+## Safety boundaries
 
-- **Capture-only native detection:** defeat, party wipe, fled battles, tournament results and capture by someone other than the arming player are **not automatically tracked**. Continue using manual v0.3.2 simulation for those; automatic event-driven battle recognition is a later increment.
-- The initial arm scans exactly one Cobblemon Pokémon near boss room 11, and checks its actual Cobblemon species and level against the deterministic room 11 boss blueprint **before** binding the UUID. It refuses mismatches. Operator visual inspection in the disposable test world remains important. Exact Pokémon UUID is then required to resolve a capture.
-- Only if the server advertises exact Cobblemon `1.8.1+1.21.1` is the native subscriber installed; a nonmatching dependency disables native features but preserves world and journals.
-- No rewards are issued; no Pokémon are despawned or modified. The player keeps any legitimately caught Pokémon. The journal is a **progress record**, not a capture control.
-- Don't leave permanently armed test encounters unattended. A failed/ambiguous capture should leave the ledger and dungeon intact for diagnosis.
-- Automatic chunk loading/placement remains a prototype suitable only for a disposable world.
+- **Do not treat this as real party/raid progression yet.** Only a single player versus a single wild Pokémon event is accepted. Allies, multiwild battles, NPC battles, capture-ending battles and unrelated Pokémon are ignored.
+- A loss is NOT necessarily a party wipe. Battle forfeits, disconnects, capture attempts and combat-escape outcomes require separate verified integration before objectives/rewards exist.
+- The mod cannot retroactively detect a battle that occurred before `arm`. The original captured Garchomp remains the player's property, unaffected by this release.
+- All new event records persist in dedicated files and do not alter the existing capture simulation or UUID association journals.
 
-## Tests
+## Validation
 
-CI tests Classic/Standard geometry, journal recovery, operator-only simulated boss state and native exact-UUID capture journal transitions, wrong Pokémon/player rejection, duplicate capture rejection, restart persistence, and CRC corruption. Source audits verify the version gate and subscriber call. **No CI test replaces the actual runtime Cobblemon 1.8.1 capture test** on your Fabric server.
+Pure Java unit tests cover correct win/loss, wrong player/wrong Pokémon, ambiguous actors, wild-capture exclusion, duplicate completion, atomic replacement, restart roundtrip and CRC damage rejection. GitHub Actions also compiles/remaps the Fabric JAR and checks source safety contracts. **A successful CI build is not proof that the listener works on the server**; the next gate is a real in-game battle.
+
+Upstream tag-1.8.1 API references:
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/events/battles/BattleVictoryEvent.kt
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/api/battles/model/actor/BattleActor.kt
+- https://gitlab.com/cable-mc/cobblemon/-/raw/1.8.1/common/src/main/kotlin/com/cobblemon/mod/common/battles/pokemon/BattlePokemon.kt
