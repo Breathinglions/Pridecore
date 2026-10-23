@@ -35,7 +35,7 @@ print("PASS: explicit UUID association safety, duplicate safeguards and no autom
 assert "public String simulateBoss(ServerWorld world,UUID operator,BossProgress.Action action)" in src
 assert "BossProgressJournal.save(bossJournalPath,next)" in src
 assert '"[SIMULATED ONLY] Boss state="' in src
-assert '"No Cobblemon battle/capture event was detected;' in src
+assert 'No Cobblemon battle/capture event was detected;' in src
 assert 'if(bossProgress!=null && !bossProgress.key().equals(key))' in src
 assert 'if(job!=null || recovery!=null || journalPath!=null && Files.exists(journalPath))' in src
 assert 'CommandManager.literal("boss")' in mod
