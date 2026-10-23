@@ -1,7 +1,7 @@
-"""Pride Community v0.4: release-grade resource-pack structure and translation smoke audit."""
+"""Pride Community v0.5: release-grade resource-pack structure and translation smoke audit."""
 import json, pathlib, re, zipfile
 root=pathlib.Path(__file__).resolve().parent.parent
-pack=root/'resourcepack'/'Pride_Region_Community_Identity_v0.4_1.21.1.zip'
+pack=root/'resourcepack'/'Pride_Region_Community_Identity_v0.5_1.21.1.zip'
 with zipfile.ZipFile(pack) as z:
     assert z.testzip() is None
     allfiles=set(z.namelist())
@@ -22,5 +22,10 @@ with zipfile.ZipFile(pack) as z:
         for arg in ('%1$s','%2$s','%3$s'):
             assert value.count(arg)==1, f'{key} missing/duplicate {arg}'
         assert chr(0xE119) in value, 'Spawn badge missing'
+    assert lang['spawn_notification.alpha'].startswith(chr(0xE11D))
+    assert lang['spawn_notification.max_ivs'].startswith(chr(0xE11E))
+    assert chr(0xE11F) in lang['pride_community.label.rare']
+    assert chr(0xE121) in lang['pride_community.label.ultra_rare']
+    for code in (0xE11D,0xE11E,0xE11F,0xE121): assert chr(code) in glyphs
     assert len(lang)>=20
 print('PASS Pride Community resource pack glyphs, preserved player IDs, JSON, spawn translations')

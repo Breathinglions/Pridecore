@@ -99,14 +99,15 @@ public final class PrideCommunityMod implements ModInitializer {
                 }))
                 .then(CommandManager.literal("status").executes(ctx -> {
                     ctx.getSource().sendFeedback(() -> Text.literal("Pride Community: " +
-                        (engine.active().isPresent() ? "round active" : "idle") + ", Impactor payouts=" + payoutsEnabled), false);
+                        (engine.active().isPresent() ? "round active" : "idle") + ", Impactor payouts=" + payoutsEnabled
+                        + ", unresolved claims=" + (payoutCoordinator == null ? "unavailable" : payoutCoordinator.unresolvedCount())), false);
                     return 1;
                 })));
             dispatcher.register(CommandManager.literal("prideannounce").requires(s -> s.hasPermissionLevel(2))
                 .then(CommandManager.argument("channel", StringArgumentType.word())
                     .then(CommandManager.argument("message", StringArgumentType.greedyString()).executes(ctx -> {
                         String channel = StringArgumentType.getString(ctx,"channel").toUpperCase(Locale.ROOT);
-                        if (!Set.of("PRIDE", "EVENT", "SHINY", "RAID", "LEGENDARY", "WORLD-BOSS").contains(channel)) return 0;
+                        if (!Set.of("PRIDE", "EVENT", "SHINY", "RAID", "LEGENDARY", "WORLD-BOSS", "MYTHICAL", "ULTRA-BEAST", "PARADOX", "ALPHA", "MAX-IV", "RARE", "ULTRA-RARE", "SPAWN").contains(channel)) return 0;
                         String body = StringArgumentType.getString(ctx,"message");
                         if (body.length() > 220) return 0;
                         broadcast(ctx.getSource().getServer(), channel, Formatting.AQUA, body);
@@ -126,6 +127,13 @@ public final class PrideCommunityMod implements ModInitializer {
             case "WORLD-BOSS" -> "\uE117";
             case "EVENT" -> "\uE118";
             case "SPAWN" -> "\uE119";
+            case "MYTHICAL" -> "\uE11A";
+            case "ULTRA-BEAST" -> "\uE11B";
+            case "PARADOX" -> "\uE11C";
+            case "ALPHA" -> "\uE11D";
+            case "MAX-IV" -> "\uE11E";
+            case "RARE" -> "\uE11F";
+            case "ULTRA-RARE" -> "\uE121";
             default -> "[" + id + "]";
         };
     }
@@ -168,11 +176,15 @@ public final class PrideCommunityMod implements ModInitializer {
                 ? "Unscramble: " + round.challenge() + " (" + durationSeconds + "s)"
                 : round.challenge() + " (" + durationSeconds + "s)").formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(announcement, false);
+        int prize = kind == QuizEngine.Kind.SCRAMBLE ? scrambleReward : rewardTiers.getOrDefault(q.difficulty(), 0);
+        broadcast(server, kindLabel, Formatting.WHITE,
+            RewardNotice.invitation(prize, durationSeconds, payoutsEnabled && payoutCoordinator != null));
         return 1;
     }
     private void onWinner(MinecraftServer server, QuizEngine.Result result) {
         String tag = result.round().question().kind() == QuizEngine.Kind.SCRAMBLE ? "SCRAMBLE" : "QUIZ";
-        String winnerText = " solved " + result.round().question().answer() + "!";
+        String winnerText = RewardNotice.winner(result.round().question().answer(),
+            payoutsEnabled && payoutCoordinator != null);
         Text styledName = RankName.display(result.player(), result.playerName());
         lastRoundMillis = System.currentTimeMillis();
         if (leaderboard != null) {
@@ -250,7 +262,7 @@ public final class PrideCommunityMod implements ModInitializer {
     }
     private static void broadcast(MinecraftServer server, String tag, Formatting color, String message) {
         Text txt = Text.empty().append(Text.literal(badge(tag)).formatted(Formatting.WHITE))
-                          .append(Text.literal(message).formatted(Formatting.WHITE));
+                          .append(Text.literal(" " + message).formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(txt, false);
     }
     private void loadConfiguration() {
@@ -273,7 +285,12 @@ public final class PrideCommunityMod implements ModInitializer {
             if (!Set.of("DISABLED", "IMPACTOR").contains(backend))
                 throw new IllegalArgumentException("Unsupported economy backend " + backend);
             boolean wantPayouts = rewards.get("payoutsEnabled").getAsBoolean();
-            payoutsEnabled = wantPayouts && backend.equals("IMPACTOR");
+            // Activating rewards or changing the daily cap through /reload is unsafe; require cold restart.
+            boolean requested = wantPayouts && backend.equals("IMPACTOR");
+            if (payoutCoordinator != null && requested) {
+                payoutsEnabled = false;
+                LOG.warn("Reward enablement requires a cold restart; payouts remain disabled");
+            } else { payoutsEnabled = requested; }
             dailyRewardCap = between(rewards, "dailyCapPokeDollars", 2000, 1, 100000);
             JsonObject tiers = rewards.getAsJsonObject("tiers");
             rewardTiers.clear();
@@ -282,8 +299,8 @@ public final class PrideCommunityMod implements ModInitializer {
             }
             scrambleReward = between(tiers, "SCRAMBLE", 150, 0, dailyRewardCap);
             // Reload never resets the ledger; restart required if cap changes while payouts are on.
-            if (payoutsEnabled && payoutCoordinator != null)
-                LOG.warn("Payout config reloaded. Restart to apply any daily-cap change safely.");
+            if (payoutCoordinator != null && !payoutsEnabled)
+                LOG.info("Economy rewards remain off until cold server restart");
             JsonArray input = JsonParser.parseString(Files.readString(bank)).getAsJsonArray();
             List<QuizEngine.Question> built = new ArrayList<>();
             Set<String> ids = new HashSet<>();
