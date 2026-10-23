@@ -53,7 +53,7 @@ Cobblemon upstream 1.8.1 reference:
 ## Limitations and safeguards
 
 - **Capture-only native detection:** defeat, party wipe, fled battles, tournament results and capture by someone other than the arming player are **not automatically tracked**. Continue using manual v0.3.2 simulation for those; automatic event-driven battle recognition is a later increment.
-- The initial arm scans exactly one Cobblemon Pokémon near boss room 11. It does not validate species or level against a server callback: use the blueprint and operator visual inspection in the disposable test world. Exact UUID is then required to resolve a capture.
+- The initial arm scans exactly one Cobblemon Pokémon near boss room 11, and checks its actual Cobblemon species and level against the deterministic room 11 boss blueprint **before** binding the UUID. It refuses mismatches. Operator visual inspection in the disposable test world remains important. Exact Pokémon UUID is then required to resolve a capture.
 - Only if the server advertises exact Cobblemon `1.8.1+1.21.1` is the native subscriber installed; a nonmatching dependency disables native features but preserves world and journals.
 - No rewards are issued; no Pokémon are despawned or modified. The player keeps any legitimately caught Pokémon. The journal is a **progress record**, not a capture control.
 - Don't leave permanently armed test encounters unattended. A failed/ambiguous capture should leave the ledger and dungeon intact for diagnosis.
