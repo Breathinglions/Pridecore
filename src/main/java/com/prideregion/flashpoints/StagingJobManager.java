@@ -490,7 +490,15 @@ public final class StagingJobManager {
         try {
             Object pokemon=found.get(0).getClass().getMethod("getPokemon").invoke(found.get(0));
             Object id=pokemon.getClass().getMethod("getUuid").invoke(pokemon);
-            if(!(id instanceof UUID uuid))throw new IllegalStateException("Not a Pokemon UUID");
+            Object species=pokemon.getClass().getMethod("getSpecies").invoke(pokemon);
+            Object speciesName=species.getClass().getMethod("getName").invoke(species);
+            Object level=pokemon.getClass().getMethod("getLevel").invoke(pokemon);
+            if(!(id instanceof UUID uuid) || !(speciesName instanceof String name) ||
+                !(level instanceof Integer observedLevel))
+                throw new IllegalStateException("Cobblemon identity, species or level unavailable");
+            if(!name.equalsIgnoreCase(boss.species()) || observedLevel!=boss.level())
+                return "Boss arm refused: expected "+boss.species()+" level "+boss.level()+
+                    " but found "+name+" level "+observedLevel+". No UUID was recorded.";
             pokemonId=uuid;
         } catch(ReflectiveOperationException | RuntimeException ex) {
             PrideFlashpointMod.LOGGER.error("Cannot inspect Cobblemon 1.8.1 Pokemon UUID",ex);
