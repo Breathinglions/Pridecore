@@ -115,11 +115,33 @@ public final class PrideCommunityMod implements ModInitializer {
         });
         LOG.info("Pride Community dev preview loaded; payoutsEnabled={}", payoutsEnabled);
     }
+    private static String badge(String id) {
+        return switch (id) {
+            case "PRIDE" -> "\uE110";
+            case "SCRAMBLE" -> "\uE111";
+            case "QUIZ" -> "\uE113";
+            case "SHINY" -> "\uE114";
+            case "LEGENDARY" -> "\uE115";
+            case "RAID" -> "\uE116";
+            case "WORLD-BOSS" -> "\uE117";
+            case "EVENT" -> "\uE118";
+            case "SPAWN" -> "\uE119";
+            default -> "[" + id + "]";
+        };
+    }
+    private static Formatting difficultyColor(QuizEngine.Difficulty difficulty) {
+        return switch(difficulty) {
+            case EASY -> Formatting.GREEN;
+            case MEDIUM -> Formatting.AQUA;
+            case HARD -> Formatting.RED;
+            case ULTRA -> Formatting.LIGHT_PURPLE;
+        };
+    }
     private void tick(MinecraftServer server) {
         long now = System.currentTimeMillis();
         engine.expire(now).ifPresent(expired -> {
-            broadcast(server, "QUIZ", Formatting.YELLOW,
-                "Time's up! The answer was " + expired.question().answer() + ".");
+            String type = expired.question().kind() == QuizEngine.Kind.SCRAMBLE ? "SCRAMBLE" : "QUIZ";
+            broadcast(server, type, Formatting.YELLOW, "Time's up. Answer: " + expired.question().answer());
             lastRoundMillis = now;
         });
         if (!autoRounds || engine.active().isPresent() ||
@@ -139,15 +161,18 @@ public final class PrideCommunityMod implements ModInitializer {
         if (recentIds.size() > 12) recentIds.remove(recentIds.iterator().next());
         QuizEngine.Round round = engine.start(q, System.currentTimeMillis(), durationSeconds);
         String kindLabel = kind == QuizEngine.Kind.SCRAMBLE ? "SCRAMBLE" : "QUIZ";
-        broadcast(server, kindLabel, Formatting.GOLD, "[" + q.difficulty() + "] " +
-            (kind == QuizEngine.Kind.SCRAMBLE ? "Unscramble this Pokemon: " + round.challenge() : round.challenge()));
-        broadcast(server, kindLabel, Formatting.GRAY,
-            "First correct answer wins. You have " + durationSeconds + " seconds.");
+        Text announcement = Text.empty()
+            .append(Text.literal(badge(kindLabel)).formatted(Formatting.WHITE))
+            .append(Text.literal(" " + q.difficulty() + " ").formatted(difficultyColor(q.difficulty()), Formatting.BOLD))
+            .append(Text.literal(kind == QuizEngine.Kind.SCRAMBLE
+                ? "Unscramble: " + round.challenge() + " (" + durationSeconds + "s)"
+                : round.challenge() + " (" + durationSeconds + "s)").formatted(Formatting.WHITE));
+        server.getPlayerManager().broadcast(announcement, false);
         return 1;
     }
     private void onWinner(MinecraftServer server, QuizEngine.Result result) {
         String tag = result.round().question().kind() == QuizEngine.Kind.SCRAMBLE ? "SCRAMBLE" : "QUIZ";
-        String winnerText = " answered " + result.round().question().answer() + " correctly!";
+        String winnerText = " solved " + result.round().question().answer() + "!";
         Text styledName = RankName.display(result.player(), result.playerName());
         lastRoundMillis = System.currentTimeMillis();
         if (leaderboard != null) {
@@ -159,13 +184,13 @@ public final class PrideCommunityMod implements ModInitializer {
             }
         }
         if (!payoutsEnabled || payoutCoordinator == null) {
-            broadcastWinner(server, tag, styledName, winnerText + " (economy rewards off)");
+            broadcastWinner(server, tag, styledName, winnerText);
             return;
         }
         int amount = result.round().question().kind() == QuizEngine.Kind.SCRAMBLE
                 ? scrambleReward : rewardTiers.getOrDefault(result.round().question().difficulty(), 0);
         if (amount <= 0) {
-            broadcastWinner(server, tag, styledName, winnerText + " (no prize configured)");
+            broadcastWinner(server, tag, styledName, winnerText);
             return;
         }
         payoutCoordinator.award(result.player(), result.round().id(), amount).whenComplete((paid, error) ->
@@ -177,7 +202,7 @@ public final class PrideCommunityMod implements ModInitializer {
                 }
                 switch (paid.outcome()) {
                     case PAID -> broadcastWinner(server, tag, styledName,
-                        winnerText + " Earned " + amount + " PokéDollars!");
+                        winnerText + " +$" + amount);
                     case BLOCKED -> broadcastWinner(server, tag, styledName,
                         winnerText + " Daily cap reached or reward already processed.");
                     case REVIEW, LEDGER_ERROR -> {
@@ -191,13 +216,16 @@ public final class PrideCommunityMod implements ModInitializer {
     }
     private static void broadcastWinner(MinecraftServer server, String tag, Text styledName, String trailing) {
         Text message = Text.empty()
-            .append(Text.literal("[" + tag + "] ").formatted(Formatting.GOLD, Formatting.BOLD))
+            .append(Text.literal(badge(tag)).formatted(Formatting.WHITE))
+            .append(Text.literal(" "))
             .append(styledName.copy())
             .append(Text.literal(trailing).formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(message, false);
     }
     private void showLeaderboard(ServerCommandSource source) {
-        source.sendFeedback(() -> Text.literal("[QUIZ LEADERBOARD]").formatted(Formatting.GOLD, Formatting.BOLD), false);
+        source.sendFeedback(() -> Text.empty()
+            .append(Text.literal(badge("QUIZ")).formatted(Formatting.WHITE))
+            .append(Text.literal(" LEADERBOARD").formatted(Formatting.GOLD, Formatting.BOLD)), false);
         if (leaderboard == null) {
             source.sendFeedback(() -> Text.literal("Leaderboard unavailable; check server logs.").formatted(Formatting.RED), false);
             return;
@@ -214,14 +242,14 @@ public final class PrideCommunityMod implements ModInitializer {
             Text line = Text.empty()
                 .append(Text.literal("#" + rank + " ").formatted(Formatting.YELLOW))
                 .append(identity)
-                .append(Text.literal("  " + entry.wins() + " wins  (Trivia "
-                    + entry.triviaWins() + " | Scramble " + entry.scrambleWins() + ")")
+                .append(Text.literal(" · " + entry.wins() + (entry.wins() == 1 ? " win" : " wins")
+                    + " (T " + entry.triviaWins() + " | S " + entry.scrambleWins() + ")")
                     .formatted(Formatting.GRAY));
             source.sendFeedback(() -> line, false);
         }
     }
     private static void broadcast(MinecraftServer server, String tag, Formatting color, String message) {
-        Text txt = Text.empty().append(Text.literal("[" + tag + "] ").formatted(color, Formatting.BOLD))
+        Text txt = Text.empty().append(Text.literal(badge(tag)).formatted(Formatting.WHITE))
                           .append(Text.literal(message).formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(txt, false);
     }
