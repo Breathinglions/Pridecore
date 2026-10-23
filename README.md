@@ -24,6 +24,10 @@
    ```
    The last setting permits testing of UUID tracking and boss simulations. Turn it back off when not testing.
 
+## Cobblemon compatibility
+
+Run `/pridefp compat` in Minecraft to display the Cobblemon mod version actually loaded on your server. This does not modify the world and will help us pin the correct native capture and battle event API in the next development increment. The simulated outcomes do **not** call Cobblemon battle or capture APIs.
+
 ## Operator smoke test
 
 If the existing Standard dungeon and its recovery journal are still present, `/pridefp status` should identify its seed/world/origin. If no dungeon is active, generate a new Standard dungeon **only in a new empty area**; never generate over any existing structure.
