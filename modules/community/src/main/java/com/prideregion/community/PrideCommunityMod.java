@@ -173,8 +173,8 @@ public final class PrideCommunityMod implements ModInitializer {
             .append(Text.literal(badge(kindLabel)).formatted(Formatting.WHITE))
             .append(Text.literal(" " + q.difficulty() + " ").formatted(difficultyColor(q.difficulty()), Formatting.BOLD))
             .append(Text.literal(kind == QuizEngine.Kind.SCRAMBLE
-                ? "Unscramble: " + round.challenge() + " (" + durationSeconds + "s)"
-                : round.challenge() + " (" + durationSeconds + "s)").formatted(Formatting.WHITE));
+                ? "Unscramble: " + round.challenge()
+                : round.challenge()).formatted(Formatting.WHITE));
         server.getPlayerManager().broadcast(announcement, false);
         int prize = kind == QuizEngine.Kind.SCRAMBLE ? scrambleReward : rewardTiers.getOrDefault(q.difficulty(), 0);
         broadcast(server, kindLabel, Formatting.WHITE,
