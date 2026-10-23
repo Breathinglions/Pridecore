@@ -29,3 +29,16 @@ assert 'CommandManager.literal("track")' in mod
 assert 'CommandManager.literal("tracked")' in mod
 assert 'CommandManager.literal("forget")' in mod
 print("PASS: explicit UUID association safety, duplicate safeguards and no automatic deletion")
+
+
+# v0.3.2 manual boss-state simulation — never falsely claim native Cobblemon hooks.
+assert "public String simulateBoss(ServerWorld world,UUID operator,BossProgress.Action action)" in src
+assert "BossProgressJournal.save(bossJournalPath,next)" in src
+assert '"[SIMULATED ONLY] Boss state="' in src
+assert '"No Cobblemon battle/capture event was detected;' in src
+assert 'if(bossProgress!=null && !bossProgress.key().equals(key))' in src
+assert 'if(job!=null || recovery!=null || journalPath!=null && Files.exists(journalPath))' in src
+assert 'CommandManager.literal("boss")' in mod
+assert 'CommandManager.literal("simulate")' in mod
+assert 'CommandManager.literal("reset")' in mod
+print("PASS: manual-only boss state transitions guarded by test-world permissions and active journal")

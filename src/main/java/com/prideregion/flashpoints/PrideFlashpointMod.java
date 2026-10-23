@@ -8,6 +8,7 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.prideregion.flashpoints.layout.DungeonGenerator;
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
+import com.prideregion.flashpoints.encounter.BossProgress;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -64,6 +65,7 @@ public final class PrideFlashpointMod implements ModInitializer {
                         .then(CommandManager.argument("room",IntegerArgumentType.integer(0,15))
                             .executes(ctx -> feedback(ctx.getSource(),JOBS.testSpawn(
                                 ctx.getSource(),IntegerArgumentType.getInteger(ctx,"room")))))))
+                .then(bossCommands())
                 .then(orphanCommands())
                 .then(CommandManager.literal("status").executes(ctx -> feedback(ctx.getSource(),JOBS.status())))
                 .then(CommandManager.literal("cancel").executes(ctx -> feedback(ctx.getSource(),JOBS.cancel())))
@@ -71,7 +73,30 @@ public final class PrideFlashpointMod implements ModInitializer {
                     .executes(ctx -> feedback(ctx.getSource(),JOBS.clear(ctx.getSource().getWorld()))))
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
-        LOGGER.info("Pride Flashpoint v0.3 loaded: automatic staging chunk readiness and encounter test framework.");
+        LOGGER.info("Pride Flashpoint v0.3.2 loaded: persistent boss simulation state machine (no native capture events).");
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> bossCommands() {
+        LiteralArgumentBuilder<ServerCommandSource> boss=CommandManager.literal("boss");
+        boss.then(CommandManager.literal("status")
+            .executes(ctx->feedback(ctx.getSource(),
+                JOBS.bossStatus(ctx.getSource().getWorld()))));
+        LiteralArgumentBuilder<ServerCommandSource> simulation=CommandManager.literal("simulate");
+        for(var action: BossProgress.Action.values()) {
+            simulation.then(CommandManager.literal(action.name().toLowerCase(java.util.Locale.ROOT))
+                .executes(ctx->simulateBoss(ctx.getSource(),action)));
+        }
+        boss.then(simulation);
+        boss.then(CommandManager.literal("reset")
+            .executes(ctx->feedback(ctx.getSource(),
+                JOBS.resetBoss(ctx.getSource().getWorld()))));
+        return boss;
+    }
+
+    private static int simulateBoss(ServerCommandSource source,BossProgress.Action action) {
+        ServerPlayerEntity player=source.getPlayer();
+        if(player==null)return feedback(source,"Boss simulation requires an in-game operator.");
+        return feedback(source,JOBS.simulateBoss(source.getWorld(),player.getUuid(),action));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> orphanCommands() {

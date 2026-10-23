@@ -3,6 +3,8 @@ package com.prideregion.flashpoints;
 import com.prideregion.flashpoints.layout.DungeonLayout;
 import com.prideregion.flashpoints.encounter.DungeonEncounterPlan;
 import com.prideregion.flashpoints.encounter.EncounterLedger;
+import com.prideregion.flashpoints.encounter.BossProgress;
+import com.prideregion.flashpoints.encounter.BossProgressJournal;
 import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.math.Box;
@@ -34,6 +36,9 @@ public final class StagingJobManager {
     private Path entityLedgerPath;
     private EncounterLedger.Snapshot entityLedger;
     private String entityLedgerError;
+    private Path bossJournalPath;
+    private BossProgress.Snapshot bossProgress;
+    private String bossJournalError;
 
     private static final BlockState[] PALETTE={
         Blocks.AIR.getDefaultState(), Blocks.DEEPSLATE_BRICKS.getDefaultState(),
@@ -48,6 +53,14 @@ public final class StagingJobManager {
     public void initialize() {
         journalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_active.bin");
         entityLedgerPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_entities.bin");
+        bossJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_boss.bin");
+        if(Files.exists(bossJournalPath)) {
+            try { bossProgress=BossProgressJournal.load(bossJournalPath); }
+            catch(IOException ex) {
+                bossJournalError=ex.getMessage();
+                PrideFlashpointMod.LOGGER.error("Boss simulation journal invalid; refusing state writes",ex);
+            }
+        }
         if(Files.exists(entityLedgerPath)) {
             try { entityLedger=EncounterLedger.load(entityLedgerPath); }
             catch(IOException ex) {
@@ -94,6 +107,8 @@ public final class StagingJobManager {
         if(job!=null)return "Complete or clear previous staging job first: /pridefp clear";
         if(entityLedgerError!=null || entityLedger!=null && !entityLedger.bindings().isEmpty())
             return "Encounter Pokémon UUIDs are still tracked. Review /pridefp encounter tracked before starting another dungeon.";
+        if(bossJournalError!=null || bossProgress!=null || bossJournalPath!=null && Files.exists(bossJournalPath))
+            return "Previous boss simulation ledger exists; after clearing the old dungeon use /pridefp boss reset.";
         if(!config.enabled())return "Disabled: config/pride_flashpoint_dev.properties enabled=false";
         if(config.dimension().equals("pride:staging_unconfigured"))
             return "Configure allowed_dimension to the exact test world dimension identifier.";
@@ -327,6 +342,89 @@ public final class StagingJobManager {
         } catch(IOException | IllegalArgumentException ex) {
             PrideFlashpointMod.LOGGER.error("Encounter ledger change failed",ex);
             return "Failed to save association change. Original ledger preserved.";
+        }
+    }
+
+    /**
+     * A STRICTLY MANUAL and operator-only staging simulation.
+     * This never infers capture/defeat from Pokémon disappearing, never grants
+     * rewards and never reads or changes a player's Pokémon storage.
+     */
+    public String simulateBoss(ServerWorld world,UUID operator,BossProgress.Action action) {
+        reloadRecoveryIfNecessary();
+        if(bossJournalError!=null || bossJournalPath==null)
+            return "Boss state journal is unavailable or damaged. Preserve it and inspect logs.";
+        DevConfig config;
+        try { config=DevConfig.load(); }
+        catch(IOException ex) { return "Cannot read test-world staging config."; }
+        String dim=world.getRegistryKey().getValue().toString();
+        if(!config.enabled() || !config.testEncounters() || !config.dimension().equals(dim) ||
+            dim.equals("minecraft:overworld") || dim.equals("minecraft:the_nether") ||
+            dim.equals("minecraft:the_end"))
+            return "Boss simulation requires enable_test_encounters=true in the allowed disposable world.";
+        EncounterLedger.Key key=dungeonKey();
+        if(key==null || journalPath==null || !Files.exists(journalPath))
+            return "A persistent generated dungeon is required; no journal found.";
+        if(!key.dimension().equals(dim))
+            return "This boss belongs to another test dimension: "+key.dimension();
+        DungeonLayout layout=job!=null ? job.layout : recovery.layout();
+        if(layout.width()!=188 || layout.length()!=164 || layout.height()!=14)
+            return "Boss simulation supports completed Standard dungeons only.";
+        if(job!=null && job.phase!=Phase.COMPLETE)
+            return "Wait for phase=COMPLETE before simulating a boss outcome.";
+        if(bossProgress!=null && !bossProgress.key().equals(key))
+            return "A boss state from a different dungeon exists. Never overwrite it.";
+        try {
+            BossProgress.Snapshot prior=bossProgress==null
+                ? BossProgress.initial(key,operator) : bossProgress;
+            BossProgress.Snapshot next=BossProgress.transition(
+                prior,action,operator,System.currentTimeMillis());
+            BossProgressJournal.save(bossJournalPath,next);
+            bossProgress=next;
+            return "[SIMULATED ONLY] Boss state="+next.stage()+" attempts="+next.attempts()+
+                " seed="+key.seed()+". No Cobblemon battle/capture event was detected; "+
+                "no rewards, Pokémon or dungeon blocks changed.";
+        } catch(IllegalStateException | IllegalArgumentException ex) {
+            return "Boss simulation rejected: "+ex.getMessage();
+        } catch(IOException ex) {
+            PrideFlashpointMod.LOGGER.error("Cannot durably save boss simulation",ex);
+            return "Boss state save failed. No in-memory transition recorded; preserve the existing file.";
+        }
+    }
+
+    public String bossStatus(ServerWorld world) {
+        if(bossJournalError!=null)
+            return "CORRUPT boss simulation journal: "+bossJournalError+". No state modifications permitted.";
+        if(bossProgress==null)return "No boss simulation recorded. No real capture/defeat tracking installed.";
+        var key=bossProgress.key();
+        return "[SIMULATION ONLY] Boss "+bossProgress.stage()+" attempts="+bossProgress.attempts()+
+            " seed="+key.seed()+" dimension="+key.dimension()+" origin="+
+            key.x()+","+key.y()+","+key.z()+" last_operator="+bossProgress.operator()+
+            ". No rewards or native Cobblemon events.";
+    }
+
+    /** Remove only the simulator's own record, and only after block cleanup. */
+    public String resetBoss(ServerWorld world) {
+        reloadRecoveryIfNecessary();
+        if(bossJournalError!=null)return "Damaged boss journal; preserve it and inspect logs.";
+        if(bossProgress==null)return "No boss simulation journal to reset.";
+        String dim=world.getRegistryKey().getValue().toString();
+        if(!bossProgress.key().dimension().equals(dim))
+            return "Boss simulation belongs to "+bossProgress.key().dimension();
+        DevConfig config;
+        try { config=DevConfig.load(); }
+        catch(IOException ex) { return "Cannot read staging config."; }
+        if(!config.enabled() || !config.testEncounters() || !config.dimension().equals(dim))
+            return "Boss reset is restricted to the opted-in disposable staging dimension.";
+        if(job!=null || recovery!=null || journalPath!=null && Files.exists(journalPath))
+            return "Cannot reset boss record while a dungeon journal/job is active. Clear dungeon first.";
+        try {
+            Files.delete(bossJournalPath);
+            bossProgress=null;
+            return "Removed boss SIMULATION journal only. No Pokémon, blocks or rewards changed.";
+        } catch(IOException ex) {
+            PrideFlashpointMod.LOGGER.error("Cannot reset boss simulation journal",ex);
+            return "Boss simulation journal could not be removed; preserve it.";
         }
     }
 
