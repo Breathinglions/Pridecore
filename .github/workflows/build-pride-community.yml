@@ -31,6 +31,9 @@ jobs:
       - name: Persistent leaderboard tests
         working-directory: modules/community
         run: bash qa/run_leaderboard_tests.sh
+      - name: Audit chat badges and Spawn Notification localization
+        working-directory: modules/community
+        run: python3 qa/audit_resource_pack.py
       - name: Compile Fabric mod against Impactor 5.3.5 and LuckPerms API
         working-directory: modules/community
         run: gradle --no-daemon clean build
