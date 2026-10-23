@@ -36,7 +36,7 @@ If the existing Standard dungeon and its recovery journal are still present, `/p
 /pridefp status
 /pridefp boss status
 /pridefp boss simulate start
-/pridefp boss simulate captured
+/pridefp boss simulate capture
 /pridefp boss status
 ```
 
@@ -53,7 +53,7 @@ To test wipe/retry instead, use a fresh boss simulation record in a separate tes
 
 **Restart test:** With the simulation ledger still present, restart the server and run `/pridefp boss status`; it should report the same saved state. The server must also preserve any active dungeon recovery journal.
 
-`/pridefp boss simulate captured` cannot be repeated after a terminal outcome. No rewards are issued, and no Pokémon will be changed. Capturing actual wild Pokémon still uses ordinary Cobblemon gameplay.
+`/pridefp boss simulate capture` cannot be repeated after a terminal outcome. No rewards are issued, and no Pokémon will be changed. Capturing actual wild Pokémon still uses ordinary Cobblemon gameplay.
 
 After resolving any tracked Pokémon and clearing the dungeon blocks with `/pridefp clear` (verify the journal is removed), you may run:
 
