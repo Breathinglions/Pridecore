@@ -14,6 +14,8 @@ javac --release 21 -d build/standalone-tests \
   src/main/java/com/prideregion/flashpoints/encounter/BattleOutcomeRules.java \
   src/main/java/com/prideregion/flashpoints/encounter/NativeBattleProgress.java \
   src/main/java/com/prideregion/flashpoints/encounter/NativeBattleJournal.java \
+  src/main/java/com/prideregion/flashpoints/encounter/ActionBossState.java \
+  src/main/java/com/prideregion/flashpoints/encounter/ActionBossJournal.java \
   src/main/java/com/prideregion/flashpoints/StagingJournal.java \
   src/test/java/com/prideregion/flashpoints/layout/DungeonGeneratorTest.java \
   src/test/java/com/prideregion/flashpoints/layout/StandardDungeonGeneratorTest.java \
@@ -22,6 +24,7 @@ javac --release 21 -d build/standalone-tests \
   src/test/java/com/prideregion/flashpoints/encounter/BossProgressTest.java \
   src/test/java/com/prideregion/flashpoints/encounter/NativeCaptureJournalTest.java \
   src/test/java/com/prideregion/flashpoints/encounter/NativeBattleTest.java \
+  src/test/java/com/prideregion/flashpoints/encounter/ActionBossTest.java \
   src/test/java/com/prideregion/flashpoints/StagingJournalTest.java
 java -ea -cp build/standalone-tests com.prideregion.flashpoints.layout.DungeonGeneratorTest
 java -ea -cp build/standalone-tests com.prideregion.flashpoints.layout.StandardDungeonGeneratorTest
@@ -31,3 +34,4 @@ java -ea -cp build/standalone-tests com.prideregion.flashpoints.encounter.Encoun
 java -ea -cp build/standalone-tests com.prideregion.flashpoints.encounter.BossProgressTest
 java -ea -cp build/standalone-tests com.prideregion.flashpoints.encounter.NativeCaptureJournalTest
 java -ea -cp build/standalone-tests com.prideregion.flashpoints.encounter.NativeBattleTest
+java -ea -cp build/standalone-tests com.prideregion.flashpoints.encounter.ActionBossTest

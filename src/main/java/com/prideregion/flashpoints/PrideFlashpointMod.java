@@ -11,6 +11,9 @@ import com.prideregion.flashpoints.layout.StandardDungeonGenerator;
 import com.prideregion.flashpoints.encounter.BossProgress;
 import com.prideregion.flashpoints.encounter.NativeCaptureBridge;
 import com.prideregion.flashpoints.encounter.NativeBattleBridge;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.util.ActionResult;
+import net.minecraft.server.world.ServerWorld;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -80,11 +83,19 @@ public final class PrideFlashpointMod implements ModInitializer {
             ));
         ServerTickEvents.END_SERVER_TICK.register(JOBS::tick);
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            NativeCaptureBridge.install(server,(pokemonId,playerId) ->
-                JOBS.onRealPokemonCaptured(server,pokemonId,playerId));
+            NativeCaptureBridge.install(server,(pokemonId,playerId) -> {
+                JOBS.onRealPokemonCaptured(server,pokemonId,playerId);
+                JOBS.onActionBossCaptured(server,pokemonId,playerId);
+            });
             NativeBattleBridge.install(server,event -> JOBS.onNativeBattleVictory(server,event));
         });
-        LOGGER.info("Pride Flashpoint v0.3.4 loaded: Cobblemon 1.8.1 exact-UUID capture and battle victory event tests.");
+        AttackEntityCallback.EVENT.register((player,world,hand,target,hit) -> {
+            if(!(world instanceof ServerWorld) || !(player instanceof ServerPlayerEntity serverPlayer))
+                return ActionResult.PASS;
+            return JOBS.consumeActionMelee(serverPlayer,target)
+                ? ActionResult.SUCCESS : ActionResult.PASS;
+        });
+        LOGGER.info("Pride Flashpoint v0.4.0 loaded: opt-in nonlethal sword/axe boss action meter; capture and battle integrations preserved.");
     }
 
     /** Inspect the actual installed Cobblemon API version without linking its classes. */
@@ -109,6 +120,15 @@ public final class PrideFlashpointMod implements ModInitializer {
                 .executes(ctx->simulateBoss(ctx.getSource(),action)));
         }
         boss.then(simulation);
+        boss.then(CommandManager.literal("action")
+            .then(CommandManager.literal("arm")
+                .executes(ctx->feedback(ctx.getSource(),JOBS.armActionBoss(ctx.getSource()))))
+            .then(CommandManager.literal("status")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.actionBossStatus(ctx.getSource().getWorld()))))
+            .then(CommandManager.literal("reset")
+                .executes(ctx->feedback(ctx.getSource(),
+                    JOBS.resetActionBoss(ctx.getSource().getWorld())))));
         boss.then(CommandManager.literal("battle")
             .then(CommandManager.literal("status")
                 .executes(ctx->feedback(ctx.getSource(),

@@ -85,3 +85,28 @@ assert 'if(battleRecord!=null && battleRecord.stage()==NativeBattleProgress.Stag
 assert 'CommandManager.literal("battle")' in mod
 assert 'NativeBattleBridge.install(server,event -> JOBS.onNativeBattleVictory(server,event))' in mod
 print("PASS: native battle-victory exact boss+player validation, wild-capture exclusion and durable outcome")
+
+
+# v0.4.0 ACTION melee prototype: staging opt-in + real capture closure only.
+action=Path("src/main/java/com/prideregion/flashpoints/encounter/ActionBossState.java").read_text()
+journal=Path("src/main/java/com/prideregion/flashpoints/encounter/ActionBossJournal.java").read_text()
+config=Path("src/main/java/com/prideregion/flashpoints/DevConfig.java").read_text()
+assert 'props.setProperty("enable_action_combat","false");' in config
+assert 'public static boolean actionCombatEnabled()' in config
+assert 'if(!DevConfig.actionCombatEnabled())' in src
+assert 'AttackEntityCallback.EVENT.register' in mod
+assert 'JOBS.consumeActionMelee(serverPlayer,target)' in mod
+assert 'ActionResult.SUCCESS : ActionResult.PASS' in mod
+assert 'public boolean consumeActionMelee(ServerPlayerEntity player,Entity target)' in src
+assert 'a.pokemon().equals(pokemonId)' in src
+assert 'a.operator().equals(player.getUuid())' in src
+assert 'item instanceof AxeItem?12:item instanceof SwordItem?9:0' in src
+assert 'ActionBossJournal.save(actionJournalPath,next)' in src
+assert 'Math.max(threshold(maxHp),hp-damage)' in action
+assert 'phase!=Phase.WEAKENED' in action
+assert 'onActionBossCaptured(MinecraftServer server,UUID pokemon,UUID player)' in src
+assert 'JOBS.onActionBossCaptured(server,pokemonId,playerId)' in mod
+assert 'if(actionRecord!=null && actionRecord.phase()!=ActionBossState.Phase.CAPTURED)' in src
+assert 'CRC32' in journal and 'StandardCopyOption.ATOMIC_MOVE' in journal
+assert 'CommandManager.literal("action")' in mod
+print("PASS: staging-only exact-UUID melee interception, nonlethal 20% gate and native capture journaling")

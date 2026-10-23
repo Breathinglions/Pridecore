@@ -11,6 +11,10 @@ import com.prideregion.flashpoints.encounter.NativeBattleBridge;
 import com.prideregion.flashpoints.encounter.NativeBattleProgress;
 import com.prideregion.flashpoints.encounter.NativeBattleJournal;
 import com.prideregion.flashpoints.encounter.BattleOutcomeRules;
+import com.prideregion.flashpoints.encounter.ActionBossState;
+import com.prideregion.flashpoints.encounter.ActionBossJournal;
+import net.minecraft.item.SwordItem;
+import net.minecraft.item.AxeItem;
 import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.math.Box;
@@ -51,6 +55,10 @@ public final class StagingJobManager {
     private Path battleJournalPath;
     private NativeBattleProgress.Snapshot battleRecord;
     private String battleJournalError;
+    private Path actionJournalPath;
+    private ActionBossState.Snapshot actionRecord;
+    private String actionJournalError;
+    private long lastActionHitTick=Long.MIN_VALUE;
 
     private static final BlockState[] PALETTE={
         Blocks.AIR.getDefaultState(), Blocks.DEEPSLATE_BRICKS.getDefaultState(),
@@ -68,6 +76,14 @@ public final class StagingJobManager {
         bossJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_boss.bin");
         captureJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_capture.bin");
         battleJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_native_battle.bin");
+        actionJournalPath=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_action.bin");
+        if(Files.exists(actionJournalPath)) {
+            try { actionRecord=ActionBossJournal.load(actionJournalPath); }
+            catch(IOException ex) {
+                actionJournalError=ex.getMessage();
+                PrideFlashpointMod.LOGGER.error("ACTION combat journal unreadable; preserve file and stop",ex);
+            }
+        }
         if(Files.exists(battleJournalPath)) {
             try {battleRecord=NativeBattleJournal.load(battleJournalPath);}
             catch(IOException ex) {
@@ -141,6 +157,9 @@ public final class StagingJobManager {
             return "Native boss capture association remains; after safely ending the prior dungeon use /pridefp boss native reset.";
         if(battleJournalError!=null || battleRecord!=null || battleJournalPath!=null && Files.exists(battleJournalPath))
             return "Native battle record remains; after cleanup run /pridefp boss battle reset.";
+        if(actionJournalError!=null || actionRecord!=null ||
+            actionJournalPath!=null && Files.exists(actionJournalPath))
+            return "Action combat record remains; clear resolved dungeon then /pridefp boss action reset.";
         if(!config.enabled())return "Disabled: config/pride_flashpoint_dev.properties enabled=false";
         if(config.dimension().equals("pride:staging_unconfigured"))
             return "Configure allowed_dimension to the exact test world dimension identifier.";
@@ -679,6 +698,195 @@ public final class StagingJobManager {
         }
     }
 
+    /** Opt-in staged registration of one exact wild boss for weapon combat. */
+    public String armActionBoss(ServerCommandSource source) {
+        reloadRecoveryIfNecessary();
+        if(actionJournalError!=null || actionJournalPath==null)
+            return "ACTION combat journal unavailable or damaged; preserve files.";
+        if(actionRecord!=null || Files.exists(actionJournalPath))
+            return "An ACTION boss is already tracked. Use /pridefp boss action status.";
+        if(!NativeCaptureBridge.active())
+            return "Cobblemon native capture listener must be available first: "+NativeCaptureBridge.status();
+        if(battleJournalError!=null || battleRecord!=null ||
+           captureJournalError!=null || captureRecord!=null ||
+           bossJournalError!=null || bossProgress!=null ||
+           entityLedgerError!=null || entityLedger!=null && !entityLedger.bindings().isEmpty())
+            return "Other boss/encounter journals exist. Resolve and reset previous tests first.";
+        DevConfig config;
+        try {config=DevConfig.load();}
+        catch(IOException ex){return "Cannot read staging config.";}
+        String dim=source.getWorld().getRegistryKey().getValue().toString();
+        try {
+            if(!DevConfig.actionCombatEnabled())
+                return "Action combat is OFF. Add enable_action_combat=true in the staging properties.";
+        }catch(IOException ex){return "Cannot read action combat opt-in.";}
+        if(!config.enabled() || !config.testEncounters() || !config.dimension().equals(dim) ||
+            dim.equals("minecraft:overworld") || dim.equals("minecraft:the_nether") ||
+            dim.equals("minecraft:the_end"))
+            return "ACTION combat requires opted-in disposable staging world.";
+        EncounterLedger.Key key=dungeonKey();
+        if(key==null || !dim.equals(key.dimension()) ||
+            journalPath==null || !Files.exists(journalPath))
+            return "A generated Standard dungeon with intact journal is required.";
+        if(job!=null && job.phase!=Phase.COMPLETE)
+            return "Wait for Standard dungeon phase=COMPLETE.";
+        DungeonLayout layout=job!=null?job.layout:recovery.layout();
+        if(layout.width()!=188 || layout.length()!=164 || layout.height()!=14)
+            return "Only the Standard 16-room boss arena is supported.";
+        var room=DungeonEncounterPlan.standard(key.seed(),layout).room(11);
+        int x=key.x()+room.localX(),y=key.y()+1,z=key.z()+room.localZ();
+        Box area=new Box(x-8,y-3,z-8,x+9,y+7,z+9);
+        List<Entity> candidates=source.getWorld().getEntitiesByClass(Entity.class,area,
+            entity->entity.isAlive() && "cobblemon:pokemon".equals(
+                Registries.ENTITY_TYPE.getId(entity.getType()).toString()));
+        if(candidates.size()!=1)
+            return "Action boss arm refused: expected exactly one live Pokémon in room 11, found "+
+                candidates.size();
+        UUID pokemonId;
+        try {
+            Object pokemon=candidates.get(0).getClass().getMethod("getPokemon").invoke(candidates.get(0));
+            Object id=pokemon.getClass().getMethod("getUuid").invoke(pokemon);
+            Object species=pokemon.getClass().getMethod("getSpecies").invoke(pokemon);
+            Object name=species.getClass().getMethod("getName").invoke(species);
+            Object level=pokemon.getClass().getMethod("getLevel").invoke(pokemon);
+            if(!(id instanceof UUID uuid) || !(name instanceof String actual) ||
+                !(level instanceof Integer actualLevel))
+                throw new IllegalStateException("Cobblemon identity metadata unavailable");
+            if(!actual.equalsIgnoreCase(room.species()) || actualLevel!=room.level())
+                return "Wrong boss Pokémon. Expected "+room.species()+" lv"+room.level()+
+                    ", found "+actual+" lv"+actualLevel;
+            pokemonId=uuid;
+        }catch(ReflectiveOperationException | RuntimeException ex){
+            PrideFlashpointMod.LOGGER.error("Action combat boss identity read failed",ex);
+            return "Unable to validate boss identity. No ACTION combat armed.";
+        }
+        ServerPlayerEntity player=source.getPlayer();
+        if(player==null)return "An in-game operator must arm this test.";
+        try {
+            var next=ActionBossState.arm(key,pokemonId,player.getUuid(),System.currentTimeMillis());
+            ActionBossJournal.save(actionJournalPath,next);
+            actionRecord=next;lastActionHitTick=Long.MIN_VALUE;
+            return "[ACTION BOSS ACTIVE] "+room.species()+" level "+room.level()+
+                " HP 300/300. Sword/axe hits now reduce the custom meter (not Cobblemon HP). "+
+                "At 20%, the same player can capture it with a real Poké Ball.";
+        }catch(IOException ex){
+            PrideFlashpointMod.LOGGER.error("Cannot save ACTION combat journal",ex);
+            return "ACTION boss arm failed; no combat record installed.";
+        }
+    }
+
+    public String actionBossStatus(ServerWorld world) {
+        if(actionJournalError!=null)
+            return "CORRUPT ACTION combat journal: "+actionJournalError+". Preserve file.";
+        if(actionRecord==null)return "No ACTION boss registered.";
+        var a=actionRecord;
+        return "[ACTION BOSS "+a.phase()+"] HP="+a.hp()+"/"+a.maxHp()+
+            " hits="+a.hits()+" seed="+a.dungeon().seed()+
+            " dimension="+a.dungeon().dimension()+" origin="+
+            a.dungeon().x()+","+a.dungeon().y()+","+a.dungeon().z()+
+            " PokemonUUID="+a.pokemon()+" player="+a.operator()+
+            (a.capturedBy()==null?"":" capturedBy="+a.capturedBy())+
+            ". Actual Cobblemon HP unchanged by our melee meter; rewards OFF.";
+    }
+
+    /**
+     * Called from Fabric's AttackEntityCallback. Return true ONLY when this
+     * registered wild Pokémon's vanilla melee attack must be cancelled.
+     * We consume attacks even from unregistered players and after weakening,
+     * protecting the staged entity from accidental sword/axe death.
+     */
+    public boolean consumeActionMelee(ServerPlayerEntity player,Entity target) {
+        var a=actionRecord;
+        if(a==null || actionJournalError!=null)return false;
+        if(!a.dungeon().dimension().equals(player.getServerWorld().getRegistryKey().getValue().toString()))
+            return false;
+        if(!"cobblemon:pokemon".equals(Registries.ENTITY_TYPE.getId(target.getType()).toString()))
+            return false;
+        UUID pokemonId;
+        try {
+            Object pokemon=target.getClass().getMethod("getPokemon").invoke(target);
+            Object id=pokemon.getClass().getMethod("getUuid").invoke(pokemon);
+            if(!(id instanceof UUID uuid))return false;
+            pokemonId=uuid;
+        }catch(ReflectiveOperationException | RuntimeException ex){
+            PrideFlashpointMod.LOGGER.error("Unable to identify attacked Cobblemon entity",ex);
+            return false;
+        }
+        if(!a.pokemon().equals(pokemonId))return false;
+        // The registered boss is protected regardless of another player's hits.
+        if(a.phase()!=ActionBossState.Phase.ACTIVE)return true;
+        if(!a.operator().equals(player.getUuid()))return true;
+        long tick=player.getServerWorld().getTime();
+        if(lastActionHitTick!=Long.MIN_VALUE && tick-lastActionHitTick<10)return true;
+        if(player.squaredDistanceTo(target)>25.0)return true;
+        int x=a.dungeon().x()+161,y=a.dungeon().y()+1,z=a.dungeon().z()+99;
+        if(target.squaredDistanceTo(x+0.5,y,z+0.5)>24*24)return true;
+        var item=player.getMainHandStack().getItem();
+        int amount=item instanceof AxeItem?12:item instanceof SwordItem?9:0;
+        if(amount==0)return true;
+        if(player.getAttackCooldownProgress(0f)<0.9f)return true;
+        try {
+            var next=a.hit(amount,System.currentTimeMillis());
+            ActionBossJournal.save(actionJournalPath,next);
+            actionRecord=next;
+            lastActionHitTick=tick;
+            player.sendMessage(Text.literal("[PRIDE FP ACTION] Boss HP "+
+                next.hp()+"/"+next.maxHp()+(next.phase()==ActionBossState.Phase.WEAKENED
+                    ?" — WEAKENED! Throw a Poké Ball to attempt capture.":"")),true);
+        }catch(IOException | RuntimeException ex){
+            PrideFlashpointMod.LOGGER.error("ACTION combat meter could not be saved; hit cancelled",ex);
+            player.sendMessage(Text.literal("[PRIDE FP ACTION] Save failed; no damage credited."),true);
+        }
+        return true;
+    }
+
+    /** An actual native capture event is the ONLY automatic capture completion. */
+    public void onActionBossCaptured(MinecraftServer server,UUID pokemon,UUID player) {
+        var a=actionRecord;
+        if(a==null || a.phase()!=ActionBossState.Phase.WEAKENED)return;
+        if(!a.pokemon().equals(pokemon) || !a.operator().equals(player))return;
+        if(journalPath==null || !Files.exists(journalPath))return;
+        try {
+            var next=a.capture(pokemon,player,System.currentTimeMillis());
+            ActionBossJournal.save(actionJournalPath,next);
+            actionRecord=next;
+            var participant=server.getPlayerManager().getPlayer(player);
+            if(participant!=null)participant.sendMessage(Text.literal(
+                "[PRIDE FP ACTION] Real boss capture CONFIRMED. "+
+                "Your Pokémon is yours; rewards and dungeon cleanup remain manual."),false);
+            PrideFlashpointMod.LOGGER.info("ACTION boss capture confirmed for exact pokemon {}",pokemon);
+        }catch(IOException | RuntimeException ex){
+            PrideFlashpointMod.LOGGER.error("Real ACTION capture event matched but progress save failed",ex);
+        }
+    }
+
+    /** Only after a captured boss's dungeon blocks/journal are fully cleared. */
+    public String resetActionBoss(ServerWorld world) {
+        reloadRecoveryIfNecessary();
+        if(actionJournalError!=null)return "Damaged action record, preserve the file.";
+        if(actionRecord==null)return "No ACTION boss to reset.";
+        var a=actionRecord;
+        String dim=world.getRegistryKey().getValue().toString();
+        DevConfig config;
+        try{config=DevConfig.load();}
+        catch(IOException ex){return "Unable to read staging config.";}
+        if(!config.enabled() || !config.testEncounters() || !config.dimension().equals(dim) ||
+            !a.dungeon().dimension().equals(dim))
+            return "ACTION reset permitted only in the original opted-in test dimension.";
+        if(a.phase()!=ActionBossState.Phase.CAPTURED)
+            return "ACTION boss still "+a.phase()+". Cannot reset a live wild boss.";
+        if(job!=null || recovery!=null || journalPath!=null && Files.exists(journalPath))
+            return "Finish and verify /pridefp clear before resetting the captured boss record.";
+        try {
+            Files.delete(actionJournalPath);
+            actionRecord=null;
+            return "Only captured ACTION combat record removed. No captured Pokémon modified.";
+        }catch(IOException ex) {
+            PrideFlashpointMod.LOGGER.error("ACTION boss journal reset failed",ex);
+            return "ACTION reset failed. Original file preserved.";
+        }
+    }
+
     public String nativeCaptureStatus(ServerWorld world) {
         if(captureJournalError!=null)return "CORRUPT native capture ledger: "+
             captureJournalError+". Do not remove the file.";
@@ -808,6 +1016,11 @@ public final class StagingJobManager {
             return "Damaged native battle ledger; refusing cleanup until diagnosed.";
         if(battleRecord!=null && battleRecord.stage()==NativeBattleProgress.Stage.ARMED)
             return "Exact boss Pokémon ARMED for native battle. Resolve combat before clearing.";
+        if(actionJournalError!=null)
+            return "Corrupted ACTION combat record. Cannot clear until diagnosed; original journal preserved.";
+        if(actionRecord!=null && actionRecord.phase()!=ActionBossState.Phase.CAPTURED)
+            return "ACTION boss still "+actionRecord.phase()+
+                "; cleanup blocked until the exact Pokémon is captured and the record says CAPTURED.";
         if(entityLedgerError!=null ||
             entityLedger!=null && entityLedger.key().equals(dungeonKey()) &&
             !entityLedger.bindings().isEmpty())

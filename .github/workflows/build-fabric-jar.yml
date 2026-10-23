@@ -31,13 +31,13 @@ jobs:
         run: gradle --no-daemon clean build
       - name: Check JAR entrypoint
         run: |
-          test -s build/libs/pride-flashpoint-procedural-0.3.4.jar
-          jar tf build/libs/pride-flashpoint-procedural-0.3.4.jar | grep -Fx 'fabric.mod.json'
-          jar tf build/libs/pride-flashpoint-procedural-0.3.4.jar | grep -Fx 'com/prideregion/flashpoints/PrideFlashpointMod.class'
-          jar tf build/libs/pride-flashpoint-procedural-0.3.4.jar | grep -Fx 'com/prideregion/flashpoints/StagingJournal.class'
+          test -s build/libs/pride-flashpoint-procedural-0.4.0.jar
+          jar tf build/libs/pride-flashpoint-procedural-0.4.0.jar | grep -Fx 'fabric.mod.json'
+          jar tf build/libs/pride-flashpoint-procedural-0.4.0.jar | grep -Fx 'com/prideregion/flashpoints/PrideFlashpointMod.class'
+          jar tf build/libs/pride-flashpoint-procedural-0.4.0.jar | grep -Fx 'com/prideregion/flashpoints/StagingJournal.class'
       - name: Upload installable Fabric mod
         uses: actions/upload-artifact@v4
         with:
-          name: PrideFlashpoint-Fabric-1.21.1-v0.3.4-JAR
-          path: build/libs/pride-flashpoint-procedural-0.3.4.jar
+          name: PrideFlashpoint-Fabric-1.21.1-v0.4.0-JAR
+          path: build/libs/pride-flashpoint-procedural-0.4.0.jar
           if-no-files-found: error

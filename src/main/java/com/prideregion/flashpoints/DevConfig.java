@@ -17,6 +17,7 @@ public record DevConfig(boolean enabled,String dimension,int scanBudget,int writ
             props.setProperty("scan_budget_per_tick","3000");
             props.setProperty("write_budget_per_tick","250");
             props.setProperty("enable_test_encounters","false");
+            props.setProperty("enable_action_combat","false");
             try(OutputStream out=Files.newOutputStream(file)) { props.store(out,"Staging only; back up your world."); }
         }
         try(InputStream in=Files.newInputStream(file)) { props.load(in); }
@@ -26,6 +27,15 @@ public record DevConfig(boolean enabled,String dimension,int scanBudget,int writ
             bound(props.getProperty("write_budget_per_tick","250"),25,500),
             Boolean.parseBoolean(props.getProperty("enable_test_encounters","false")));
     }
+    /** Separate opt-in from normal Cobblemon encounter testing. */
+    public static boolean actionCombatEnabled() throws IOException {
+        Path file=FabricLoader.getInstance().getConfigDir().resolve("pride_flashpoint_dev.properties");
+        if(!Files.exists(file))return false;
+        Properties props=new Properties();
+        try(InputStream in=Files.newInputStream(file)){props.load(in);}
+        return Boolean.parseBoolean(props.getProperty("enable_action_combat","false"));
+    }
+
     private static int bound(String raw,int min,int max) {
         try { return Math.max(min,Math.min(max,Integer.parseInt(raw))); }
         catch(NumberFormatException ex) { return min; }
