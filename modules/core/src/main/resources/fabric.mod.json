@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "pride_core",
+  "version": "${version}",
+  "name": "Pride Core",
+  "description": "Isolated progression foundation. Does not migrate or modify existing quest, League, economy or legendary data.",
+  "authors": ["Pride Region"],
+  "environment": "server",
+  "entrypoints": {"main": ["com.prideregion.core.PrideCoreMod"]},
+  "depends": {
+    "fabricloader": ">=0.16.10",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {"cobblemon": "*", "luckperms": "*"}
+}
