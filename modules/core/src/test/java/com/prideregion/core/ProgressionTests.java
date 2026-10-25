@@ -83,8 +83,7 @@ public final class ProgressionTests {
         check(view.provenance("pride:trainer_registered").equals("pride-owned"),
             "Owned provenance correct");
         check(view.provenance("pride:missing").equals("absent"), "Missing provenance correct");
-        illegal(() -> view.owned().facts().add("pride:bad"), "immutable profile");
-        // This trailing test intentionally uses an alternative overload below.
+        unsupported(() -> view.owned().facts().add("pride:bad"));
 
         ioFailure(() -> store.save(ProfileState.empty(alice).withFact("pride:stale", true)));
         check(service.get(alice).equals(multi.profile()), "Stale revisions never overwrite");
@@ -116,7 +115,9 @@ public final class ProgressionTests {
             " checks for ownership, persistence, idempotency, atomicity, replay and corruption");
     }
 
-    private static void illegal(Throwing action, String message) throws Exception {
-        illegal(action);
+    private static void unsupported(Throwing action) throws Exception {
+        assertions++;
+        try { action.run(); throw new AssertionError("Expected UnsupportedOperationException"); }
+        catch (UnsupportedOperationException expected) { /* immutable profile */ }
     }
 }
