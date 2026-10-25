@@ -24,6 +24,46 @@ The tested player-facing rank/chat/nametag appearance is not equivalent to the q
 6. Central style-guide and asset versioning. Keep announcements compatible with existing Spawn Notification localization and forced Polymer pack until tested otherwise.
 7. Explicit, named adapters for community events. Quiz money payouts remain in Economy module; don't move transaction logic into Chat & Identity.
 
+## Modern chat design requirements — approved direction (2026-10-24)
+
+**Goal:** Pride Region chat must feel like a polished, unified modern multiplayer game interface, rather than default Minecraft chat with noisy prefixes. This is a quality requirement of Module 04, not an optional cosmetic afterthought. Preserve previously approved v0.3.1 compact genuine Poké Ball/rank sprite dimensions and glyph IDs unless user explicitly approves modifications.
+
+### Visual language
+
+- **Compact identity line:** existing Poké Ball/rank sprite + LuckPerms rank presentation + clear player name + restrained separator + naturally readable message. Consistent baseline spacing, glyph offsets, contrast, and line wrapping.
+- **Restraint:** primarily light-neutral chat text; colors reserved for rank accents and semantically distinct channels (world news, encounters, competitions, staff announcements). No rainbow gradients, repeated oversized headers, or arbitrary emojis.
+- **Branded event notices:** concise category indicator plus one-line message; multiline announcements only for genuinely important events. Honor different event severity and avoid overflowing the ordinary chat channel.
+- **Interactive identity when supported:** player-name hover information, optional click-to-message/safe suggestion actions and accessible text alternatives, without relying on trusted identity coming from player-authored text.
+- **Polish:** balanced punctuation, consistent capitalization, chat preview examples, minimal join/leave spam, flood control, user-configurable notification categories/muting where technically supported, and predictable fallbacks for missing assets.
+- **Announcement channels:** one shared renderer for story milestones, quiz/scramble, raid and world boss activity, special Pokémon spawns and community events. Deduplicate by stable event source/ID, with source-specific cooldown and relevance limits.
+- **Do not compromise signed chat:** preserve Minecraft 1.21.1 player message signing/secure-reporting behavior through supported Fabric chat hooks; never impersonate players through synthetic unsigned server messages. Third-party Styled Chat must have exactly one formatting owner.
+
+### Two rendering tiers
+
+1. **Server-only baseline (first release):** styled Minecraft Text components, existing sprite resource pack, LuckPerms rank data, sensible event hierarchy and consistent naming. Cannot rely on rich custom chat backgrounds or floating chat bubbles solely from ordinary server components.
+2. **Enhanced client HUD (later, opt-in companion where feasible):** improved message grouping, timestamps/muting controls, refined chat panel layout, opacity/animation, better wrapping and custom icon arrangement. Requires a real client-side mod and modpack compatibility tests, and must gracefully fall back to server-only formatting for players without it.
+
+### Representative layouts (text prototypes, NOT actual sprites)
+
+```text
+[existing sprite] Trainer Alex  ›  Anyone doing raids?
+[existing sprite] VIP     Nova  ›  Meet at Pride City!
+[RAID] A tier-five den is active near Thunder Mountain.
+[PRIDE] The weekly tournament registration has opened.
+```
+
+The above placeholders must be replaced by existing approved sprites rather than new plain-text rank tags; use compact consistent widths. The identity line should not redundantly display the rank twice if LuckPerms already supplies a full glyph prefix.
+
+### New module acceptance criteria
+
+- Before implementing, provide a style specification with mockups of ordinary chat, private messages, join/leave, six ranks, shiny/legendary/raid notices, quiz winner, server announcements and story objectives.
+- Compare in-game screenshots at 100% and 75% chat scales and on narrow client resolutions; contrast, wrapping and glyph alignments must remain legible.
+- Confirm single-message rendering with Styled Chat and other notification mods, with no duplicate join/leave or spawn alerts.
+- Confirm no permission/rank mismatch after LuckPerms updates, login/reconnect and restarts.
+- Test modpack/resource-pack disabled or outdated: legible fallback instead of placeholder boxes. Keep sprite asset pack SHA1/version control.
+- Verify server-only baseline with an unmodified client and optional enhanced HUD with the matching client mod; no forced client requirement until explicitly approved.
+- Document which screenshots are design mockups, which are runtime evidence, and which claims remain untested.
+
 ## Proposed internal API boundaries (not yet implemented)
 
 - `IdentityView`: read-only UUID → rank/prefix/display components.
