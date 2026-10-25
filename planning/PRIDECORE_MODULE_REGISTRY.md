@@ -8,7 +8,7 @@
 
 | ID | Module | Responsibility | Initial status / integration boundary |
 |----|--------|----------------|----------------------------------------|
-| 01 | **Foundation & Player Progression** (`foundation`) | UUID profiles, authoritative Pride-owned story facts, persistence, event plumbing, compatibility views, diagnostics. | v0.1 staging scaffold in `modules/core`. No tag import yet. |
+| 01 | **Foundation & Player Progression** (`foundation`) | UUID profiles, authoritative Pride-owned story facts, persistence, event plumbing, compatibility views, diagnostics. | v0.1.0-rc1 code-complete foundation in `modules/core`; GitHub CI and regression tests passed. **Staging in-game acceptance still required.** No tag import. |
 | 02 | **Story & NPCs** (`story_npc`) | Dialogue, player choices, chapter objectives, NPC interaction adapters, content reload, main campaign. | Planned. Existing NPC actors and datapacks retained until audited. |
 | 03 | **League Integration** (`league`) | Eight gyms, badge display and requirements, Elite Four/Champion, FTB Quests read adapter. | Existing League/FTB Quests remain authoritative. |
 | 04 | **Chat & Identity** (`chat_identity`) | LuckPerms-driven ranks, compact existing Poké Ball sprites, overhead nameplates, chat formatting, join/leave messages, announcements and notification presentation. | **Required consolidation module.** Preserve deployed LuckPerms + Styled Chat + Polymer resource pack and previously approved compact sprites. Migration pending source/runtime audit; *not* complete. |
