@@ -28,11 +28,12 @@ jobs:
         run: gradle --no-daemon clean build
       - name: Verify installable JAR
         run: |
-          test -s modules/core/build/libs/pride-core-0.1.0-alpha.1.jar
-          jar tf modules/core/build/libs/pride-core-0.1.0-alpha.1.jar | grep -Fx 'fabric.mod.json'
-          jar tf modules/core/build/libs/pride-core-0.1.0-alpha.1.jar | grep -Fx 'com/prideregion/core/PrideCoreMod.class'
+          test -s modules/core/build/libs/pride-core-0.1.0-rc1.jar
+          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'fabric.mod.json'
+          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'com/prideregion/core/PrideCoreMod.class'
+          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'com/prideregion/core/ProgressionService.class'
       - uses: actions/upload-artifact@v4
         with:
-          name: PrideCore-0.1.0-alpha.1-Fabric-1.21.1
-          path: modules/core/build/libs/pride-core-0.1.0-alpha.1.jar
+          name: PrideCore-Module01-0.1.0-rc1-Fabric-1.21.1
+          path: modules/core/build/libs/pride-core-0.1.0-rc1.jar
           if-no-files-found: error
