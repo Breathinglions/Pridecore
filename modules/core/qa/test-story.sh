@@ -10,6 +10,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/ProgressionView.java" \
  "$ROOT/src/main/java/com/prideregion/core/ProgressionService.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/LegacyOnboardingGate.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/NativeNpcIdentity.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDefinition.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java"
