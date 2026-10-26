@@ -26,10 +26,7 @@ jobs:
         working-directory: modules/core
         run: gradle --no-daemon clean build
       - name: Build and validate native Cobblemon NPC story overlay
-        run: |
-          python3 modules/core/campaign/build_native_overlay.py \\
-            --campaign modules/core/campaign/acts.json \\
-            --out modules/core/build/PrideStoryNative_0.3.0-rc1.zip
+        run: python3 modules/core/campaign/build_native_overlay.py --campaign modules/core/campaign/acts.json --out modules/core/build/PrideStoryNative_0.3.0-rc1.zip
       - name: Verify installable JAR and story assets
         run: |
           test -s modules/core/build/libs/pride-core-0.3.0-rc1.jar
