@@ -45,6 +45,10 @@ public final class StoryEngineTests {
         check(done.options().isEmpty() && done.revision()==1,"Single transaction applied");
         check(store.get(p).facts().contains("pride:met_mom"),"Story fact stored");
         check(store.get(p).storyStage().equals("pride:professor_visit"),"Stage stored");
+        check(engine.completedNpcs(p).contains("mom"),
+            "Completed NPC checkpoint can be projected to the player's advancement");
+        check(engine.completedNpcs(other).isEmpty(),
+            "One player's completed checkpoints never leak to another");
         check(engine.begin(p,"mom").text().equals("Be safe!"),"Repeat dialogue");
         rejected(() -> engine.choose(p,"yes"));
         check(engine.begin(p,"sequoia").text().contains("starter"),"Next character unlocked");
