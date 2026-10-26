@@ -2,6 +2,16 @@
 
 **STATUS: ENGINE RELEASE CANDIDATE — STAGING ONLY.** Module 01 is included as a dependency in this *single JAR*. Test Module 01 separately with v0.1.0-rc1 if desired, but **do not install both JARs simultaneously**: both use Fabric mod ID `pride_core`.
 
+## Module 02 scope clarification — full campaign, not a League NPC patch
+
+**The existing v7.10.10 League datapack is the *starting compatibility layer*, NOT the entire Pride Region storyline.** The ultimate Module 02 covers every original NPC, faction, chapter, side quest, location objective and the Resonance Crisis finale. The six-NPC RC represents only a temporary engine acceptance slice.
+
+Canonical production plan: [Complete Campaign Scope](../../planning/MODULE02_COMPLETE_CAMPAIGN_SCOPE.md).
+
+**No change in RC1 capability:** Java compilation, dialogue harness and basic story state do not establish real NPC GUI integration, starter/catch/battle/reward verification, campaign completeness, world build completeness, or League/FTB integration. Existing 24 NPC classes and services remain in the original datapack, with no replaced live content.
+
+Do not mark Module 02 fully implemented or retire legacy story content until the complete native NPC bridge, real objective types, story content and gameplay acceptance gates are passed. Keep Module 04 frozen.
+
 ## What is implemented
 
 - Validated JSON-driven character dialogue trees, choices and prerequisites.
