@@ -37,6 +37,25 @@
 - `/pridecore story admin talk <player> <npc-id>` — OP4 test harness to initiate NPC dialogue.
 - Module 01 original commands remain available unchanged.
 
+## Target NPC integration: **native Cobblemon NPCs**, not test villagers
+
+Confirmed from existing Pride Region NPC spawn documentation:
+- `/spawnnpc pride_region:professor_sequoia 1`
+- `/spawnnpc pride_region:technician_theo 1`
+- `/spawnnpc pride_region:avery 1`
+- Existing service NPCs likewise use native `/spawnnpc` classes; service dialogue calls `data/prideregion/function/npc_services/` wrappers.
+
+**Requirement for Module 02 completion:** retain the native Cobblemon NPC entities, appearances, facial portraits, multi-page choice-based GUI, world placement and datapack authoring model. The v0.2.0-rc1 chat output and `pride_npc_*` villager hook are temporary test harnesses **only**, not the desired player-facing NPC system.
+
+Planned adapter:
+1. Inspect existing in-use native NPC class JSON, dialogue JSON, MoLang and function callsites. Record exact owner of starter selection, registration, Avery kit and League/gym rewards.
+2. Bind native dialogue choices to specific permission-safe server-owned Pride Core story actions, with player UUID and validated NPC identity; do not rely on OP-only commands executed as a non-OP player's `q.player.run_command`. Choose a Cobblemon API callback or vetted datapack function entry point after inspecting available 1.8.1 hooks.
+3. When a native NPC opens, obtain the correct dialogue and owned state from Module 02 while preserving existing GUI/skin. When a choice completes, commit one atomic profile update via Module 01.
+4. Preserve already-tested starter/kit/League systems as the reward authorities. Existing legacy tags and active quest states must not be silently overwritten.
+5. Stage real NPC right-click tests, non-OP permissions, repeat/relog/restart, dialogue UI, no double rewards and side-by-side screenshots **before** retiring prior datapack entry points.
+
+CobblemonNPCs V4 may also be present on the server for trainer-related functionality, but the lab/service class commands documented above are from **Cobblemon's built-in NPC system**. Avoid conflating the two.
+
 ## Safety and known limits
 
 - **Current NPC integration is limited to explicitly tagged staging entities.** We have not inspected how the live NPC mod intercepts right-clicks. Tagging existing Sequoia/Theo/Avery NPCs could suppress their normal starter/registration/kit interaction, so do not do this until their adapters are verified.
