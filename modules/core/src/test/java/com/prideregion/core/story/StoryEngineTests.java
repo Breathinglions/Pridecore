@@ -100,6 +100,13 @@ public final class StoryEngineTests {
         tagsByPlayer.put(third, Set.of("starter_chosen"));
         rejected(() -> gatedEngine.choose(third,"proceed"));
         check(store.get(third).revision()==0, "Revoked prerequisite blocks late submission");
+        check(NativeNpcIdentity.tagFor("sequoia").equals("pride_npc_professor_sequoia"),
+            "Existing Sequoia NPC tag mapped");
+        check(NativeNpcIdentity.tagFor("avery").equals("pride_npc_avery"),
+            "Existing Avery NPC tag mapped");
+        check(NativeNpcIdentity.tagFor("mom").equals("pride_npc_mom"),
+            "New native NPC tag is predictable");
+        rejected(() -> NativeNpcIdentity.tagFor("../escape"));
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
