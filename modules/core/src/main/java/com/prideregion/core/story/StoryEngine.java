@@ -75,6 +75,56 @@ public final class StoryEngine {
         return reply(npc, npc.nodes().get(option.next()), change.profile(), legacyFor(playerId));
     }
 
+    /**
+     * Safe migration of verified *existing* onboarding success markers into our
+     * own story checkpoints. Invoked by native NPC actions and at player login.
+     * This DOES NOT select Pokémon, issue items, write tags or complete FTB Quests.
+     *
+     * No player can bypass Mom or skip a missing prerequisite. This deliberately
+     * handles only the three already-installed legacy onboarding services.
+     */
+    private record VerifiedStep(String npc, String choice, String legacyMarker,
+                                String stage) {}
+    private static final List<VerifiedStep> ONBOARDING = List.of(
+        new VerifiedStep("sequoia", "understood", "starter_chosen",
+                "pride:trainer_registration"),
+        new VerifiedStep("theo", "next", "trainer_card_received",
+                "pride:field_orientation"),
+        new VerifiedStep("avery", "journey", "trainer_guide_received",
+                "pride:route1_orientation")
+    );
+
+    public synchronized List<String> reconcileOnboarding(UUID playerId) throws IOException {
+        Set<String> verified = legacyFor(playerId); // read-only, per-player
+        List<String> advanced = new ArrayList<>();
+        for (VerifiedStep step : ONBOARDING) {
+            ProfileState p = progression.get(playerId);
+            var npc = story.npcs().get(step.npc());
+            if (npc == null) continue; // custom content can omit an NPC
+            if (p.facts().contains(npc.completedFact())) continue; // idempotent
+            if (!p.facts().containsAll(npc.requires())) break; // preserve Mom/sequence
+            if (!verified.contains(step.legacyMarker())) break; // legacy service incomplete
+
+            // Verify that configuration still represents the expected safe step.
+            var start = npc.nodes().get(npc.start());
+            if (start == null) throw new IllegalStateException("Onboarding node missing");
+            var option = start.options().stream()
+                .filter(o -> o.id().equals(step.choice())).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Onboarding action missing"));
+            if (!step.stage().equals(option.stage())
+                    || !option.grant().contains(npc.completedFact())
+                    || !verified.containsAll(option.requiresLegacy())
+                    || !p.facts().containsAll(option.requires())
+                    || !option.revoke().isEmpty())
+                throw new IllegalStateException("Onboarding definition changed; automatic sync refused");
+
+            var result = progression.transition(playerId, option.stage(),
+                    option.grant(), Set.of());
+            if (result.changed()) advanced.add(step.npc());
+        }
+        return List.copyOf(advanced);
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
