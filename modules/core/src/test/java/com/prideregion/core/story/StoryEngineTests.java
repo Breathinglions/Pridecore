@@ -182,11 +182,22 @@ public final class StoryEngineTests {
         actualMarkers.put(veteranWithTags,actualMarkers.get(newbie));
         check(reconcile.reconcileOnboarding(veteranWithTags).isEmpty(),
             "Veteran legacy tags do not magically begin the story");
-        store.grant(veteranWithTags,"pride:met_mom");
+        store.transition(veteranWithTags,"pride:visit_sequoia",
+            Set.of("pride:met_mom"),Set.of());
         check(reconcile.reconcileOnboarding(veteranWithTags)
                 .equals(List.of("sequoia","theo","avery")),
             "Old player with Mom already completed can reconcile entire lab sequence");
         check(store.get(newbie).revision()==4,"Other player reconciliation isolated");
+        UUID inconsistent = UUID.randomUUID();
+        store.transition(inconsistent,"pride:regional_finale",
+            Set.of("pride:met_mom"),Set.of());
+        actualMarkers.put(inconsistent,Set.of("sequoia_met","starter_chosen",
+            "trainer_card_received","trainer_guide_received"));
+        check(reconcile.reconcileOnboarding(inconsistent).isEmpty(),
+            "Legacy reconciliation never downgrades an advanced story stage");
+        check(store.get(inconsistent).storyStage().equals("pride:regional_finale"),
+            "Advanced story checkpoint must be preserved");
+
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
