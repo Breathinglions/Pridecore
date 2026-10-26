@@ -52,7 +52,7 @@ def dialogue(npc, name, greeting, detail, choice):
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument("--league-zip", required=True)
+    p.add_argument("--league-zip", default=None)
     p.add_argument("--campaign", default="modules/core/campaign/acts.json")
     p.add_argument("--out", required=True)
     args=p.parse_args()
@@ -62,7 +62,8 @@ def main():
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
        "description":"Pride Region Story v0.3.0-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
     original_hashes={}
-    with zipfile.ZipFile(args.league_zip) as original:
+    if args.league_zip is not None:
+        with zipfile.ZipFile(args.league_zip) as original:
         for npc,filename,choice,visible in [
             ("sequoia","professor_sequoia","understood","q.player.has_chosen_starter() == 1"),
             ("theo","technician_theo","next","q.player.data().pride_trainer_card_received == true"),
@@ -147,12 +148,13 @@ def main():
         assert z.testzip() is None
         assert len(z.namelist()) == len(generated)
         assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 24
-        assert all(x in z.namelist() for x in
-             ["data/pride_region/dialogues/professor_sequoia.json",
-              "data/pride_region/dialogues/technician_theo.json",
-              "data/pride_region/dialogues/avery.json"])
+        if args.league_zip:
+            assert all(x in z.namelist() for x in
+                 ["data/pride_region/dialogues/professor_sequoia.json",
+                  "data/pride_region/dialogues/technician_theo.json",
+                  "data/pride_region/dialogues/avery.json"])
     print(f"PASS: native Cobblemon story overlay: {len(opening)} new NPC classes, "
-          f"3 preserved lab dialogues, {len(generated)} files -> {dest}")
+          f"{len(original_hashes)} preserved lab dialogues, {len(generated)} files -> {dest}")
 
 if __name__ == "__main__":
     main()
