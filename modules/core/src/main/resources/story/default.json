@@ -69,6 +69,9 @@
               "stage": "pride:trainer_registration",
               "grant": [
                 "pride:met_sequoia"
+              ],
+              "requiresLegacy": [
+                "starter_chosen"
               ]
             }
           ]
@@ -100,6 +103,9 @@
               "stage": "pride:field_orientation",
               "grant": [
                 "pride:met_theo"
+              ],
+              "requiresLegacy": [
+                "trainer_card_received"
               ]
             }
           ]
@@ -131,6 +137,9 @@
               "stage": "pride:route1_orientation",
               "grant": [
                 "pride:met_avery"
+              ],
+              "requiresLegacy": [
+                "trainer_guide_received"
               ]
             }
           ]
@@ -162,6 +171,10 @@
               "stage": "pride:verdant_approach",
               "grant": [
                 "pride:route1_briefed"
+              ],
+              "requiresLegacy": [
+                "first_catch",
+                "first_battle_win"
               ]
             }
           ]
@@ -193,6 +206,9 @@
               "stage": "pride:verdant_gym_intro",
               "grant": [
                 "pride:met_thorn"
+              ],
+              "requiresLegacy": [
+                "league_started"
               ]
             }
           ]
