@@ -95,7 +95,10 @@ public final class StoryModule {
                     catch (FileAlreadyExistsException ignored) { }
                 }
             }
-            var loaded = new StoryEngine(StoryJson.load(file), service);
+            var loaded = new StoryEngine(StoryJson.load(file), service, playerId -> {
+                ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
+                return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
+            });
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
@@ -201,7 +204,10 @@ public final class StoryModule {
             var service = PrideCoreMod.progression(source.getServer())
                 .orElseThrow(() -> new IOException("Module 01 unavailable"));
             StoryDefinition def = StoryJson.load(storyFile());
-            StoryEngine next = new StoryEngine(def, service);
+            StoryEngine next = new StoryEngine(def, service, playerId -> {
+                ServerPlayerEntity player = source.getServer().getPlayerManager().getPlayer(playerId);
+                return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
+            });
             if (liveServer != source.getServer() || engine == null)
                 throw new IOException("Story module disabled; reload cannot enable it");
             engine = next; // old conversations discarded, player progress preserved.
