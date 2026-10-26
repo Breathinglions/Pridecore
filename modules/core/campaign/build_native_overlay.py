@@ -59,7 +59,7 @@ def main():
     assert len(campaign["npc"]) == 21, "Unexpected campaign NPC count"
     generated={}
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
-       "description":"Pride Region Story v0.3.2-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
+       "description":"Pride Region Story v0.3.3-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
     original_hashes={}
     if args.league_zip is not None:
         with zipfile.ZipFile(args.league_zip) as original:
@@ -141,7 +141,7 @@ def main():
     ).encode("utf-8")
     generated["PRIDE_STORY_README.txt"]=(
        "Module 02 staging story overlay for exact PokemonLeague7.10.10.\n"
-       "Requires Pride Core v0.3.2-rc1 and existing v7.10.10 League datapack.\n"
+       "Requires Pride Core v0.3.3-rc1 and existing v7.10.10 League datapack.\n"
        "Install SECOND with higher datapack priority on staging only.\n"
        "This pack overrides only the 3 lab NPC dialogues by adding one story option.\n"
        "It does not change starter choices, trainer cards, kits, badge functions or other NPCs.\n"
@@ -151,9 +151,9 @@ def main():
        "FTB Quests Per Player chapters and actual battle/world objectives must still be configured.\n"
     ).encode("utf-8")
     generated["PRIDE_STORY_MANIFEST.json"]=dump({
-        "version":"0.3.2-rc1",
+        "version":"0.3.3-rc1",
         "requires":{"minecraft":"1.21.1","cobblemon":"1.8.1",
-                    "league_datapack":"7.10.10","pride_core":"0.3.2-rc1"},
+                    "league_datapack":"7.10.10","pride_core":"0.3.3-rc1"},
         "native_new_npcs":len(opening),
         "overridden_league_dialogues":original_hashes,
         "preexisting_services_untouched":True,
