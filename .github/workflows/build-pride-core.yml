@@ -28,12 +28,16 @@ jobs:
         run: gradle --no-daemon clean build
       - name: Verify installable JAR
         run: |
-          test -s modules/core/build/libs/pride-core-0.1.0-rc1.jar
-          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'fabric.mod.json'
-          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'com/prideregion/core/PrideCoreMod.class'
-          jar tf modules/core/build/libs/pride-core-0.1.0-rc1.jar | grep -Fx 'com/prideregion/core/ProgressionService.class'
+          version="$(sed -n 's/^mod_version=//p' modules/core/gradle.properties)"
+          test -n "$version"
+          jar_file="modules/core/build/libs/pride-core-$version.jar"
+          test -s "$jar_file"
+          jar tf "$jar_file" | grep -Fx 'fabric.mod.json'
+          jar tf "$jar_file" | grep -Fx 'com/prideregion/core/PrideCoreMod.class'
+          jar tf "$jar_file" | grep -Fx 'com/prideregion/core/ProgressionService.class'
+          echo "CORE_JAR=$jar_file" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: PrideCore-Module01-0.1.0-rc1-Fabric-1.21.1
-          path: modules/core/build/libs/pride-core-0.1.0-rc1.jar
+          name: PrideCore-Foundation-Regression-Fabric-1.21.1
+          path: ${{ env.CORE_JAR }}
           if-no-files-found: error
