@@ -66,8 +66,12 @@ public final class StoryModule {
             StoryEngine active = liveServer == server ? engine : null;
             if (active == null) return;
             try {
-                // Restore FTB-readable progress after logout, migration or prior crash.
+                // Read old *verified* onboarding markers, then project owned checkpoints.
+                var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
+                if (!migrated.isEmpty())
+                    LOGGER.info("Reconciled legacy onboarding for {}: {}",
+                        handler.getPlayer().getUuid(), migrated);
             } catch (IOException | RuntimeException ex) {
                 LOGGER.warn("Read-only story advancement reconciliation failed for {}: {}",
                     handler.getPlayer().getUuid(), ex.toString());
@@ -144,6 +148,8 @@ public final class StoryModule {
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> commands() {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
+        story.then(CommandManager.literal("sync")
+            .executes(ctx -> sync(ctx.getSource())));
         story.then(CommandManager.literal("validate")
             .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> validate(ctx.getSource())));
@@ -191,6 +197,32 @@ public final class StoryModule {
         } catch (IOException ex) {
             LOGGER.warn("Story status load failed for {}", player.getUuid(), ex);
             source.sendError(Text.literal("Story profile unavailable; check server log"));
+            return 0;
+        }
+    }
+
+    /**
+     * Player-only, read-only external onboarding reconciliation. Normal native
+     * Cobblemon dialogues call this after their original action is successful.
+     */
+    private static int sync(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) {
+            source.sendError(Text.literal("Story sync requires a real player"));
+            return 0;
+        }
+        try {
+            StoryEngine active = ready(source.getServer());
+            List<String> changes = active.reconcileOnboarding(player.getUuid());
+            StoryAdvancementBridge.synchronize(player, active);
+            if (!changes.isEmpty()) {
+                player.sendMessage(Text.literal("Story updated: " + String.join(", ", changes))
+                    .formatted(Formatting.GOLD), false);
+            }
+            return 1;
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Onboarding sync refused for {}: {}", player.getUuid(), ex.toString());
+            source.sendError(Text.literal("Story sync unavailable: " + safe(ex.getMessage())));
             return 0;
         }
     }
@@ -258,6 +290,7 @@ public final class StoryModule {
         try {
             StoryEngine active = ready(source.getServer());
             show(player, active.choose(player.getUuid(), id));
+            active.reconcileOnboarding(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             return 1;
         } catch (IOException | RuntimeException ex) {
