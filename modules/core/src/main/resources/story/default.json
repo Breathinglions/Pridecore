@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "npcs": [
+    {
+      "id": "mom",
+      "name": "Mom",
+      "requires": [],
+      "completedFact": "pride:met_mom",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Good morning! Professor Sequoia is expecting you at his lab. Remember, the best trainers look after their Pokemon, not just their badges.",
+          "options": [
+            {
+              "id": "begin",
+              "text": "I'm ready for my adventure!",
+              "stage": "pride:visit_sequoia",
+              "grant": [
+                "pride:met_mom"
+              ]
+            },
+            {
+              "id": "questions",
+              "text": "What should I do first?",
+              "next": "instructions"
+            }
+          ]
+        },
+        {
+          "id": "instructions",
+          "text": "Visit Professor Sequoia's laboratory. He'll explain how to choose your first partner. Then meet Technician Theo and Avery.",
+          "options": [
+            {
+              "id": "ready",
+              "text": "I'll visit the Professor.",
+              "stage": "pride:visit_sequoia",
+              "grant": [
+                "pride:met_mom"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Have you visited the Professor yet? Remember to explore and enjoy the journey!",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "sequoia",
+      "name": "Professor Sequoia",
+      "requires": [
+        "pride:met_mom"
+      ],
+      "completedFact": "pride:met_sequoia",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Welcome, young Trainer! This region is home to extraordinary Pokemon and mysteries. Use my existing starter selection service to choose your partner; this story dialogue does NOT give or verify a starter Pokemon.",
+          "options": [
+            {
+              "id": "understood",
+              "text": "I'll choose my partner and register.",
+              "stage": "pride:trainer_registration",
+              "grant": [
+                "pride:met_sequoia"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Once you've chosen your Pokemon through the existing starter system, visit Technician Theo. My story dialogue cannot confirm which Pokemon you received.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "theo",
+      "name": "Technician Theo",
+      "requires": [
+        "pride:met_sequoia"
+      ],
+      "completedFact": "pride:met_theo",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Every Trainer needs a proper record. Use the existing Trainer Registration service to receive your Trainer Card and Pokedex. Then speak with Avery for field supplies.",
+          "options": [
+            {
+              "id": "next",
+              "text": "I'll use the registration service.",
+              "stage": "pride:field_orientation",
+              "grant": [
+                "pride:met_theo"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Remember: your Trainer Card and Pokedex are issued by the existing registration system, not by this story dialogue.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "avery",
+      "name": "Avery",
+      "requires": [
+        "pride:met_theo"
+      ],
+      "completedFact": "pride:met_avery",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Heading out? Use my existing Field Kit interaction for supplies. The kit contains Pokeballs, food and a guide. This dialogue doesn't issue items, so you can't claim them twice through it.",
+          "options": [
+            {
+              "id": "journey",
+              "text": "Let's head toward Route 1.",
+              "stage": "pride:route1_orientation",
+              "grant": [
+                "pride:met_avery"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Check your field kit and stay alert on Route 1.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger Mira",
+      "requires": [
+        "pride:met_avery"
+      ],
+      "completedFact": "pride:route1_briefed",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Welcome to Route 1. The Pokemon here seem uneasy. You may explore the route, practice catching, and investigate the faint glow among the trees. Thorn's Verdant Gym lies further on.",
+          "options": [
+            {
+              "id": "explore",
+              "text": "I'll investigate and train.",
+              "stage": "pride:verdant_approach",
+              "grant": [
+                "pride:route1_briefed"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Keep your Pokemon healthy. Something unusual is happening beyond the trees.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "thorn",
+      "name": "Thorn",
+      "requires": [
+        "pride:route1_briefed"
+      ],
+      "completedFact": "pride:met_thorn",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "I'm Thorn, Leader of Verdant Gym. Listen to your Pokemon and respect the forest. When you're ready, challenge me through the existing Gym system. This dialogue does not grant badges or change League eligibility.",
+          "options": [
+            {
+              "id": "challenge",
+              "text": "I understand. I'll prepare for the challenge.",
+              "stage": "pride:verdant_gym_intro",
+              "grant": [
+                "pride:met_thorn"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The Verdant Badge must be earned through our existing League battles.",
+          "options": []
+        }
+      ]
+    }
+  ]
+}
