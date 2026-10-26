@@ -7,8 +7,7 @@ public final class NativeNpcIdentity {
     private static final Map<String, String> EXISTING = Map.of(
         "sequoia", "pride_npc_professor_sequoia",
         "theo", "pride_npc_technician_theo",
-        "avery", "pride_npc_avery",
-        "ranger", "pride_npc_researcher_mira"
+        "avery", "pride_npc_avery"
     );
     private NativeNpcIdentity() {}
     public static String tagFor(String storyId) {
