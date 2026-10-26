@@ -60,30 +60,43 @@ def main():
     assert len(campaign["npc"]) == 21, "Unexpected campaign NPC count"
     generated={}
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
-       "description":"Pride Region Story v0.3.1-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
+       "description":"Pride Region Story v0.3.2-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
     original_hashes={}
     if args.league_zip is not None:
         with zipfile.ZipFile(args.league_zip) as original:
-            for npc,filename,choice,visible in [
-                ("sequoia","professor_sequoia","understood","q.player.has_chosen_starter() == 1"),
-                ("theo","technician_theo","next","q.player.data().pride_trainer_card_received == true"),
-                ("avery","avery","journey","q.player.data().pride_avery_kit_received == true")
-            ]:
-                entry=f"data/pride_region/dialogues/{filename}.json"
-                source=original.read(entry)
-                original_hashes[entry]=hashlib.sha256(source).hexdigest()
-                data=json.loads(source)
-                main_page=next(x for x in data["pages"] if x["id"]=="main")
-                opts=main_page["input"]["options"]
-                if any(o.get("value")=="pride_core_story" for o in opts):
-                    raise ValueError("Original already defines Pride Core story action")
-                opts.insert(-1, {
-                    "text":"Continue my Pride Region story",
-                    "value":"pride_core_story",
-                    "isVisible": visible,
-                    "action":[script_action(npc,choice),"q.dialogue.close();"]
-                })
-                generated[entry]=dump(data)
+            # Keep every original option, condition and service action. Add an
+            # idempotent, reward-free sync *after* existing successful handoffs.
+            target_options = [
+                ("professor_sequoia", "starter_done", "theo", "pride_starter_chosen"),
+                ("technician_theo", "main", "register", "prideregion:onboarding/trainer_card"),
+                ("avery", "kit", "take_kit", "prideregion:onboarding/trainer_guide"),
+            ]
+            for filename, page_id, choice_id, required_original in target_options:
+                entry = f"data/pride_region/dialogues/{filename}.json"
+                source = original.read(entry)
+                original_hashes[entry] = hashlib.sha256(source).hexdigest()
+                data = json.loads(source)
+                selected = [page for page in data["pages"] if page["id"] == page_id]
+                if len(selected) != 1:
+                    raise ValueError(f"Expected one page {page_id} in {filename}")
+                options = [o for o in selected[0]["input"]["options"]
+                           if o.get("value") == choice_id]
+                if len(options) != 1:
+                    raise ValueError(f"Expected one existing choice {choice_id} in {filename}")
+                option = options[0]
+                action = option["action"]
+                original_actions = list(action) if isinstance(action, list) else [action]
+                if not any(required_original in item for item in original_actions):
+                    raise ValueError(f"Original service action changed for {filename}/{choice_id}")
+                sync_action = ("q.run_command('execute as ' + q.player.username + "
+                               "' at @s run pridecore story sync');")
+                if any("pridecore story" in item for item in original_actions):
+                    raise ValueError(f"Unexpected preexisting Pride Core command in {filename}")
+                # Append rather than prepend, since rewards and trusted legacy
+                # completion tags MUST be established by the existing system first.
+                option["action"] = original_actions + [sync_action]
+                generated[entry] = dump(data)
+
 
     opening=[
       ("mom","Mom",
@@ -130,7 +143,7 @@ def main():
     ).encode("utf-8")
     generated["PRIDE_STORY_README.txt"]=(
        "Module 02 staging story overlay for exact PokemonLeague7.10.10.\n"
-       "Requires Pride Core v0.3.1-rc1 and existing v7.10.10 League datapack.\n"
+       "Requires Pride Core v0.3.2-rc1 and existing v7.10.10 League datapack.\n"
        "Install SECOND with higher datapack priority on staging only.\n"
        "This pack overrides only the 3 lab NPC dialogues by adding one story option.\n"
        "It does not change starter choices, trainer cards, kits, badge functions or other NPCs.\n"
@@ -140,9 +153,9 @@ def main():
        "FTB Quests Per Player chapters and actual battle/world objectives must still be configured.\n"
     ).encode("utf-8")
     generated["PRIDE_STORY_MANIFEST.json"]=dump({
-        "version":"0.3.1-rc1",
+        "version":"0.3.2-rc1",
         "requires":{"minecraft":"1.21.1","cobblemon":"1.8.1",
-                    "league_datapack":"7.10.10","pride_core":"0.3.1-rc1"},
+                    "league_datapack":"7.10.10","pride_core":"0.3.2-rc1"},
         "native_new_npcs":len(opening),
         "overridden_league_dialogues":original_hashes,
         "preexisting_services_untouched":True,
