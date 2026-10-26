@@ -1,6 +1,6 @@
 # Pride Region — Main Story Bible v0.1 (Creative Proposal)
 
-> **Status:** DRAFT — concept for discussion, not approved canon, not implemented.  
+ > **Status:** Main narrative direction approved October 25, 2026; cast names, chapter prose, and exact encounters remain subject to content review. Module 02 implementation underway.  
 > **Module:** 02 — Story & NPCs.  
 > **Game:** Pride Region | Minecraft 1.21.1 | Fabric | Cobblemon 1.8.1.  
 > **Genre direction:** traditional Pokémon coming-of-age journey + layered MMORPG-style political/ecological mystery.  
@@ -181,4 +181,4 @@ Data-driven definitions (validated JSON/datapack resources) for:
 - Whether major faction choices adjust reputation only or meaningfully branch optional quests.
 - How explicit (versus subtle) the optional link to existing legendary lore should be.
 
-**This document is a proposed narrative architecture and does not mean the game code or world assets have been built.**
+**This is the approved narrative direction; the engine implements only the first dialogue slice at this stage. Later acts and final world/NPC integration are not yet implemented.**
