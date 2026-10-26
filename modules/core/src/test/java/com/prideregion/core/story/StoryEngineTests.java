@@ -62,6 +62,44 @@ public final class StoryEngineTests {
             "pride:ok","first","first",Map.of("first",
             new StoryDefinition.Node("first","text",List.of(new StoryDefinition.Option(
                 "x","Choice","nonexistent",null,Set.of(),Set.of(),Set.of()))))));
+        // Existing starter/registration milestones are read only from each player's tags.
+        UUID fresh = UUID.randomUUID(), registered = UUID.randomUUID();
+        Map<UUID, Set<String>> tagsByPlayer = new HashMap<>();
+        tagsByPlayer.put(fresh, Set.of());
+        tagsByPlayer.put(registered, Set.of("starter_chosen", "trainer_card_received"));
+        var gated = new StoryDefinition.Npc("gate", "Gate", Set.of(),
+            "pride:gate_passed", "first", "again", Map.of(
+                "first", new StoryDefinition.Node("first", "Check onboarding", List.of(
+                    new StoryDefinition.Option("proceed", "Continue", null, "pride:next",
+                        Set.of("pride:gate_passed"), Set.of(), Set.of(),
+                        Set.of("starter_chosen", "trainer_card_received")))),
+                "again", new StoryDefinition.Node("again", "Welcome back", List.of())));
+        var gatedEngine = new StoryEngine(new StoryDefinition(Map.of("gate", gated)),
+            store, id -> tagsByPlayer.getOrDefault(id, Set.of()));
+        check(gatedEngine.begin(fresh, "gate").options().isEmpty(),
+            "Unregistered player cannot see gated option");
+        rejected(() -> gatedEngine.choose(fresh, "proceed"));
+        check(store.get(fresh).revision() == 0, "Denied action must not save a profile");
+        check(gatedEngine.begin(registered, "gate").options().size() == 1,
+            "Registered player can see verified option");
+        check(gatedEngine.choose(registered, "proceed").revision() == 1,
+            "Registered player progresses exactly one revision");
+        check(!store.get(registered).facts().contains("pride:trainer_card_received"),
+            "External tags must never be written as owned facts");
+        rejected(() -> new StoryDefinition.Option("bad", "invalid", null, null,
+            Set.of(), Set.of(), Set.of(), Set.of("admin")));
+        check(LegacyOnboardingGate.filter(Set.of("admin", "starter_chosen"))
+            .equals(Set.of("starter_chosen")), "Only allowlisted legacy markers visible");
+        check(gatedEngine.begin(fresh, "gate").options().isEmpty(),
+            "One player's eligibility never leaks into another player");
+        // Recheck at choice time: prerequisites can change after opening a dialogue.
+        UUID third = UUID.randomUUID();
+        tagsByPlayer.put(third, Set.of("starter_chosen", "trainer_card_received"));
+        check(gatedEngine.begin(third,"gate").options().size() == 1,
+            "Choice visible while tags are valid");
+        tagsByPlayer.put(third, Set.of("starter_chosen"));
+        rejected(() -> gatedEngine.choose(third,"proceed"));
+        check(store.get(third).revision()==0, "Revoked prerequisite blocks late submission");
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
