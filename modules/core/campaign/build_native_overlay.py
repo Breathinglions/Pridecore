@@ -64,26 +64,26 @@ def main():
     original_hashes={}
     if args.league_zip is not None:
         with zipfile.ZipFile(args.league_zip) as original:
-        for npc,filename,choice,visible in [
-            ("sequoia","professor_sequoia","understood","q.player.has_chosen_starter() == 1"),
-            ("theo","technician_theo","next","q.player.data().pride_trainer_card_received == true"),
-            ("avery","avery","journey","q.player.data().pride_avery_kit_received == true")
-        ]:
-            entry=f"data/pride_region/dialogues/{filename}.json"
-            source=original.read(entry)
-            original_hashes[entry]=hashlib.sha256(source).hexdigest()
-            data=json.loads(source)
-            main_page=next(x for x in data["pages"] if x["id"]=="main")
-            opts=main_page["input"]["options"]
-            if any(o.get("value")=="pride_core_story" for o in opts):
-                raise ValueError("Original already defines Pride Core story action")
-            opts.insert(-1, {
-                "text":"Continue my Pride Region story",
-                "value":"pride_core_story",
-                "isVisible": visible,
-                "action":[script_action(npc,choice),"q.dialogue.close();"]
-            })
-            generated[entry]=dump(data)
+            for npc,filename,choice,visible in [
+                ("sequoia","professor_sequoia","understood","q.player.has_chosen_starter() == 1"),
+                ("theo","technician_theo","next","q.player.data().pride_trainer_card_received == true"),
+                ("avery","avery","journey","q.player.data().pride_avery_kit_received == true")
+            ]:
+                entry=f"data/pride_region/dialogues/{filename}.json"
+                source=original.read(entry)
+                original_hashes[entry]=hashlib.sha256(source).hexdigest()
+                data=json.loads(source)
+                main_page=next(x for x in data["pages"] if x["id"]=="main")
+                opts=main_page["input"]["options"]
+                if any(o.get("value")=="pride_core_story" for o in opts):
+                    raise ValueError("Original already defines Pride Core story action")
+                opts.insert(-1, {
+                    "text":"Continue my Pride Region story",
+                    "value":"pride_core_story",
+                    "isVisible": visible,
+                    "action":[script_action(npc,choice),"q.dialogue.close();"]
+                })
+                generated[entry]=dump(data)
 
     opening=[
       ("mom","Mom",
