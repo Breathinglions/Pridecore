@@ -15,3 +15,12 @@ processResources {
 }
 tasks.withType(JavaCompile).configureEach { options.release = 21 }
 java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
+
+tasks.register('verifyStoryConfigMigration', JavaExec) {
+    group = 'verification'
+    description = 'Regression tests for automatic story JSON upgrade and backup'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryConfigMigrationTests'
+}
+tasks.named('check') { dependsOn 'verifyStoryConfigMigration' }
