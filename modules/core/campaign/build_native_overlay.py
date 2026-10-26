@@ -115,6 +115,19 @@ def main():
             f"execute positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_npc_{npc}\n"
             f"execute positioned ^ ^ ^1.5 run attribute @e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] minecraft:generic.knockback_resistance base set 1\n"
         ).encode("utf-8")
+    # No physical items or commands are awarded by these checkpoints.
+    # FTB Quests Per Player can consume each as an ordinary advancement task.
+    for npc in ["sequoia", "theo", "avery"] + sorted(ids):
+        generated[f"data/pride_story/advancement/{npc}.json"] = dump({
+            "criteria":{"done":{"trigger":"minecraft:impossible"}},
+            "requirements":[["done"]]
+        })
+    generated["FTB_QUEST_ADVANCEMENT_MAPPING.txt"]=(
+        "# Create an FTB Quests Advancement task with the right-hand id.\\n" +
+        "# Personal FTB Quests progression stays with Per Player Quests.\\n" +
+        "\\n".join(f"{id} -> pride_story:{id}" for id in
+                  ["sequoia", "theo", "avery"] + sorted(ids)) + "\\n"
+    ).encode("utf-8")
     generated["PRIDE_STORY_README.txt"]=(
        "Module 02 staging story overlay for exact PokemonLeague7.10.10.\n"
        "Requires Pride Core v0.3.0-rc1 and existing v7.10.10 League datapack.\n"
@@ -148,6 +161,7 @@ def main():
         assert z.testzip() is None
         assert len(z.namelist()) == len(generated)
         assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 24
+        assert len([x for x in z.namelist() if x.startswith("data/pride_story/advancement/")]) == 27
         if args.league_zip:
             assert all(x in z.namelist() for x in
                  ["data/pride_region/dialogues/professor_sequoia.json",
