@@ -111,6 +111,82 @@ public final class StoryEngineTests {
         check(NativeNpcIdentity.tagFor("mom").equals("pride_npc_mom"),
             "New native NPC tag is predictable");
         rejected(() -> NativeNpcIdentity.tagFor("../escape"));
+        // Normal Lab services should promote story automatically, without an
+        // additional "Continue my Pride Region story" dialogue button.
+        var autoMom = new StoryDefinition.Npc("mom","Mom",Set.of(),"pride:met_mom",
+            "hello","again",Map.of(
+                "hello",new StoryDefinition.Node("hello","Welcome",List.of(
+                    new StoryDefinition.Option("begin","Start",null,"pride:visit_sequoia",
+                        Set.of("pride:met_mom"),Set.of(),Set.of()))),
+                "again",new StoryDefinition.Node("again","Hi again",List.of())));
+        var autoSequoia = new StoryDefinition.Npc("sequoia","Sequoia",Set.of("pride:met_mom"),
+            "pride:met_sequoia","hello","again",Map.of(
+                "hello",new StoryDefinition.Node("hello","Welcome",List.of(
+                    new StoryDefinition.Option("understood","Done",null,
+                        "pride:trainer_registration",Set.of("pride:met_sequoia"),
+                        Set.of(),Set.of(),Set.of("starter_chosen")))),
+                "again",new StoryDefinition.Node("again","Welcome back",List.of())));
+        var autoTheo = new StoryDefinition.Npc("theo","Theo",Set.of("pride:met_sequoia"),
+            "pride:met_theo","hello","again",Map.of(
+                "hello",new StoryDefinition.Node("hello","Register",List.of(
+                    new StoryDefinition.Option("next","Done",null,"pride:field_orientation",
+                        Set.of("pride:met_theo"),Set.of(),Set.of(),
+                        Set.of("trainer_card_received")))),
+                "again",new StoryDefinition.Node("again","Hello",List.of())));
+        var autoAvery = new StoryDefinition.Npc("avery","Avery",Set.of("pride:met_theo"),
+            "pride:met_avery","hello","again",Map.of(
+                "hello",new StoryDefinition.Node("hello","Take your kit",List.of(
+                    new StoryDefinition.Option("journey","Done",null,"pride:route1_orientation",
+                        Set.of("pride:met_avery"),Set.of(),Set.of(),
+                        Set.of("trainer_guide_received")))),
+                "again",new StoryDefinition.Node("again","Be careful",List.of())));
+        var autoDefinitions = new StoryDefinition(Map.of(
+            "mom",autoMom,"sequoia",autoSequoia,"theo",autoTheo,"avery",autoAvery));
+        Map<UUID,Set<String>> actualMarkers = new HashMap<>();
+        UUID newbie = UUID.randomUUID(), veteranWithTags = UUID.randomUUID();
+        var reconcile = new StoryEngine(autoDefinitions,store,
+            id -> actualMarkers.getOrDefault(id,Set.of()));
+
+        actualMarkers.put(newbie,Set.of("starter_chosen","trainer_card_received",
+            "trainer_guide_received"));
+        check(reconcile.reconcileOnboarding(newbie).isEmpty(),
+            "Existing tags cannot bypass Mom's required introduction");
+        check(store.get(newbie).revision()==0,"No premature profile write");
+        check(reconcile.begin(newbie,"mom").options().size()==1,"Mom still offers start");
+        reconcile.choose(newbie,"begin");
+        check(reconcile.reconcileOnboarding(newbie).isEmpty(),
+            "Sequoia encounter required in addition to starter tag");
+        actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met"));
+        check(reconcile.reconcileOnboarding(newbie).equals(List.of("sequoia")),
+            "Professor promotion automatically recognizes original starter service");
+        check(store.get(newbie).storyStage().equals("pride:trainer_registration"),
+            "Automatic Professor stage matches established story");
+        check(reconcile.reconcileOnboarding(newbie).isEmpty(),
+            "Repeat Professor sync cannot increment revisions");
+        actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met",
+            "trainer_card_received"));
+        check(reconcile.reconcileOnboarding(newbie).equals(List.of("theo")),
+            "Trainer registration automatically promotes Theo checkpoint");
+        actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met",
+            "trainer_card_received","trainer_guide_received"));
+        check(reconcile.reconcileOnboarding(newbie).equals(List.of("avery")),
+            "Avery kit automatically promotes field orientation");
+        check(store.get(newbie).storyStage().equals("pride:route1_orientation"),
+            "All verified onboarding steps reached Route 1");
+        check(store.get(newbie).revision()==4,"Exactly four owned writes including Mom");
+        check(reconcile.reconcileOnboarding(newbie).isEmpty(),
+            "Idempotent startup reconciliation");
+        check(store.get(newbie).revision()==4,"No duplicate rewards or state writes");
+        check(!store.get(newbie).facts().contains("pride:trainer_guide_received"),
+            "Legacy tags are never imported into Pride-owned facts");
+        actualMarkers.put(veteranWithTags,actualMarkers.get(newbie));
+        check(reconcile.reconcileOnboarding(veteranWithTags).isEmpty(),
+            "Veteran legacy tags do not magically begin the story");
+        store.grant(veteranWithTags,"pride:met_mom");
+        check(reconcile.reconcileOnboarding(veteranWithTags)
+                .equals(List.of("sequoia","theo","avery")),
+            "Old player with Mom already completed can reconcile entire lab sequence");
+        check(store.get(newbie).revision()==4,"Other player reconciliation isolated");
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
