@@ -18,8 +18,8 @@ python3 - "$ROOT/src/main/resources/story/default.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["version"]==1
-assert len(d["npcs"])==6
-assert [n["id"] for n in d["npcs"]] == ["mom","sequoia","theo","avery","ranger","thorn"]
+assert len(d["npcs"])==27
+assert [n["id"] for n in d["npcs"][:6]] == ["mom","sequoia","theo","avery","ranger","thorn"]
 for npc in d["npcs"]:
  assert npc["completedFact"].startswith("pride:")
  assert all(x["id"] for x in npc["nodes"])
