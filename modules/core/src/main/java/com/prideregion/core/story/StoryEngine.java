@@ -86,5 +86,17 @@ public final class StoryEngine {
         return new Reply(npc.id(), npc.name(), node.text(), choices, player.revision());
     }
 
+    /**
+     * Pure read-only completed story checkpoints; may be projected to hidden
+     * Minecraft advancements for individual FTB Quests tasks.
+     */
+    public synchronized Set<String> completedNpcs(UUID playerId) throws IOException {
+        var owned = progression.get(playerId).facts();
+        Set<String> done = new TreeSet<>();
+        for (var npc : story.npcs().values())
+            if (owned.contains(npc.completedFact())) done.add(npc.id());
+        return Set.copyOf(done);
+    }
+
     public int npcCount() { return story.npcs().size(); }
 }
