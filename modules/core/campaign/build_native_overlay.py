@@ -11,8 +11,7 @@ def dump(value):
     return (json.dumps(value, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 def script_action(npc, choice):
-    return ("q.run_command('execute as ' + q.player.username + "
-            "' at @s run pridecore story native " + npc + " " + choice + "');")
+    return "q.player.run_command('pridecore story native " + npc + " " + choice + "');"
 
 def native_npc(dialogue_id, name):
     return {
@@ -88,8 +87,7 @@ def main():
                 original_actions = list(action) if isinstance(action, list) else [action]
                 if not any(required_original in item for item in original_actions):
                     raise ValueError(f"Original service action changed for {filename}/{choice_id}")
-                sync_action = ("q.run_command('execute as ' + q.player.username + "
-                               "' at @s run pridecore story sync');")
+                sync_action = "q.player.run_command('pridecore story sync');"
                 if any("pridecore story" in item for item in original_actions):
                     raise ValueError(f"Unexpected preexisting Pride Core command in {filename}")
                 # Append rather than prepend, since rewards and trusted legacy
