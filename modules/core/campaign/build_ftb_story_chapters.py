@@ -72,6 +72,21 @@ def main():
                     seen.add(event_id)
                     extras.append((event_id,f"prideregion:onboarding/{event}"))
                     locale.append(f"\ttask.{event_id}.title: {q('Complete '+event.replace('_',' '))}")
+            # These actual gym and Champion wins remain League-owned.
+            legacy_battles = {
+                "forest_warden":"grass", "miner_lyra":"rock",
+                "heat_technician":"fire", "waterkeeper":"water",
+                "vega_engineer":"electric", "draven_historian":"dragon",
+                "ice_archivist":"ice", "ghost_medium":"ghost",
+                "hall_of_fame_guide":"champion"
+            }
+            if name in legacy_battles:
+                badge = legacy_battles[name]
+                event_id = id_for("task", "legacy_badge_"+badge)
+                if event_id in seen: raise SystemExit("ID collision")
+                seen.add(event_id)
+                extras.append((event_id,"prideregion:league/"+badge))
+                locale.append(f"\\ttask.{event_id}.title: {q('Win the official '+badge+' League challenge')}")
             tasks = [f'\t\t\t{{ id: "{task}", type: "advancement", advancement: "pride_story:{name}" }}']
             tasks += [f'\t\t\t{{ id: "{t}", type: "advancement", advancement: "{adv}" }}'
                       for t,adv in extras]
