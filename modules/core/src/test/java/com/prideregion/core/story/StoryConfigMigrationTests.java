@@ -68,7 +68,7 @@ public final class StoryConfigMigrationTests {
         JsonObject newDoc = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
         StoryJson.parse(newDoc);
         JsonArray all = newDoc.getAsJsonArray("npcs");
-        check(all.size() == 7, "Custom NPC not discarded");
+        check(all.size() == 28, "Full campaign and custom NPC retained");
         check(find(all,"customguide").get("name").getAsString().equals("My existing custom Guide"),
             "Custom NPC retained");
         check(find(all,"mom").get("name").getAsString().equals("Custom Mom"),
@@ -98,7 +98,7 @@ public final class StoryConfigMigrationTests {
         try (InputStream data = bundled()) { created = StoryConfigManager.upgrade(fresh,data); }
         check(created.change()==StoryConfigManager.Change.CREATED,"Missing story created");
         check(created.backup()==null, "New file requires no backup");
-        check(StoryJson.load(fresh).npcs().size()==6,"Fresh file has bundled NPCs");
+        check(StoryJson.load(fresh).npcs().size()==27,"Fresh file has full bundled campaign NPCs");
 
         Path unusual = folder.resolve("unusual.json");
         var withForeign = defaultJson();
