@@ -10,6 +10,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -37,7 +40,8 @@ public final class StoryModule {
 
     public static void registerHooks() {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
+            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND
+                || entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
             StoryEngine running = liveServer == sp.getServer() ? engine : null;
             if (running == null) return ActionResult.PASS;
@@ -132,6 +136,12 @@ public final class StoryModule {
         story.then(CommandManager.literal("validate")
             .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> validate(ctx.getSource())));
+        story.then(CommandManager.literal("native")
+            .then(CommandManager.argument("npc", StringArgumentType.word())
+                .then(CommandManager.argument("choice", StringArgumentType.word())
+                    .executes(ctx -> nativeChoice(ctx.getSource(),
+                        StringArgumentType.getString(ctx, "npc"),
+                        StringArgumentType.getString(ctx, "choice"))))));
         story.then(CommandManager.literal("choose")
             .then(CommandManager.argument("option", StringArgumentType.word())
                 .executes(ctx -> choose(ctx.getSource(),
@@ -182,6 +192,47 @@ public final class StoryModule {
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Story config validation failed", ex);
             source.sendError(Text.literal("Story config invalid: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    /**
+     * Called by an existing Cobblemon GUI option through its documented q.run_command
+     * context: execute as <actual player> at @s run pridecore story native <npc> <choice>.
+     * No player name accepted from command arguments, no OP privileges granted.
+     * A matching tagged native Cobblemon NPC must be physically near the player.
+     */
+    private static int nativeChoice(ServerCommandSource source, String npc, String option) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) {
+            source.sendError(Text.literal("Native story actions require a real player"));
+            return 0;
+        }
+        try {
+            if (!StoryDefinition.validId(npc) || !StoryDefinition.validId(option))
+                throw new IllegalArgumentException("Unrecognized story action");
+            String nativeTag = NativeNpcIdentity.tagFor(npc);
+            boolean nearby = false;
+            for (Entity candidate : player.getWorld().getOtherEntities(player,
+                    player.getBoundingBox().expand(5.0),
+                    e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
+                        && e.getCommandTags().contains(nativeTag))) {
+                if (candidate.squaredDistanceTo(player) <= 36.0D) {
+                    nearby = true;
+                    break;
+                }
+            }
+            if (!nearby)
+                throw new IllegalStateException("Talk to the matching Cobblemon NPC in person");
+            StoryEngine active = ready(source.getServer());
+            active.begin(player.getUuid(), npc); // Refresh against actual owned state.
+            var reply = active.choose(player.getUuid(), option);
+            return message(source, "Pride Region story updated by " + reply.npcName()
+                + " (revision " + reply.revision() + ")");
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Native story action rejected for {} npc={} choice={}: {}",
+                    player.getUuid(), npc, option, ex.toString());
+            source.sendError(Text.literal("Story action unavailable: " + safe(ex.getMessage())));
             return 0;
         }
     }
