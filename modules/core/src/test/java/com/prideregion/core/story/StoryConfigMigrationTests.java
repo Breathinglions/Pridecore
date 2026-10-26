@@ -37,6 +37,11 @@ public final class StoryConfigMigrationTests {
         Path folder = Files.createTempDirectory("pride-migrate-");
         Path file = folder.resolve("story.json");
         var initial = defaultJson();
+        // Recreate the real v0.2.0 on-disk state: only its original six NPCs.
+        JsonArray oldSix = new JsonArray();
+        for (int i = 0; i < 6; i++)
+            oldSix.add(initial.getAsJsonArray("npcs").get(i).deepCopy());
+        initial.add("npcs", oldSix);
         JsonArray npcs = initial.getAsJsonArray("npcs");
         // Emulate previous 0.2.0 copied config: no requiresLegacy fields.
         for (var npc : npcs) for (var node : npc.getAsJsonObject().getAsJsonArray("nodes"))
