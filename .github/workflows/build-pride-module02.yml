@@ -25,14 +25,24 @@ jobs:
       - name: Compile, test config upgrades and remap Fabric mod
         working-directory: modules/core
         run: gradle --no-daemon clean build
+      - name: Build and validate native Cobblemon NPC story overlay
+        run: |
+          python3 modules/core/campaign/build_native_overlay.py \\
+            --campaign modules/core/campaign/acts.json \\
+            --out modules/core/build/PrideStoryNative_0.3.0-rc1.zip
       - name: Verify installable JAR and story assets
         run: |
-          test -s modules/core/build/libs/pride-core-0.2.2-rc1.jar
-          jar tf modules/core/build/libs/pride-core-0.2.2-rc1.jar | grep -Fx 'fabric.mod.json'
-          jar tf modules/core/build/libs/pride-core-0.2.2-rc1.jar | grep -Fx 'com/prideregion/core/story/StoryModule.class'
-          jar tf modules/core/build/libs/pride-core-0.2.2-rc1.jar | grep -Fx 'story/default.json'
+          test -s modules/core/build/libs/pride-core-0.3.0-rc1.jar
+          jar tf modules/core/build/libs/pride-core-0.3.0-rc1.jar | grep -Fx 'fabric.mod.json'
+          jar tf modules/core/build/libs/pride-core-0.3.0-rc1.jar | grep -Fx 'com/prideregion/core/story/StoryModule.class'
+          jar tf modules/core/build/libs/pride-core-0.3.0-rc1.jar | grep -Fx 'story/default.json'
+          jar tf modules/core/build/libs/pride-core-0.3.0-rc1.jar | grep -Fx 'com/prideregion/core/story/NativeNpcIdentity.class'
       - uses: actions/upload-artifact@v4
         with:
-          name: PrideCore-Module02-0.2.2-rc1-Fabric-1.21.1
-          path: modules/core/build/libs/pride-core-0.2.2-rc1.jar
+          name: PrideCore-Module02-0.3.0-rc1-Fabric-1.21.1
+          path: |
+            modules/core/build/libs/pride-core-0.3.0-rc1.jar
+            modules/core/build/PrideStoryNative_0.3.0-rc1.zip
+            modules/core/campaign/build_native_overlay.py
+            modules/core/campaign/acts.json
           if-no-files-found: error
