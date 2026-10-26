@@ -53,21 +53,27 @@ public record StoryDefinition(Map<String, Npc> npcs) {
         }
     }
     public record Option(String id, String text, String next, String stage,
-                         Set<String> grant, Set<String> revoke, Set<String> requires) {
+                         Set<String> grant, Set<String> revoke, Set<String> requires, Set<String> requiresLegacy) {
+        public Option(String id, String text, String next, String stage,
+                      Set<String> grant, Set<String> revoke, Set<String> requires) {
+            this(id, text, next, stage, grant, revoke, requires, Set.of());
+        }
         public Option {
             if (!validId(id) || text == null || text.isBlank() || text.length() > 160 ||
                     (next != null && !validId(next)) ||
                     (stage != null && !owned(stage)) || grant == null || revoke == null ||
-                    requires == null || grant.size() > 16 || revoke.size() > 16 || requires.size() > 16)
+                    requires == null || requiresLegacy == null || grant.size() > 16 || revoke.size() > 16 || requires.size() > 16 || requiresLegacy.size() > 16)
                 throw new IllegalArgumentException("Invalid option " + id);
             if (grant.stream().anyMatch(x -> !owned(x)) ||
                     revoke.stream().anyMatch(x -> !owned(x)) ||
                     requires.stream().anyMatch(x -> !owned(x)) ||
-                    !Collections.disjoint(grant, revoke))
+                    !Collections.disjoint(grant, revoke) ||
+                    requiresLegacy.stream().anyMatch(t -> !LegacyOnboardingGate.allowed(t)))
                 throw new IllegalArgumentException("Invalid option facts " + id);
             grant = Set.copyOf(grant);
             revoke = Set.copyOf(revoke);
             requires = Set.copyOf(requires);
+            requiresLegacy = Set.copyOf(requiresLegacy);
         }
     }
 }
