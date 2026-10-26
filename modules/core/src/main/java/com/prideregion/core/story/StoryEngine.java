@@ -84,14 +84,14 @@ public final class StoryEngine {
      * handles only the three already-installed legacy onboarding services.
      */
     private record VerifiedStep(String npc, String choice, Set<String> legacyMarkers,
-                                String stage) {}
+                                String previousStage, String stage) {}
     private static final List<VerifiedStep> ONBOARDING = List.of(
         new VerifiedStep("sequoia", "understood", Set.of("starter_chosen", "sequoia_met"),
-                "pride:trainer_registration"),
+                "pride:visit_sequoia", "pride:trainer_registration"),
         new VerifiedStep("theo", "next", Set.of("trainer_card_received"),
-                "pride:field_orientation"),
+                "pride:trainer_registration", "pride:field_orientation"),
         new VerifiedStep("avery", "journey", Set.of("trainer_guide_received"),
-                "pride:route1_orientation")
+                "pride:field_orientation", "pride:route1_orientation")
     );
 
     public synchronized List<String> reconcileOnboarding(UUID playerId) throws IOException {
@@ -104,6 +104,7 @@ public final class StoryEngine {
             if (p.facts().contains(npc.completedFact())) continue; // idempotent
             if (!p.facts().containsAll(npc.requires())) break; // preserve Mom/sequence
             if (!verified.containsAll(step.legacyMarkers())) break; // legacy service incomplete
+            if (!step.previousStage().equals(p.storyStage())) break; // never roll story backwards
 
             // Verify that configuration still represents the expected safe step.
             var start = npc.nodes().get(npc.start());
