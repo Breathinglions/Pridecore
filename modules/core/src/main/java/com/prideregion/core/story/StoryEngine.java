@@ -4,6 +4,7 @@ import com.prideregion.core.ProfileState;
 import com.prideregion.core.ProgressionService;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * Session-safe story selection. All mutations go through Module 01. Never pays
@@ -17,11 +18,23 @@ public final class StoryEngine {
     private record Session(String npcId, String nodeId) {}
     private final StoryDefinition story;
     private final ProgressionService progression;
+    private final Function<UUID, Set<String>> externalFacts;
     private final Map<UUID, Session> sessions = new HashMap<>();
 
     public StoryEngine(StoryDefinition story, ProgressionService progression) {
+        this(story, progression, ignored -> Set.of());
+    }
+
+    public StoryEngine(StoryDefinition story, ProgressionService progression,
+                       Function<UUID, Set<String>> externalFacts) {
         this.story = Objects.requireNonNull(story);
         this.progression = Objects.requireNonNull(progression);
+        this.externalFacts = Objects.requireNonNull(externalFacts);
+    }
+
+    private Set<String> legacyFor(UUID player) {
+        return LegacyOnboardingGate.filter(Objects.requireNonNull(
+            externalFacts.apply(player), "Player markers unavailable"));
     }
 
     public synchronized Reply begin(UUID playerId, String npcId) throws IOException {
@@ -32,7 +45,7 @@ public final class StoryEngine {
             throw new IllegalStateException("This NPC has no story dialogue available yet");
         String nodeId = p.facts().contains(npc.completedFact()) ? npc.repeat() : npc.start();
         sessions.put(playerId, new Session(npcId, nodeId));
-        return reply(npc, npc.nodes().get(nodeId), p);
+        return reply(npc, npc.nodes().get(nodeId), p, legacyFor(playerId));
     }
 
     public synchronized Reply choose(UUID playerId, String optionId) throws IOException {
@@ -49,6 +62,8 @@ public final class StoryEngine {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown dialogue choice"));
         if (!before.facts().containsAll(option.requires()))
             throw new IllegalStateException("Choice prerequisites not met");
+        if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
+            throw new IllegalStateException("Complete the existing starter, registration or field objective first");
         var change = progression.transition(playerId, option.stage(),
                 option.grant(), option.revoke());
         if (option.next() == null) {
@@ -57,14 +72,16 @@ public final class StoryEngine {
                     List.of(), change.profile().revision());
         }
         sessions.put(playerId, new Session(npc.id(), option.next()));
-        return reply(npc, npc.nodes().get(option.next()), change.profile());
+        return reply(npc, npc.nodes().get(option.next()), change.profile(), legacyFor(playerId));
     }
 
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
-    private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node, ProfileState player) {
+    private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
+                        ProfileState player, Set<String> verifiedLegacy) {
         List<ChoiceView> choices = node.options().stream()
                 .filter(o -> player.facts().containsAll(o.requires()))
+                .filter(o -> verifiedLegacy.containsAll(o.requiresLegacy()))
                 .map(o -> new ChoiceView(o.id(), o.text())).toList();
         return new Reply(npc.id(), npc.name(), node.text(), choices, player.revision());
     }
