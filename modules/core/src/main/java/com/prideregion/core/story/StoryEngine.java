@@ -83,14 +83,14 @@ public final class StoryEngine {
      * No player can bypass Mom or skip a missing prerequisite. This deliberately
      * handles only the three already-installed legacy onboarding services.
      */
-    private record VerifiedStep(String npc, String choice, String legacyMarker,
+    private record VerifiedStep(String npc, String choice, Set<String> legacyMarkers,
                                 String stage) {}
     private static final List<VerifiedStep> ONBOARDING = List.of(
-        new VerifiedStep("sequoia", "understood", "starter_chosen",
+        new VerifiedStep("sequoia", "understood", Set.of("starter_chosen", "sequoia_met"),
                 "pride:trainer_registration"),
-        new VerifiedStep("theo", "next", "trainer_card_received",
+        new VerifiedStep("theo", "next", Set.of("trainer_card_received"),
                 "pride:field_orientation"),
-        new VerifiedStep("avery", "journey", "trainer_guide_received",
+        new VerifiedStep("avery", "journey", Set.of("trainer_guide_received"),
                 "pride:route1_orientation")
     );
 
@@ -103,7 +103,7 @@ public final class StoryEngine {
             if (npc == null) continue; // custom content can omit an NPC
             if (p.facts().contains(npc.completedFact())) continue; // idempotent
             if (!p.facts().containsAll(npc.requires())) break; // preserve Mom/sequence
-            if (!verified.contains(step.legacyMarker())) break; // legacy service incomplete
+            if (!verified.containsAll(step.legacyMarkers())) break; // legacy service incomplete
 
             // Verify that configuration still represents the expected safe step.
             var start = npc.nodes().get(npc.start());
