@@ -62,6 +62,17 @@ public final class StoryModule {
             // Only explicitly tagged demo actors get consumed. No generic NPC interception.
             return ActionResult.SUCCESS;
         });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            StoryEngine active = liveServer == server ? engine : null;
+            if (active == null) return;
+            try {
+                // Restore FTB-readable progress after logout, migration or prior crash.
+                StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
+            } catch (IOException | RuntimeException ex) {
+                LOGGER.warn("Read-only story advancement reconciliation failed for {}: {}",
+                    handler.getPlayer().getUuid(), ex.toString());
+            }
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
@@ -227,6 +238,7 @@ public final class StoryModule {
             StoryEngine active = ready(source.getServer());
             active.begin(player.getUuid(), npc); // Refresh against actual owned state.
             var reply = active.choose(player.getUuid(), option);
+            StoryAdvancementBridge.synchronize(player, active);
             return message(source, "Pride Region story updated by " + reply.npcName()
                 + " (revision " + reply.revision() + ")");
         } catch (IOException | RuntimeException ex) {
@@ -244,7 +256,9 @@ public final class StoryModule {
             return 0;
         }
         try {
-            show(player, ready(source.getServer()).choose(player.getUuid(), id));
+            StoryEngine active = ready(source.getServer());
+            show(player, active.choose(player.getUuid(), id));
+            StoryAdvancementBridge.synchronize(player, active);
             return 1;
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Story choice rejected player {} choice {}: {}", player.getUuid(), id, ex.toString());
