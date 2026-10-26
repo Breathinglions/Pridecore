@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,6 +31,7 @@ public final class StoryModule {
     private static volatile MinecraftServer liveServer;
     private static volatile StoryEngine engine;
     private static volatile String health = "disabled";
+    private static volatile String configStatus = "unchecked";
 
     private StoryModule() {}
 
@@ -68,6 +68,7 @@ public final class StoryModule {
         liveServer = server;
         engine = null;
         health = "disabled";
+        configStatus = "unchecked";
         try {
             Path directory = configDir();
             Files.createDirectories(directory);
@@ -81,21 +82,22 @@ public final class StoryModule {
             }
             Properties props = new Properties();
             try (var input = Files.newInputStream(settings)) { props.load(input); }
+            try (var bundled = StoryModule.class.getResourceAsStream("/story/default.json")) {
+                if (bundled == null) throw new IOException("Bundled default story missing");
+                var update = StoryConfigManager.upgrade(storyFile(), bundled);
+                configStatus = update.change().name().toLowerCase(Locale.ROOT);
+                if (update.backup() != null) {
+                    LOGGER.info("Story config safely upgraded, previous file backed up at {} (added {} NPCs and {} legacy prerequisites)",
+                        update.backup(), update.newNpcs(), update.newGates());
+                }
+            }
             if (!"true".equalsIgnoreCase(props.getProperty("story_enabled", "false").trim())) {
                 LOGGER.info("Pride Story module disabled; existing NPCs are untouched");
                 return;
             }
             var service = PrideCoreMod.progression(server)
                 .orElseThrow(() -> new IOException("Module 01 progression unavailable"));
-            Path file = storyFile();
-            if (Files.notExists(file)) {
-                try (InputStream input = StoryModule.class.getResourceAsStream("/story/default.json")) {
-                    if (input == null) throw new IOException("Bundled default story missing");
-                    try { Files.copy(input, file); }
-                    catch (FileAlreadyExistsException ignored) { }
-                }
-            }
-            var loaded = new StoryEngine(StoryJson.load(file), service, playerId -> {
+            var loaded = new StoryEngine(StoryJson.load(storyFile()), service, playerId -> {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
@@ -105,6 +107,7 @@ public final class StoryModule {
         } catch (IOException | RuntimeException ex) {
             engine = null;
             health = "error (see server log)";
+            configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
         }
     }
@@ -114,6 +117,7 @@ public final class StoryModule {
             engine = null;
             liveServer = null;
             health = "disabled";
+            configStatus = "unchecked";
         }
     }
 
@@ -125,6 +129,9 @@ public final class StoryModule {
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> commands() {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
+        story.then(CommandManager.literal("validate")
+            .requires(source -> source.hasPermissionLevel(4))
+            .executes(ctx -> validate(ctx.getSource())));
         story.then(CommandManager.literal("choose")
             .then(CommandManager.argument("option", StringArgumentType.word())
                 .executes(ctx -> choose(ctx.getSource(),
@@ -153,16 +160,28 @@ public final class StoryModule {
     private static int status(ServerCommandSource source) {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null)
-            return message(source, "Module 02 story=" + health);
+            return message(source, "Module 02 story=" + health + " | config=" + configStatus);
         try {
             var service = PrideCoreMod.progression(source.getServer())
                 .orElseThrow(() -> new IOException("Module 01 unavailable"));
             var p = service.get(player.getUuid());
-            return message(source, "Story module=" + health + " | stage=" + p.storyStage()
+            return message(source, "Story module=" + health + " | config=" + configStatus + " | stage=" + p.storyStage()
                 + " | owned facts=" + p.facts().size() + " | revision=" + p.revision());
         } catch (IOException ex) {
             LOGGER.warn("Story status load failed for {}", player.getUuid(), ex);
             source.sendError(Text.literal("Story profile unavailable; check server log"));
+            return 0;
+        }
+    }
+
+    private static int validate(ServerCommandSource source) {
+        try {
+            StoryDefinition definition = StoryJson.load(storyFile());
+            return message(source, "Story config valid: " + definition.npcs().size()
+                + " NPCs. Legacy tags remain read-only.");
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Story config validation failed", ex);
+            source.sendError(Text.literal("Story config invalid: " + safe(ex.getMessage())));
             return 0;
         }
     }
