@@ -1,0 +1,237 @@
+{
+  "schema": 1,
+  "workingTitle": "The Resonance Crisis",
+  "npc": [
+    {
+      "id": "rin",
+      "name": "Rin",
+      "act": "Prologue",
+      "requires": "pride:met_avery",
+      "completedFact": "pride:met_rin",
+      "stage": "pride:rival_introduced",
+      "legacy": null,
+      "dialogue": "I heard Sequoia gave you your partner. Mine is ready too! I'm not letting you reach Verdant Gym without a challenge.",
+      "followup": "Let's meet again on the road. Our Pokémon will grow stronger together."
+    },
+    {
+      "id": "forest_warden",
+      "name": "Warden Elowen",
+      "act": "Act I",
+      "requires": "pride:met_thorn",
+      "completedFact": "pride:forest_evidence",
+      "stage": "pride:forest_investigation",
+      "legacy": "league_grass",
+      "dialogue": "Thorn asked me to check the forest after your Verdant victory. The Pokémon here are restless, and glowing fragments appeared after the storm.",
+      "followup": "Take note of their shape. The Meridian Institute says it's ordinary mineral drift, but I am not convinced."
+    },
+    {
+      "id": "miner_lyra",
+      "name": "Miner Lyra",
+      "act": "Act I",
+      "requires": "pride:forest_evidence",
+      "completedFact": "pride:mine_records",
+      "stage": "pride:rock_investigation",
+      "legacy": "league_rock",
+      "dialogue": "Rook's Bastion trial proved you can handle yourself. Someone removed the oldest survey pages from our mine archive.",
+      "followup": "See these marks? Eclipse was here, but the equipment on the wagon belongs to Meridian."
+    },
+    {
+      "id": "eclipse_scout",
+      "name": "Eclipse Scout",
+      "act": "Act I",
+      "requires": "pride:mine_records",
+      "completedFact": "pride:eclipse_contact",
+      "stage": "pride:eclipse_detected",
+      "legacy": null,
+      "dialogue": "You think we stole the surveys for profit? Meridian hides what it mines. If you care about Pokémon, question the company behind the badges.",
+      "followup": "I'm not asking you to trust Eclipse. I'm asking you to look closer."
+    },
+    {
+      "id": "rin_canyon",
+      "name": "Rin",
+      "act": "Act I",
+      "requires": "pride:eclipse_contact",
+      "completedFact": "pride:rival_theory",
+      "stage": "pride:rival_debate",
+      "legacy": null,
+      "dialogue": "You're following Eclipse rumors? Maybe. But we need evidence before accusing anyone.",
+      "followup": "I'll keep investigating the south road. Whoever finds the truth first buys the other a meal."
+    },
+    {
+      "id": "heat_technician",
+      "name": "Technician Sol",
+      "act": "Act II",
+      "requires": "pride:rival_theory",
+      "completedFact": "pride:heat_anomaly",
+      "stage": "pride:fire_district",
+      "legacy": "league_fire",
+      "dialogue": "Ashen helped stop the overheating near the foundry, but the instruments are still reading impossible temperatures.",
+      "followup": "The power isn't rising from the earth. Something is feeding it into the station."
+    },
+    {
+      "id": "meridian_scientist",
+      "name": "Researcher Vela",
+      "act": "Act II",
+      "requires": "pride:heat_anomaly",
+      "completedFact": "pride:meridian_leads",
+      "stage": "pride:institute_introduction",
+      "legacy": null,
+      "dialogue": "Our institute studies Resonance to keep people and Pokémon safe. I joined Meridian because our work could save endangered habitats.",
+      "followup": "Still, some files have been sealed beyond even my authorization. I hope there's a harmless reason."
+    },
+    {
+      "id": "waterkeeper",
+      "name": "Keeper Neris",
+      "act": "Act II",
+      "requires": "pride:meridian_leads",
+      "completedFact": "pride:water_evidence",
+      "stage": "pride:tidal_investigation",
+      "legacy": "league_water",
+      "dialogue": "Kai's Tidal Badge means you understand the waterways. The river was poisoned by a timed energy pulse, not an ordinary spill.",
+      "followup": "Eclipse arrived later, so they could not have caused the first event. We need to tell the Rangers."
+    },
+    {
+      "id": "ranger_rowan",
+      "name": "Captain Rowan",
+      "act": "Act II",
+      "requires": "pride:water_evidence",
+      "completedFact": "pride:ranger_probe",
+      "stage": "pride:ranger_investigation",
+      "legacy": null,
+      "dialogue": "The Pride Rangers protect Pokémon no matter which faction profits from a disaster. Thank you for bringing us evidence.",
+      "followup": "We'll open an independent case. Keep exploring freely, but don't face the institute's security teams alone."
+    },
+    {
+      "id": "vega_engineer",
+      "name": "Engineer Quill",
+      "act": "Act II",
+      "requires": "pride:ranger_probe",
+      "completedFact": "pride:engine_plan",
+      "stage": "pride:powergrid_reveal",
+      "legacy": "league_electric",
+      "dialogue": "Vega's city kept the grid stable. Beneath the power station is a second circuit no one told the League about.",
+      "followup": "Every wire converges at a sealed Meridian facility. They're building something called the Resonance Engine."
+    },
+    {
+      "id": "cael_aide",
+      "name": "Aide Iris",
+      "act": "Act II",
+      "requires": "pride:engine_plan",
+      "completedFact": "pride:meridian_documents",
+      "stage": "pride:meridian_records",
+      "legacy": null,
+      "dialogue": "Director Cael insists the engine will heal the region. He might believe it. But the risk reports are missing from the public archive.",
+      "followup": "I can show you where the older research records were taken. Use them responsibly."
+    },
+    {
+      "id": "draven_historian",
+      "name": "Historian Toren",
+      "act": "Act III",
+      "requires": "pride:meridian_documents",
+      "completedFact": "pride:ancient_ward",
+      "stage": "pride:dragon_lore",
+      "legacy": "league_dragon",
+      "dialogue": "Draven's Dragon trial echoes an old oath: power is guarded, not owned. Our ancestors sealed Resonance conduits after a terrible flood.",
+      "followup": "You found the new circuit. Now seek the cold station where the earliest warning was recorded."
+    },
+    {
+      "id": "ice_archivist",
+      "name": "Archivist Sera",
+      "act": "Act III",
+      "requires": "pride:ancient_ward",
+      "completedFact": "pride:frozen_warning",
+      "stage": "pride:ice_research",
+      "legacy": "league_ice",
+      "dialogue": "Freya kept these records hidden beneath the snow. Meridian knew the engine could frighten and displace whole Pokémon habitats.",
+      "followup": "A researcher tried to shut it down and vanished from the project. Her signature is on every safety warning."
+    },
+    {
+      "id": "rin_summit",
+      "name": "Rin",
+      "act": "Act III",
+      "requires": "pride:frozen_warning",
+      "completedFact": "pride:rival_ally",
+      "stage": "pride:rival_reunited",
+      "legacy": null,
+      "dialogue": "We kept competing while the region changed around us. I thought becoming Champion was the biggest thing we could do.",
+      "followup": "I was wrong. Whatever comes next, you won't face it alone."
+    },
+    {
+      "id": "ghost_medium",
+      "name": "Medium Ori",
+      "act": "Act III",
+      "requires": "pride:rival_ally",
+      "completedFact": "pride:memory_truth",
+      "stage": "pride:ghost_memories",
+      "legacy": "league_ghost",
+      "dialogue": "Nyx's Ghost trial taught you that memories leave traces. The echoes here show Eclipse's raid and Meridian's experiment were both dangerous.",
+      "followup": "Eclipse plans to destroy the engine. A sudden shutdown could unleash every stored pulse at once."
+    },
+    {
+      "id": "eclipse_operative",
+      "name": "Eclipse Lieutenant",
+      "act": "Act IV",
+      "requires": "pride:memory_truth",
+      "completedFact": "pride:eclipse_assault",
+      "stage": "pride:eclipse_infiltration",
+      "legacy": null,
+      "dialogue": "Sable has ordered the assault. We were told there was no other way to stop Meridian.",
+      "followup": "If you truly have proof, take it to the leader. Perhaps the region doesn't need another disaster to learn the truth."
+    },
+    {
+      "id": "sable",
+      "name": "Sable",
+      "act": "Act IV",
+      "requires": "pride:eclipse_assault",
+      "completedFact": "pride:sable_warning",
+      "stage": "pride:sable_confrontation",
+      "legacy": null,
+      "dialogue": "I founded Eclipse after Meridian buried our reports. I was right about their experiments, but my people endangered Pokémon to expose them.",
+      "followup": "If the engine explodes, none of that will matter. Find Cael and force him to face the truth."
+    },
+    {
+      "id": "director_cael",
+      "name": "Director Cael",
+      "act": "Act IV",
+      "requires": "pride:sable_warning",
+      "completedFact": "pride:cael_confronted",
+      "stage": "pride:engine_confrontation",
+      "legacy": null,
+      "dialogue": "Resonance could restore entire ecosystems. Every great discovery demands courage, even when our models show uncertainty.",
+      "followup": "You bring evidence I cannot dismiss. I will authorize a shutdown review, but stabilizing the engine requires real action, not words."
+    },
+    {
+      "id": "ranger_epilogue",
+      "name": "Captain Rowan",
+      "act": "Act IV",
+      "requires": "pride:cael_confronted",
+      "completedFact": "pride:crisis_intel_complete",
+      "stage": "pride:crisis_briefed",
+      "legacy": null,
+      "dialogue": "You've uncovered the heart of the crisis. The Rangers will coordinate a stabilization mission with trusted researchers and Rin.",
+      "followup": "Your briefing is complete. The final engine operation requires its own battle and world objectives before we can call the region safe."
+    },
+    {
+      "id": "league_guide",
+      "name": "League Guide",
+      "act": "Act V",
+      "requires": "pride:crisis_intel_complete",
+      "completedFact": "pride:league_path",
+      "stage": "pride:victory_road_briefed",
+      "legacy": "league_ghost",
+      "dialogue": "The road to Magnus remains open to Trainers who have earned all eight badges. Victory Road will test everything you've learned.",
+      "followup": "Your investigation doesn't award badges. Your battles and the League alone decide who becomes Champion."
+    },
+    {
+      "id": "hall_of_fame_guide",
+      "name": "Hall of Fame Keeper",
+      "act": "Postgame",
+      "requires": "pride:league_path",
+      "completedFact": "pride:champion_greeted",
+      "stage": "pride:champion_epilogue",
+      "legacy": "league_champion",
+      "dialogue": "Magnus recognizes your victories, and the Hall of Fame now records your name. Your adventure did not end when you became Champion.",
+      "followup": "Pride Region is full of expeditions, research, competitive battles and friendships yet to come."
+    }
+  ]
+}
