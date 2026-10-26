@@ -34,7 +34,8 @@ public final class StoryJson {
                     JsonObject choice = c.getAsJsonObject();
                     choices.add(new StoryDefinition.Option(val(choice, "id"),
                             val(choice, "text"), optional(choice, "next"), optional(choice, "stage"),
-                            ids(choice, "grant"), ids(choice, "revoke"), ids(choice, "requires")));
+                            ids(choice, "grant"), ids(choice, "revoke"), ids(choice, "requires"),
+                            ids(choice, "requiresLegacy")));
                 }
                 var parsed = new StoryDefinition.Node(key, val(node, "text"), choices);
                 if (nodes.putIfAbsent(key, parsed) != null) throw new IllegalArgumentException("Duplicate node " + key);
