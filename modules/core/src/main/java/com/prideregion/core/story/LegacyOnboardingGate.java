@@ -9,7 +9,7 @@ public final class LegacyOnboardingGate {
         "trainer_card_received","pokepedia_received","trainer_guide_received",
         "field_kit_received","first_catch","first_battle_win","league_started",
         "league_grass","league_rock","league_fire","league_water",
-        "league_electric","league_dragon","league_ice","league_ghost"
+        "league_electric","league_dragon","league_ice","league_ghost", "league_champion"
     );
     private LegacyOnboardingGate() {}
     public static boolean allowed(String tag) { return tag != null && ALLOWED.contains(tag); }
