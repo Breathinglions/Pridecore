@@ -126,6 +126,28 @@ public final class StoryEngine {
         return List.copyOf(advanced);
     }
 
+    /**
+     * Post-battle narrative handoff. The *official League* is the only authority
+     * that awards a win: league_grass is written by its first-win callback.
+     *
+     * A dialogue alone cannot pass this gate. Old verified winners can recover
+     * on login or /pridecore story sync. The expected stage and Mom->Thorn fact
+     * ensure this cannot skip the campaign or roll a progressed player backwards.
+     * No badges, currency, FTB task completion or legacy tags are written here.
+     */
+    public synchronized boolean reconcileVerdantVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:verdant_gym_intro".equals(current.storyStage()))
+            return false;
+        if (!current.facts().contains("pride:met_thorn"))
+            return false;
+        Set<String> legacy = legacyFor(playerId);
+        if (!legacy.contains("league_started") || !legacy.contains("league_grass"))
+            return false;
+        return progression.transition(playerId, "pride:verdant_victory",
+            Set.of(), Set.of()).changed();
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
