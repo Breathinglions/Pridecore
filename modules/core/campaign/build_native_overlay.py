@@ -49,6 +49,43 @@ def dialogue(npc, name, greeting, detail, choice):
                   ]}}]
     }
 
+
+def mom_dialogue():
+    """Player-facing prologue, not a development placeholder.
+
+    Uses existing authorized Pride Core action; never grants items or starter.
+    Testing/debugging remains via OP-only Pride Core admin commands.
+    """
+    d = dialogue("mom", "Mom",
+        "Good morning! Professor Sequoia is expecting you at his laboratory.",
+        "Today's the day your Pokémon journey begins. Are you ready?", "begin")
+    d["pages"][0]["input"]["options"] = [
+        {"text":"I'm ready for my adventure!", "value":"begin",
+         "action":[script_action("mom", "begin"), "q.dialogue.close();"]},
+        {"text":"What should I do first?", "value":"help",
+         "action":"q.dialogue.set_page('instructions');"},
+        {"text":"Not yet, Mom.", "value":"later",
+         "action":"q.dialogue.close();"}
+    ]
+    d["pages"].append({
+        "id":"instructions", "speaker":"npc",
+        "lines":[
+            "Visit Professor Sequoia's Pokémon Lab and choose your first partner.",
+            "Then meet Technician Theo to register and Avery to collect your field kit.",
+            "After that, the Route 1 Ranger will help you begin exploring."
+        ],
+        "input":{"type":"option","vertical":True,"options":[
+            {"text":"I'm ready for my adventure!", "value":"begin",
+             "action":[script_action("mom","begin"), "q.dialogue.close();"]},
+            {"text":"Thanks, Mom.", "value":"back",
+             "action":"q.dialogue.set_page('main');"},
+            {"text":"I'll come back later.", "value":"later",
+             "action":"q.dialogue.close();"}
+        ]}
+    })
+    assert "Continue our journey" not in json.dumps(d)
+    return d
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--league-zip", default=None)
@@ -118,7 +155,7 @@ def main():
         ids.add(npc)
         generated[f"data/pride_story/npcs/{npc}.json"]=dump(native_npc(npc,name))
         generated[f"data/pride_story/dialogues/{npc}.json"]=dump(
-            dialogue(npc,name,greeting,detail,choice))
+            mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice))
         # Compatible with existing League spawn runtime function.
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
             f"# Pride Story native NPC: {name}. Stand at placement position and face direction.\n"
@@ -146,6 +183,7 @@ def main():
        "This pack overrides only the 3 lab NPC dialogues by adding one story option.\n"
        "It does not change starter choices, trainer cards, kits, badge functions or other NPCs.\n"
        "Use /function pride_story:spawn/mom while standing at a chosen world location.\n"
+       "Mom has dedicated player-facing dialogue and a help page; the generic continue choice is removed for her.\n"
        "Repeat for /function pride_story:spawn/ranger and new NPC cast after world placement.\n"
        "Do not spawn additional Thorn at the Gym boss position without choosing separate story anchor.\n"
        "FTB Quests Per Player chapters and actual battle/world objectives must still be configured.\n"
