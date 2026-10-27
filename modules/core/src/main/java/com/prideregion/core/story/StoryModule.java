@@ -148,6 +148,7 @@ public final class StoryModule {
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> commands() {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
+        story.then(CommandManager.literal("objective").executes(ctx -> objective(ctx.getSource())));
         story.then(CommandManager.literal("sync")
             .executes(ctx -> sync(ctx.getSource())));
         story.then(CommandManager.literal("validate")
@@ -215,16 +216,36 @@ public final class StoryModule {
             StoryEngine active = ready(source.getServer());
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
-            if (!changes.isEmpty()) {
-                player.sendMessage(Text.literal("Story updated: " + String.join(", ", changes))
-                    .formatted(Formatting.GOLD), false);
-            }
+            if (!changes.isEmpty())
+                sendNextObjective(player, active.currentStage(player.getUuid()));
             return 1;
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Onboarding sync refused for {}: {}", player.getUuid(), ex.toString());
             source.sendError(Text.literal("Story sync unavailable: " + safe(ex.getMessage())));
             return 0;
         }
+    }
+
+    /** Player-requested reminder: no cooldown, no mutation, no admin permission needed. */
+    private static int objective(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return message(source, "In-game player required.");
+        try {
+            String stage = ready(source.getServer()).currentStage(player.getUuid());
+            sendNextObjective(player, stage);
+            return 1;
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Cannot read story objective for {}: {}", player.getUuid(), ex.toString());
+            source.sendError(Text.literal("Story objective unavailable; check the server log."));
+            return 0;
+        }
+    }
+
+    private static void sendNextObjective(ServerPlayerEntity player, String stage) {
+        player.sendMessage(Text.literal("[Pride Region] Next objective: ")
+            .formatted(Formatting.GOLD)
+            .append(Text.literal(StoryObjectiveGuide.forStage(stage))
+                .formatted(Formatting.YELLOW)), false);
     }
 
     private static int validate(ServerCommandSource source) {
@@ -276,9 +297,13 @@ public final class StoryModule {
                 StoryAdvancementBridge.synchronize(player, active);
                 return 1;
             }
+            String previousStage = active.currentStage(player.getUuid());
             active.begin(player.getUuid(), npc); // Refresh against actual owned state.
             active.choose(player.getUuid(), option);
             StoryAdvancementBridge.synchronize(player, active);
+            String updatedStage = active.currentStage(player.getUuid());
+            if (!previousStage.equals(updatedStage))
+                sendNextObjective(player, updatedStage);
             LOGGER.debug("Native story checkpoint completed: npc={}, player={}", npc, player.getUuid());
             return 1;
         } catch (IOException | RuntimeException ex) {
@@ -297,9 +322,13 @@ public final class StoryModule {
         }
         try {
             StoryEngine active = ready(source.getServer());
+            String previousStage = active.currentStage(player.getUuid());
             show(player, active.choose(player.getUuid(), id));
             active.reconcileOnboarding(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
+            String updatedStage = active.currentStage(player.getUuid());
+            if (!previousStage.equals(updatedStage))
+                sendNextObjective(player, updatedStage);
             return 1;
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Story choice rejected player {} choice {}: {}", player.getUuid(), id, ex.toString());
