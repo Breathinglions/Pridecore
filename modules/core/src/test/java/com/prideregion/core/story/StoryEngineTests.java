@@ -55,7 +55,7 @@ public final class StoryEngineTests {
             "Trainer registration gives a useful next destination");
         check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Ranger Mira"),
             "Field kit progression includes Route 1 objectives");
-        check(StoryObjectiveGuide.coveredStages() == 28,
+        check(StoryObjectiveGuide.coveredStages() == 29,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("Quest Book"),
             "Unknown custom stages fail safely with generic quest-book guidance");
@@ -211,6 +211,49 @@ public final class StoryEngineTests {
             "Legacy reconciliation never downgrades an advanced story stage");
         check(store.get(inconsistent).storyStage().equals("pride:regional_finale"),
             "Advanced story checkpoint must be preserved");
+
+        // An NPC conversation alone NEVER grants Thorn's win.
+        // The existing League's verified league_grass marker is the sole
+        // battle-win authority; replay and unrelated players are isolated.
+        UUID firstGym = UUID.randomUUID(), noIntro = UUID.randomUUID();
+        store.transition(firstGym, "pride:verdant_gym_intro",
+            Set.of("pride:met_thorn"), Set.of());
+        store.transition(noIntro, "pride:verdant_gym_intro",
+            Set.of("pride:met_mom"), Set.of());
+        var gymEngine = new StoryEngine(autoDefinitions, store,
+            id -> actualMarkers.getOrDefault(id, Set.of()));
+        check(!gymEngine.reconcileVerdantVictory(firstGym),
+            "Talking to Thorn cannot falsely award a League win");
+        actualMarkers.put(firstGym, Set.of("league_started"));
+        check(!gymEngine.reconcileVerdantVictory(firstGym),
+            "League start without a battle victory must not progress");
+        actualMarkers.put(firstGym, Set.of("league_started", "league_grass"));
+        check(gymEngine.reconcileVerdantVictory(firstGym),
+            "Verified RCT Thorn win advances narrative toward Warden Elowen");
+        check(store.get(firstGym).storyStage().equals("pride:verdant_victory"),
+            "Win transitions to the Warden Elowen followup");
+        long wonRevision = store.get(firstGym).revision();
+        check(!gymEngine.reconcileVerdantVictory(firstGym)
+                && store.get(firstGym).revision() == wonRevision,
+            "Repeated battle sync must not write twice");
+        check(!store.get(firstGym).facts().contains("pride:league_grass"),
+            "The League marker is never copied into Pride Core-owned facts");
+        actualMarkers.put(noIntro, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileVerdantVictory(noIntro),
+            "Gym win cannot bypass uncompleted Thorn story intro");
+        check(store.get(noIntro).storyStage().equals("pride:verdant_gym_intro"),
+            "No-intro player stage remains unchanged");
+        UUID veteranGym = UUID.randomUUID();
+        store.transition(veteranGym, "pride:regional_finale",
+            Set.of("pride:met_thorn"), Set.of());
+        actualMarkers.put(veteranGym, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileVerdantVictory(veteranGym),
+            "Verified legacy Gym win can never regress later campaign stages");
+        check(StoryObjectiveGuide.forStage("pride:verdant_victory")
+                .contains("Warden Elowen"),
+            "Genuine Verdant win gives a concrete quest-book-compatible followup");
+        check(StoryObjectiveGuide.coveredStages() == 29,
+            "Every milestone stage and newly verified Verdant win has guidance");
 
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
