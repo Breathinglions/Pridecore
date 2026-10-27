@@ -68,10 +68,14 @@ public final class StoryModule {
             try {
                 // Read old *verified* onboarding markers, then project owned checkpoints.
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
+                boolean verdantWin = active.reconcileVerdantVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
+                if (verdantWin)
+                    sendNextObjective(handler.getPlayer(),
+                        active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
                 LOGGER.warn("Read-only story advancement reconciliation failed for {}: {}",
                     handler.getPlayer().getUuid(), ex.toString());
@@ -220,8 +224,9 @@ public final class StoryModule {
         try {
             StoryEngine active = ready(source.getServer());
             List<String> changes = active.reconcileOnboarding(player.getUuid());
+            boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
-            if (!changes.isEmpty())
+            if (!changes.isEmpty() || verdantWin)
                 sendNextObjective(player, active.currentStage(player.getUuid()));
             return 1;
         } catch (IOException | RuntimeException ex) {
@@ -323,7 +328,8 @@ public final class StoryModule {
             String battleCommand = "tbcs battle GEN_9_SINGLES @s vs "
                 + thorn.getUuidAsString() + " as rctmod:pride_thorn"
                 + " rules {maxItemUses:3}"
-                + " onwin {1:['@1 function pride_story:league/grass_win']}";
+                + " onwin {1:['@1 function pride_story:league/grass_win',"
+                + "'@1 pridecore story sync']}";
             var dispatcher = source.getServer().getCommandManager().getDispatcher();
             ServerCommandSource elevated = source.withLevel(4);
             int result = dispatcher.execute(battleCommand, elevated);
