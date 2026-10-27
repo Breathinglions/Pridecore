@@ -268,11 +268,19 @@ public final class StoryModule {
             if (!nearby)
                 throw new IllegalStateException("Talk to the matching Cobblemon NPC in person");
             StoryEngine active = ready(source.getServer());
+            // Cobblemon native dialogues are player-facing. Never echo internal
+            // profile revisions or other developer details to regular players.
+            // A previously completed NPC choice is a safe no-op rather than an
+            // "Unknown dialogue choice" error on the repeat conversation.
+            if (active.completedNpcs(player.getUuid()).contains(npc)) {
+                StoryAdvancementBridge.synchronize(player, active);
+                return 1;
+            }
             active.begin(player.getUuid(), npc); // Refresh against actual owned state.
-            var reply = active.choose(player.getUuid(), option);
+            active.choose(player.getUuid(), option);
             StoryAdvancementBridge.synchronize(player, active);
-            return message(source, "Pride Region story updated by " + reply.npcName()
-                + " (revision " + reply.revision() + ")");
+            LOGGER.debug("Native story checkpoint completed: npc={}, player={}", npc, player.getUuid());
+            return 1;
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Native story action rejected for {} npc={} choice={}: {}",
                     player.getUuid(), npc, option, ex.toString());
