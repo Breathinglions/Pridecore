@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "league_source": "PokemonLeague7.10.10_FTB_Only_CobbleBadges_Removed_STAGING",
+  "audited_source_sha256": "ca16bbfc591519144d6dc53993f84106b546478df471bf30f913aa05791b3a3f",
+  "status": "AUDIT_ONLY_NOT_DEPLOYED",
+  "purpose": "Authoritative source inventory for 13-trainer consolidation. No runtime changes.",
+  "current_battle_authority": "RCT original trainer entities",
+  "current_victory_authority": "RCT original winCommands",
+  "migration_rule": "Never enable competing reward callbacks. Keep RCT trainers, existing player tags, FTB IDs, teams and economy intact until each replacement is in-game verified.",
+  "trainers": [
+    {
+      "order": 1,
+      "id": "rctmod:pride_thorn",
+      "name": "Gym Leader Thorn",
+      "kind": "gym",
+      "requires_tag": "league_started",
+      "win_tag": "league_grass",
+      "ftb_quest_id": "456DCDE440B68A94",
+      "original_first_win_payout": 1000,
+      "pokemon_count": 3,
+      "team_level_range": [
+        12,
+        16
+      ],
+      "team_definition": "data/rctmod/trainers/pride_thorn.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_thorn.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 2,
+      "id": "rctmod:pride_rook",
+      "name": "Gym Leader Rook",
+      "kind": "gym",
+      "requires_tag": "league_grass",
+      "win_tag": "league_rock",
+      "ftb_quest_id": "2867AA0C0538158A",
+      "original_first_win_payout": 1500,
+      "pokemon_count": 3,
+      "team_level_range": [
+        18,
+        22
+      ],
+      "team_definition": "data/rctmod/trainers/pride_rook.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_rook.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 3,
+      "id": "rctmod:pride_ashen",
+      "name": "Gym Leader Ashen",
+      "kind": "gym",
+      "requires_tag": "league_rock",
+      "win_tag": "league_fire",
+      "ftb_quest_id": "4AD87FAA54FC9A19",
+      "original_first_win_payout": 2000,
+      "pokemon_count": 4,
+      "team_level_range": [
+        24,
+        30
+      ],
+      "team_definition": "data/rctmod/trainers/pride_ashen.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_ashen.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 4,
+      "id": "rctmod:pride_kai",
+      "name": "Gym Leader Kai",
+      "kind": "gym",
+      "requires_tag": "league_fire",
+      "win_tag": "league_water",
+      "ftb_quest_id": "53F68547D48776A3",
+      "original_first_win_payout": 4000,
+      "pokemon_count": 4,
+      "team_level_range": [
+        32,
+        36
+      ],
+      "team_definition": "data/rctmod/trainers/pride_kai.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_kai.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 5,
+      "id": "rctmod:pride_vega",
+      "name": "Gym Leader Vega",
+      "kind": "gym",
+      "requires_tag": "league_water",
+      "win_tag": "league_electric",
+      "ftb_quest_id": "61E4745EC29DE0CB",
+      "original_first_win_payout": 4000,
+      "pokemon_count": 4,
+      "team_level_range": [
+        38,
+        44
+      ],
+      "team_definition": "data/rctmod/trainers/pride_vega.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_vega.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 6,
+      "id": "rctmod:pride_draven",
+      "name": "Gym Leader Draven",
+      "kind": "gym",
+      "requires_tag": "league_electric",
+      "win_tag": "league_dragon",
+      "ftb_quest_id": "4DF226EFF3C21674",
+      "original_first_win_payout": 5000,
+      "pokemon_count": 4,
+      "team_level_range": [
+        46,
+        52
+      ],
+      "team_definition": "data/rctmod/trainers/pride_draven.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_draven.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 7,
+      "id": "rctmod:pride_freya",
+      "name": "Gym Leader Freya",
+      "kind": "gym",
+      "requires_tag": "league_dragon",
+      "win_tag": "league_ice",
+      "ftb_quest_id": "54753B7A6105E568",
+      "original_first_win_payout": 7500,
+      "pokemon_count": 4,
+      "team_level_range": [
+        54,
+        58
+      ],
+      "team_definition": "data/rctmod/trainers/pride_freya.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_freya.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 8,
+      "id": "rctmod:pride_nyx",
+      "name": "Gym Leader Nyx",
+      "kind": "gym",
+      "requires_tag": "league_ice",
+      "win_tag": "league_ghost",
+      "ftb_quest_id": "1ABB54848235ED21",
+      "original_first_win_payout": 10000,
+      "pokemon_count": 5,
+      "team_level_range": [
+        60,
+        65
+      ],
+      "team_definition": "data/rctmod/trainers/pride_nyx.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_nyx.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 9,
+      "id": "rctmod:pride_koda",
+      "name": "Elite Four Koda",
+      "kind": "elite_four",
+      "requires_tag": "league_ghost",
+      "win_tag": "league_e4_1",
+      "ftb_quest_id": "62607E3D37EE8F52",
+      "original_first_win_payout": 0,
+      "pokemon_count": 6,
+      "team_level_range": [
+        66,
+        70
+      ],
+      "team_definition": "data/rctmod/trainers/pride_koda.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_koda.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 10,
+      "id": "rctmod:pride_seraph",
+      "name": "Elite Four Seraph",
+      "kind": "elite_four",
+      "requires_tag": "league_e4_1",
+      "win_tag": "league_e4_2",
+      "ftb_quest_id": "724FC88C6663DE08",
+      "original_first_win_payout": 0,
+      "pokemon_count": 6,
+      "team_level_range": [
+        69,
+        73
+      ],
+      "team_definition": "data/rctmod/trainers/pride_seraph.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_seraph.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 11,
+      "id": "rctmod:pride_celeste",
+      "name": "Elite Four Celeste",
+      "kind": "elite_four",
+      "requires_tag": "league_e4_2",
+      "win_tag": "league_e4_3",
+      "ftb_quest_id": "0CEF67432CF1D535",
+      "original_first_win_payout": 0,
+      "pokemon_count": 6,
+      "team_level_range": [
+        72,
+        76
+      ],
+      "team_definition": "data/rctmod/trainers/pride_celeste.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_celeste.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 12,
+      "id": "rctmod:pride_vesper",
+      "name": "Elite Four Vesper",
+      "kind": "elite_four",
+      "requires_tag": "league_e4_3",
+      "win_tag": "league_e4_4",
+      "ftb_quest_id": "6EB3E10F71287921",
+      "original_first_win_payout": 40000,
+      "pokemon_count": 6,
+      "team_level_range": [
+        76,
+        80
+      ],
+      "team_definition": "data/rctmod/trainers/pride_vesper.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_vesper.json",
+      "migration_state": "unmigrated"
+    },
+    {
+      "order": 13,
+      "id": "rctmod:pride_champion",
+      "name": "Champion Magnus",
+      "kind": "champion",
+      "requires_tag": "league_e4_4",
+      "win_tag": "league_champion",
+      "ftb_quest_id": "4A916A64CE8B7ED0",
+      "original_first_win_payout": 25000,
+      "pokemon_count": 6,
+      "team_level_range": [
+        81,
+        86
+      ],
+      "team_definition": "data/rctmod/trainers/pride_champion.json",
+      "rct_mob_definition": "data/rctmod/mobs/trainers/single/pride_champion.json",
+      "migration_state": "unmigrated"
+    }
+  ]
+}
