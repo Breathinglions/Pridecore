@@ -35,16 +35,16 @@ jobs:
           test -s PrideStoryFTB_0.3.5-rc1.zip
       - name: Verify installable JAR and story assets
         run: |
-          test -s modules/core/build/libs/pride-core-0.3.6-rc1.jar
-          jar tf modules/core/build/libs/pride-core-0.3.6-rc1.jar | grep -Fx 'fabric.mod.json'
-          jar tf modules/core/build/libs/pride-core-0.3.6-rc1.jar | grep -Fx 'com/prideregion/core/story/StoryModule.class'
-          jar tf modules/core/build/libs/pride-core-0.3.6-rc1.jar | grep -Fx 'story/default.json'
-          jar tf modules/core/build/libs/pride-core-0.3.6-rc1.jar | grep -Fx 'com/prideregion/core/story/NativeNpcIdentity.class'
+          test -s modules/core/build/libs/pride-core-0.3.7-rc1.jar
+          jar tf modules/core/build/libs/pride-core-0.3.7-rc1.jar | grep -Fx 'fabric.mod.json'
+          jar tf modules/core/build/libs/pride-core-0.3.7-rc1.jar | grep -Fx 'com/prideregion/core/story/StoryModule.class'
+          jar tf modules/core/build/libs/pride-core-0.3.7-rc1.jar | grep -Fx 'story/default.json'
+          jar tf modules/core/build/libs/pride-core-0.3.7-rc1.jar | grep -Fx 'com/prideregion/core/story/NativeNpcIdentity.class'
       - uses: actions/upload-artifact@v4
         with:
-          name: PrideCore-Module02-0.3.6-rc1-Fabric-1.21.1
+          name: PrideCore-Module02-0.3.7-rc1-Fabric-1.21.1
           path: |
-            modules/core/build/libs/pride-core-0.3.6-rc1.jar
+            modules/core/build/libs/pride-core-0.3.7-rc1.jar
             modules/core/build/PrideStoryNative_0.3.5-rc1.zip
             modules/core/campaign/build_native_overlay.py
             modules/core/campaign/acts.json
