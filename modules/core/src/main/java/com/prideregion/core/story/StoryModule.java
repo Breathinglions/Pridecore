@@ -149,6 +149,11 @@ public final class StoryModule {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
         story.then(CommandManager.literal("objective").executes(ctx -> objective(ctx.getSource())));
+        // Normal players can challenge only their nearby, authenticated Gym 1
+        // story NPC. The TBCS commands themselves stay permission-restricted.
+        story.then(CommandManager.literal("battle")
+            .then(CommandManager.literal("thorn")
+                .executes(ctx -> challengeThorn(ctx.getSource()))));
         story.then(CommandManager.literal("sync")
             .executes(ctx -> sync(ctx.getSource())));
         story.then(CommandManager.literal("validate")
@@ -266,6 +271,66 @@ public final class StoryModule {
      * No player name accepted from command arguments, no OP privileges granted.
      * A matching tagged native Cobblemon NPC must be physically near the player.
      */
+    /**
+     * Bridge the authenticated Cobblemon NPC dialogue to the existing RCT team
+     * through TBCS without allowing ordinary players to issue arbitrary TBCS
+     * commands. Actual first-win rewards are granted ONLY by the TBCS onwin
+     * callback, which invokes the exact League-derived win function in the
+     * matching story datapack. A conversation can never grant the badge.
+     */
+    private static int challengeThorn(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) {
+            source.sendError(Text.literal("A player must speak with Thorn in person."));
+            return 0;
+        }
+        try {
+            StoryEngine active = ready(source.getServer());
+            if (!FabricLoader.getInstance().isModLoaded("tbcs"))
+                throw new IllegalStateException("TBCS is not installed on the server");
+            if (!player.getCommandTags().contains("league_started"))
+                throw new IllegalStateException("Finish your Trainer registration before challenging Thorn");
+            boolean near = !player.getWorld().getOtherEntities(player,
+                player.getBoundingBox().expand(5.0),
+                e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
+                    && e.getCommandTags().contains("pride_npc_thorn")
+                    && e.squaredDistanceTo(player) <= 36.0D).isEmpty();
+            if (!near)
+                throw new IllegalStateException("Talk to the real Verdant Gym Thorn NPC in person");
+            boolean finishedIntro = active.completedNpcs(player.getUuid()).contains("thorn");
+            if (!finishedIntro) {
+                // The intro's native story gate checks Ranger Mira and League
+                // registration. It is deliberately separate from Gym victory.
+                active.begin(player.getUuid(), "thorn");
+                active.choose(player.getUuid(), "challenge");
+                StoryAdvancementBridge.synchronize(player, active);
+                sendNextObjective(player, active.currentStage(player.getUuid()));
+            }
+            // Revalidate entity proximity at command time. This command string
+            // does not accept untrusted player-supplied args.
+            String selector = "@e[type=cobblemon:npc,tag=pride_npc_thorn,sort=nearest,limit=1,distance=..6]";
+            var dispatcher = source.getServer().getCommandManager().getDispatcher();
+            ServerCommandSource elevated = source.withLevel(4);
+            int attach = dispatcher.execute("tbcs attach rctmod:pride_thorn " + selector, elevated);
+            if (attach <= 0)
+                throw new IllegalStateException("RCT Thorn trainer attachment failed; battle did not start");
+            int result = dispatcher.execute(
+                "tbcs battle GEN_9_SINGLES @s vs rctmod:pride_thorn"
+                + " rules {maxItemUses:3}"
+                + " onwin {1:['@1 function pride_story:league/grass_win']}",
+                elevated);
+            if (result <= 0)
+                throw new IllegalStateException("TBCS did not start the battle. Check version and server log");
+            LOGGER.info("Started official Thorn battle through TBCS: player={}", player.getUuid());
+            return 1;
+        } catch (Exception ex) {
+            LOGGER.warn("Verdant Gym challenge refused for {}: {}",
+                player.getUuid(), ex.toString());
+            source.sendError(Text.literal("Verdant battle unavailable: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
     private static int nativeChoice(ServerCommandSource source, String npc, String option) {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) {
