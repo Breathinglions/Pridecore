@@ -149,5 +149,10 @@ public final class StoryEngine {
         return Set.copyOf(done);
     }
 
+    /** Read-only stage lookup for next-objective hints; never advances progress. */
+    public synchronized String currentStage(UUID playerId) throws IOException {
+        return progression.get(playerId).storyStage();
+    }
+
     public int npcCount() { return story.npcs().size(); }
 }
