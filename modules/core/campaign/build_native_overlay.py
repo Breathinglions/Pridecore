@@ -158,10 +158,15 @@ def main():
             mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice))
         # Compatible with existing League spawn runtime function.
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
-            f"# Pride Story native NPC: {name}. Stand at placement position and face direction.\n"
+            f"# Pride Story native NPC: {name}. Run as a player, away from other NPCs.\n"
+            f"# Mark existing NPCs BEFORE spawning: never attach this identity to a neighbor.\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,distance=..2.5] add pride_story_spawn_existing\n"
             f"function prideregion:npc_services/spawn/_spawn_runtime {{npc:\"pride_story:{npc}\"}}\n"
-            f"execute positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_npc_{npc}\n"
-            f"execute positioned ^ ^ ^1.5 run attribute @e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] minecraft:generic.knockback_resistance base set 1\n"
+            f"# Match the original League helper's zero-pitch rotation and exclude existing NPCs.\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] add pride_npc_{npc}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 as @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] run attribute @s minecraft:generic.knockback_resistance base set 1\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,distance=..0.75] run tellraw @s {{\"text\":\"Pride Story spawn warning: {npc} was not tagged. Move to a clear area and inspect the new NPC.\",\"color\":\"red\"}}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=pride_story_spawn_existing,distance=..2.5] remove pride_story_spawn_existing\n"
         ).encode("utf-8")
     # No physical items or commands are awarded by these checkpoints.
     # FTB Quests Per Player can consume each as an ordinary advancement task.
