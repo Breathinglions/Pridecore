@@ -18,6 +18,7 @@ public final class StoryObjectiveGuide {
         Map.entry("pride:route1_orientation", "Explore Route 1. Catch your first wild Pokémon and win your first battle, then report to Ranger Mira."),
         Map.entry("pride:verdant_approach", "Head toward Verdant Gym. Speak with Thorn and prepare for the Grass-type challenge."),
         Map.entry("pride:verdant_gym_intro", "Defeat Thorn in the official Verdant Gym battle to earn the Verdant Badge. Then see Warden Elowen."),
+        Map.entry("pride:verdant_victory", "Verdant Gym cleared! Speak with Warden Elowen in Verdant Forest and investigate the unusual Resonance disturbances."),
         Map.entry("pride:rival_introduced", "Continue toward Verdant Gym. Rin may challenge you along the way."),
         Map.entry("pride:forest_investigation", "Follow the forest disturbance with Warden Elowen. Then investigate the mine with Lyra after Rook's Gym."),
         Map.entry("pride:rock_investigation", "Ask Miner Lyra about the missing survey records and the suspected Eclipse trail."),
