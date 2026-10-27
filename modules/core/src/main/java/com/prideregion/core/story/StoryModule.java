@@ -328,8 +328,13 @@ public final class StoryModule {
             String battleCommand = "tbcs battle GEN_9_SINGLES @s vs "
                 + thorn.getUuidAsString() + " as rctmod:pride_thorn"
                 + " rules {maxItemUses:3}"
-                + " onwin {1:['@1 function pride_story:league/grass_win',"
-                + "'@1 pridecore story sync']}";
+                // TBCS's '@1 ' prefix runs the command FROM the player,
+                // which can lose the permissions required by function/rewards
+                // on servers where the player is deliberately de-opped.
+                // Server-owned execute-as retains winCommandsPermission (4)
+                // while making @s the actual first-side winner.
+                + " onwin {1:['execute as @1 run function pride_story:league/grass_win',"
+                + "'execute as @1 run pridecore story sync']}";
             var dispatcher = source.getServer().getCommandManager().getDispatcher();
             ServerCommandSource elevated = source.withLevel(4);
             int result = dispatcher.execute(battleCommand, elevated);
