@@ -92,7 +92,7 @@ public final class PrideCoreMod implements ModInitializer {
             for (String action : List.of("grant", "revoke")) {
                 admin.then(CommandManager.literal(action)
                     .then(CommandManager.argument("player", EntityArgumentType.player())
-                        .then(CommandManager.argument("fact", StringArgumentType.word())
+                        .then(CommandManager.argument("fact", StringArgumentType.greedyString())
                             .executes(ctx -> fact(ctx.getSource(),
                                 EntityArgumentType.getPlayer(ctx, "player"),
                                 StringArgumentType.getString(ctx, "fact"),
@@ -100,7 +100,7 @@ public final class PrideCoreMod implements ModInitializer {
             }
             admin.then(CommandManager.literal("stage")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
-                    .then(CommandManager.argument("stage", StringArgumentType.word())
+                    .then(CommandManager.argument("stage", StringArgumentType.greedyString())
                         .executes(ctx -> stage(ctx.getSource(),
                             EntityArgumentType.getPlayer(ctx, "player"),
                             StringArgumentType.getString(ctx, "stage"))))));
