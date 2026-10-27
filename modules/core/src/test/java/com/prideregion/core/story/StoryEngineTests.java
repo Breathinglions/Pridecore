@@ -45,6 +45,20 @@ public final class StoryEngineTests {
         check(done.options().isEmpty() && done.revision()==1,"Single transaction applied");
         check(store.get(p).facts().contains("pride:met_mom"),"Story fact stored");
         check(store.get(p).storyStage().equals("pride:professor_visit"),"Stage stored");
+        check(engine.currentStage(p).equals("pride:professor_visit"),
+            "Current stage is read-only and never changes the profile");
+        check(StoryObjectiveGuide.forStage("pride:unstarted").contains("Mom"),
+            "Fresh trainer is directed to Mom");
+        check(StoryObjectiveGuide.forStage("pride:visit_sequoia").contains("Professor Sequoia"),
+            "Mom completion tells player the next destination");
+        check(StoryObjectiveGuide.forStage("pride:trainer_registration").contains("Technician Theo"),
+            "Trainer registration gives a useful next destination");
+        check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Ranger Mira"),
+            "Field kit progression includes Route 1 objectives");
+        check(StoryObjectiveGuide.coveredStages() == 28,
+            "All 27 milestone stages and the empty profile have directions");
+        check(StoryObjectiveGuide.forStage("pride:unmapped").contains("Quest Book"),
+            "Unknown custom stages fail safely with generic quest-book guidance");
         check(engine.completedNpcs(p).contains("mom"),
             "Completed NPC checkpoint can be projected to the player's advancement");
         check(engine.completedNpcs(other).isEmpty(),
