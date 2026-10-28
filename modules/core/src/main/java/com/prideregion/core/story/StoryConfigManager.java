@@ -74,17 +74,28 @@ public final class StoryConfigManager {
                 addedNpcs++;
                 continue;
             }
-            // Canonical campaign requirement: meeting Rin through the
-            // verified starter-selection service is mandatory before Mira.
-            // Preserve existing custom conditions; add only this specific
-            // requirement when upgrading old server story.json files.
-            if ("ranger".equals(npcId)) {
+            // Canonical campaign gates were introduced after early world
+            // installs. Only add vetted, non-reward story requirements; never
+            // replace custom dialogue or remove existing prerequisites.
+            String requiredFact = switch (npcId) {
+                case "ranger" -> "pride:met_rin";
+                case "miner_lyra" -> "pride:clue_forest";
+                case "eclipse_scout" -> "pride:clue_mine";
+                case "meridian_scientist" -> "pride:clue_foundry";
+                case "ranger_rowan" -> "pride:clue_river";
+                case "cael_aide" -> "pride:clue_grid";
+                case "ice_archivist" -> "pride:clue_ward";
+                case "rin_summit" -> "pride:clue_ice";
+                case "eclipse_operative" -> "pride:clue_echo";
+                case "ranger_epilogue" -> "pride:clue_engine";
+                default -> null;
+            };
+            if (requiredFact != null) {
                 JsonArray requirements = existingNpc.getAsJsonArray("requires");
                 JsonArray canonical = newerNpc.getAsJsonArray("requires");
-                if (canonical != null
-                        && contains(canonical, "pride:met_rin")
-                        && !contains(requirements, "pride:met_rin"))
-                    requirements.add("pride:met_rin");
+                if (canonical != null && contains(canonical, requiredFact)
+                        && !contains(requirements, requiredFact))
+                    requirements.add(requiredFact);
             }
             JsonArray oldNodes = existingNpc.getAsJsonArray("nodes");
             for (JsonElement node : newerNpc.getAsJsonArray("nodes")) {
