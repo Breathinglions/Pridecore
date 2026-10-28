@@ -45,6 +45,16 @@ def build(jar, league_zip, story_zip, output):
         raise ValueError('Duplicate Pride Story Thorn NPC must not be shipped')
     if 'data/pride_story/advancement/thorn.json' not in story:
         raise ValueError('Original Thorn FTB checkpoint advancement must be retained')
+    for duplicate in ('rin_canyon','rin_summit','ranger_epilogue'):
+        if f'data/pride_story/npcs/{duplicate}.json' in story:
+            raise ValueError('Recurring story scene must reuse one canonical NPC: '+duplicate)
+        if f'data/pride_story/advancement/{duplicate}.json' not in story:
+            raise ValueError('Recurring story FTB checkpoint missing: '+duplicate)
+    if len([x for x in story if x.startswith('data/pride_story/npcs/')]) != 20:
+        raise ValueError('Unexpected standalone Story NPC count (expected 20 canonical actors)')
+    for physical in ('rin','ranger_rowan'):
+        if f'data/pride_story/npcs/{physical}.json' not in story:
+            raise ValueError('Missing recurring canonical actor '+physical)
     for clue in CLUES:
         if f'data/pride_story/advancement/clue_{clue}.json' not in story:
             raise ValueError('Missing world evidence advancement: '+clue)
