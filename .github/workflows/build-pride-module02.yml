@@ -22,6 +22,8 @@ jobs:
         run: bash modules/core/qa/test-core.sh
       - name: Module 02 story engine regression tests
         run: bash modules/core/qa/test-story.sh
+      - name: Module 02 FTB chapter and localization regression tests
+        run: python3 modules/core/qa/test_ftb_story_overlay.py
       - name: Compile, test config upgrades and remap Fabric mod
         working-directory: modules/core
         run: gradle --no-daemon clean build
