@@ -64,7 +64,17 @@ public final class StoryEngine {
             throw new IllegalStateException("Choice prerequisites not met");
         if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
             throw new IllegalStateException("Complete the existing starter, registration or field objective first");
-        var change = progression.transition(playerId, option.stage(),
+        // Rin's introduction is an optional Route 1 encounter. Recording it
+        // after Thorn's story introduction must never roll the active Gym /
+        // forest objective backwards to "rival_introduced". Preserve Rin's
+        // completed fact, but keep the current mainline stage intact.
+        String destinationStage = option.stage();
+        if ("rin".equals(npc.id())
+                && "pride:rival_introduced".equals(destinationStage)
+                && before.facts().contains("pride:met_thorn")) {
+            destinationStage = null;
+        }
+        var change = progression.transition(playerId, destinationStage,
                 option.grant(), option.revoke());
         if (option.next() == null) {
             sessions.remove(playerId);
@@ -137,7 +147,13 @@ public final class StoryEngine {
      */
     public synchronized boolean reconcileVerdantVictory(UUID playerId) throws IOException {
         ProfileState current = progression.get(playerId);
-        if (!"pride:verdant_gym_intro".equals(current.storyStage()))
+        // Existing players may have met Rin after Thorn and had their current
+        // stage overwritten by the optional rival introduction. The owned
+        // Thorn checkpoint plus official League markers establish eligibility
+        // to recover without fabricating any battle result or regressing players
+        // already in Act I or later.
+        if (!Set.of("pride:verdant_gym_intro", "pride:rival_introduced")
+                .contains(current.storyStage()))
             return false;
         if (!current.facts().contains("pride:met_thorn"))
             return false;
