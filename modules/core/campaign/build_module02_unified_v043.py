@@ -7,7 +7,7 @@ same archive. Fail closed on any duplicate or missing authoritative reward.
 """
 import argparse, hashlib, json
 from pathlib import Path
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile, ZIP_DEFLATED, ZipInfo
 
 LEAGUE_SHA256 = 'ca16bbfc591519144d6dc53993f84106b546478df471bf30f913aa05791b3a3f'
 LEADERS = ('thorn','rook','ashen','kai','vega','draven','freya','nyx',
@@ -109,7 +109,11 @@ def build(jar, league_zip, story_zip, output):
     compiled['pride_core_unification_manifest.json']=(json.dumps(manifest,indent=2)+'\n').encode()
     output.parent.mkdir(parents=True,exist_ok=True)
     with ZipFile(output,'w',ZIP_DEFLATED,compresslevel=8) as z:
-        for name,body in sorted({**compiled,**resources}.items()):z.writestr(name,body)
+        for name,body in sorted({**compiled,**resources}.items()):
+            info = ZipInfo(name, (2020, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            z.writestr(info, body)
     check=zip_entries(output)
     assert len(check)==len(compiled)+len(resources)
     assert 'data/pride_story/npcs/thorn.json' not in check
