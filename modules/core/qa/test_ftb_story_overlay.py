@@ -16,7 +16,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 GENERATOR = ROOT / "modules/core/campaign/build_ftb_story_chapters.py"
 STORY = ROOT / "modules/core/src/main/resources/story/default.json"
-EXPECTED_GROUPS = (5, 5, 5, 5, 4, 3)
+EXPECTED_GROUPS = (6, 5, 5, 5, 4, 2)
 KEY = re.compile(r"^\s*(chapter|quest|task)\.([0-9A-F]{16})\.[^:]+:")
 
 
@@ -40,7 +40,7 @@ def run() -> None:
             assert "rewards: [ ]" in data
             assert "type: \"advancement\"" in data
         entries = (out / "PRIDE_STORY_EN_US_IMPORT.snbtfrag").read_text(encoding="utf-8").splitlines()
-        title_keys = [m.group(0).strip() for line in entries if (m := KEY.match(line))]
+        title_keys = [line.split(":", 1)[0].strip() for line in entries if KEY.match(line)]
         assert title_keys, "Expected FTB localization keys"
         assert not any(line.startswith("\\t") for line in entries), "Literal slash-t in localization"
         assert len(set(title_keys)) == len(title_keys), "Duplicate localization keys"
