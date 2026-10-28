@@ -47,6 +47,13 @@ public final class StoryConfigMigrationTests {
         for (var npc : npcs) for (var node : npc.getAsJsonObject().getAsJsonArray("nodes"))
             for (var option : node.getAsJsonObject().getAsJsonArray("options"))
                 option.getAsJsonObject().remove("requiresLegacy");
+        // Old installed configs predate the mandatory Lab rival.
+        JsonObject rangerBefore = find(npcs, "ranger");
+        JsonArray oldRangerRequires = new JsonArray();
+        for (JsonElement value : rangerBefore.getAsJsonArray("requires"))
+            if (!"pride:met_rin".equals(value.getAsString()))
+                oldRangerRequires.add(value.deepCopy());
+        rangerBefore.add("requires", oldRangerRequires);
         JsonObject mom = find(npcs, "mom");
         mom.addProperty("name", "Custom Mom");
         mom.getAsJsonArray("nodes").get(0).getAsJsonObject()
@@ -74,6 +81,11 @@ public final class StoryConfigMigrationTests {
         StoryJson.parse(newDoc);
         JsonArray all = newDoc.getAsJsonArray("npcs");
         check(all.size() == 28, "Full campaign and custom NPC retained");
+        boolean rivalRequired = false;
+        for (JsonElement required : find(all, "ranger").getAsJsonArray("requires"))
+            rivalRequired |= "pride:met_rin".equals(required.getAsString());
+        check(rivalRequired,
+            "Existing Ranger NPCs gain mandatory starter rival requirement with safe backup");
         check(find(all,"customguide").get("name").getAsString().equals("My existing custom Guide"),
             "Custom NPC retained");
         check(find(all,"mom").get("name").getAsString().equals("Custom Mom"),
