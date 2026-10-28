@@ -24,6 +24,8 @@ jobs:
         run: bash modules/core/qa/test-story.sh
       - name: Module 02 FTB chapter and localization regression tests
         run: python3 modules/core/qa/test_ftb_story_overlay.py
+      - name: Validate authored Module 02 encounter rosters
+        run: python3 modules/core/qa/test_story_battle_rosters.py
       - name: Compile, test config upgrades and remap Fabric mod
         working-directory: modules/core
         run: gradle --no-daemon clean build
