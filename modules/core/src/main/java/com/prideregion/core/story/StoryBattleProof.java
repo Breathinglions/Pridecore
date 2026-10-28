@@ -102,6 +102,12 @@ public final class StoryBattleProof {
         }
     }
 
+    /** Disconnect invalidates an in-flight ticket; no reward is paid. */
+    public synchronized void cancelPlayer(UUID player) {
+        Ticket ticket = active.remove(player);
+        if (ticket != null) battleOwners.remove(ticket.battle(), player);
+    }
+
     /** Clear pending runtime tickets on shutdown. Persistence is fact-based. */
     public synchronized void clear() { active.clear(); battleOwners.clear(); }
 }
