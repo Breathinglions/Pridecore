@@ -196,10 +196,6 @@ def main():
        "You've made it to Route 1. Something has the wild Pokémon uneasy.",
        "Catch your first Pokémon and win your first battle, then report back for field guidance.",
        "explore"),
-      ("thorn","Thorn — Verdant Gym",
-       "A Grass-type Trainer must respect the land as well as the Pokémon living on it.",
-       "Your League win is awarded only through the official Gym battle. This conversation introduces your journey through Verdant.",
-       "challenge")
     ]
     for c in campaign["npc"]:
         opening.append((c["id"],c["name"],c["dialogue"],c["followup"],"continue"))
@@ -224,7 +220,7 @@ def main():
         ).encode("utf-8")
     # No physical items or commands are awarded by these checkpoints.
     # FTB Quests Per Player can consume each as an ordinary advancement task.
-    for npc in ["sequoia", "theo", "avery"] + sorted(ids):
+    for npc in ["sequoia", "theo", "avery", "thorn"] + sorted(ids):
         generated[f"data/pride_story/advancement/{npc}.json"] = dump({
             "criteria":{"done":{"trigger":"minecraft:impossible"}},
             "requirements":[["done"]]
@@ -242,7 +238,7 @@ def main():
         "# Create an FTB Quests Advancement task with the right-hand id.\\n" +
         "# Personal FTB Quests progression stays with Per Player Quests.\\n" +
         "\\n".join(f"{id} -> pride_story:{id}" for id in
-                  ["sequoia", "theo", "avery"] + sorted(ids)) + "\\n"
+                  ["sequoia", "theo", "avery", "thorn"] + sorted(ids)) + "\\n"
     ).encode("utf-8")
     generated["PRIDE_STORY_README.txt"]=(
        "Module 02 staging story overlay for exact PokemonLeague7.10.10.\n"
@@ -253,7 +249,7 @@ def main():
        "Use /function pride_story:spawn/mom while standing at a chosen world location.\n"
        "Mom has dedicated player-facing dialogue and a help page; the generic continue choice is removed for her.\n"
        "Repeat for /function pride_story:spawn/ranger and new NPC cast after world placement.\n"
-       "Do not spawn additional Thorn at the Gym boss position without choosing separate story anchor.\n"
+       "Do not spawn Story Thorn: the original RCT Thorn is the ONLY Gym NPC.\n"
        "FTB Quests Per Player chapters and actual battle/world objectives must still be configured.\n"
     ).encode("utf-8")
     generated["PRIDE_STORY_MANIFEST.json"]=dump({
@@ -277,8 +273,8 @@ def main():
     with zipfile.ZipFile(dest) as z:
         assert z.testzip() is None
         assert len(z.namelist()) == len(generated)
-        assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 24
-        assert len([x for x in z.namelist() if x.startswith("data/pride_story/advancement/")]) == 27
+        assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 23
+        assert len([x for x in z.namelist() if x.startswith("data/pride_story/advancement/")]) == 36
         if args.league_zip:
             assert all(x in z.namelist() for x in
                  ["data/pride_region/dialogues/professor_sequoia.json",
