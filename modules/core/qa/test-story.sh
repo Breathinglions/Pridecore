@@ -13,9 +13,12 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/NativeNpcIdentity.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDefinition.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryObjectiveGuide.java" \
- "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java"
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java"
 java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
+java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
 python3 - "$ROOT/src/main/resources/story/default.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
