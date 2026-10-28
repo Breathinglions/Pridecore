@@ -45,6 +45,14 @@ public final class StoryBattleProofTests {
             proofs.cancel(owner, second);
             check(!proofs.victory(pending, second, owner));
             check(progression.get(owner).facts().contains(definition.earnedFact()));
+            UUID disconnectBattle = UUID.randomUUID();
+            var dropped = proofs.arm(owner, disconnectBattle, definition.id());
+            proofs.cancelPlayer(owner);
+            check(!proofs.victory(dropped, disconnectBattle, owner));
+            var transferred = proofs.arm(other, disconnectBattle, definition.id());
+            check(transferred.player().equals(other));
+            proofs.clear();
+            check(!proofs.victory(transferred, disconnectBattle, other));
         }
         System.out.println("PASS: " + checks + " story battle proof assertions");
     }
