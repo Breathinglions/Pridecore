@@ -155,7 +155,8 @@
       "id": "ranger",
       "name": "Ranger Mira",
       "requires": [
-        "pride:met_avery"
+        "pride:met_avery",
+        "pride:met_rin"
       ],
       "completedFact": "pride:route1_briefed",
       "start": "hello",
@@ -232,12 +233,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "I heard Sequoia gave you your partner. Mine is ready too! I'm not letting you reach Verdant Gym without a challenge.",
+          "text": "Good to see you again! We met at Professor Sequoia's Lab when we chose our first Pokémon. I'm Rin, your rival on the road to the League. I won't let you reach the Champion without a challenge.",
           "options": [
             {
               "id": "continue",
               "text": "Continue the Pride Region story.",
-              "stage": "pride:rival_introduced",
               "grant": [
                 "pride:met_rin"
               ]
