@@ -86,6 +86,58 @@ def mom_dialogue():
     assert "Continue our journey" not in json.dumps(d)
     return d
 
+def introduce_rin_in_professors_starter_dialogue(dialogue):
+    """Mandatory rival introduction in the EXISTING Sequoia interaction.
+
+    Preserve all original Cobblemon starter actions; the player reads the
+    intro immediately before the original openstarterscreen command.
+    This does not summon another Professor, provide a starter or add tags.
+    """
+    if any(p["id"] == "rin_starter_intro" for p in dialogue["pages"]):
+        raise ValueError("Rin starter intro is already installed")
+    saved_starter_action = None
+    for page_id, option_id in (("main", "starter"),
+                               ("region", "starter_from_region")):
+        pages = [p for p in dialogue["pages"] if p["id"] == page_id]
+        if len(pages) != 1:
+            raise ValueError("Missing Professor page: " + page_id)
+        choices = [o for o in pages[0]["input"]["options"] if o["value"] == option_id]
+        if len(choices) != 1:
+            raise ValueError("Missing starter option: " + option_id)
+        existing = choices[0]["action"]
+        commands = list(existing) if isinstance(existing, list) else [existing]
+        if not any("openstarterscreen " in x for x in commands):
+            raise ValueError("Existing starter selection action missing")
+        if not any("prideregion:onboarding/meet_sequoia" in x for x in commands):
+            raise ValueError("Original Sequoia meeting function missing")
+        if saved_starter_action is None:
+            saved_starter_action = commands
+        elif saved_starter_action != commands:
+            raise ValueError("Starter option actions differ across Professor pages")
+        choices[0]["action"] = "q.dialogue.set_page('rin_starter_intro');"
+    dialogue["pages"].append({
+        "id": "rin_starter_intro",
+        "speaker": "professor",
+        "lines": [
+            "Before choosing your first partner, meet Rin. You'll begin your journeys together.",
+            "Rin: So you're the other new Trainer! I'm Rin. I'm picking my partner today too.",
+            "Rin: I'm going to be Champion someday. Let's see how we grow as Trainers!",
+            "Professor Sequoia: A little rivalry can bring out your best. Now choose your partner."
+        ],
+        "input": {"type": "option", "vertical": True, "options": [
+            {"text": "Choose my first Pokémon alongside Rin.",
+             "value": "choose_with_rin",
+             "action": saved_starter_action},
+            {"text": "I need a moment.",
+             "value": "back",
+             "action": "q.dialogue.set_page('main');"}
+        ]}
+    })
+    # Returning players already have a starter and should meet Rin
+    # retroactively through the gated, reward-free Pride Core reconciliation.
+    return dialogue
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--league-zip", default=None)
@@ -130,6 +182,8 @@ def main():
                 # Append rather than prepend, since rewards and trusted legacy
                 # completion tags MUST be established by the existing system first.
                 option["action"] = original_actions + [sync_action]
+                if filename == "professor_sequoia":
+                    data = introduce_rin_in_professors_starter_dialogue(data)
                 generated[entry] = dump(data)
 
 
