@@ -229,6 +229,15 @@ def main():
             "criteria":{"done":{"trigger":"minecraft:impossible"}},
             "requirements":[["done"]]
         })
+    # Per-player world investigation markers. Physical world props are placed
+    # by builders (interaction entities tagged pride_clue_<id>); they are not
+    # automatically spawned at guessed coordinates or handed to players.
+    for clue in ("forest", "mine", "foundry", "river", "grid",
+                 "ward", "ice", "echo", "engine"):
+        generated[f"data/pride_story/advancement/clue_{clue}.json"] = dump({
+            "criteria": {"done": {"trigger": "minecraft:impossible"}},
+            "requirements": [["done"]]
+        })
     generated["FTB_QUEST_ADVANCEMENT_MAPPING.txt"]=(
         "# Create an FTB Quests Advancement task with the right-hand id.\\n" +
         "# Personal FTB Quests progression stays with Per Player Quests.\\n" +
