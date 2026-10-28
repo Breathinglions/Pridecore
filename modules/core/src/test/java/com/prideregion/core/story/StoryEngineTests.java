@@ -239,6 +239,25 @@ public final class StoryEngineTests {
         check(!store.get(firstGym).facts().contains("pride:league_grass"),
             "The League marker is never copied into Pride Core-owned facts");
         actualMarkers.put(noIntro, Set.of("league_started", "league_grass"));
+        // With only ONE original RCT Thorn actor, Route 1 + his genuine
+        // League victory now completes the narrative Thorn checkpoint.
+        UUID oneThorn = UUID.randomUUID();
+        store.transition(oneThorn, "pride:verdant_approach",
+            Set.of("pride:route1_briefed"), Set.of());
+        actualMarkers.put(oneThorn, Set.of("league_started"));
+        check(!gymEngine.reconcileVerdantVictory(oneThorn),
+            "Talking to original RCT Thorn without winning cannot clear Gym");
+        actualMarkers.put(oneThorn, Set.of("league_started", "league_grass"));
+        check(gymEngine.reconcileVerdantVictory(oneThorn),
+            "Original RCT win directly advances narrative without second Story Thorn");
+        check(store.get(oneThorn).facts().contains("pride:met_thorn"),
+            "Original RCT battle completion grants one story Thorn fact");
+        check(store.get(oneThorn).storyStage().equals("pride:verdant_victory"),
+            "Original one-Thorn encounter moves to Warden objective");
+        long oneRevision = store.get(oneThorn).revision();
+        check(!gymEngine.reconcileVerdantVictory(oneThorn)
+                && store.get(oneThorn).revision() == oneRevision,
+            "Official one-Thorn story handoff cannot be paid or written twice");
         check(!gymEngine.reconcileVerdantVictory(noIntro),
             "Gym win cannot bypass uncompleted Thorn story intro");
         check(store.get(noIntro).storyStage().equals("pride:verdant_gym_intro"),
