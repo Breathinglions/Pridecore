@@ -192,20 +192,49 @@ def main():
        "Good morning! Professor Sequoia is expecting you at his lab.",
        "When you're ready, promise you'll look after your partner and explore every road.",
        "begin"),
-      ("ranger","Ranger Captain Rowan",
+      ("ranger","Ranger Mira",
        "You've made it to Route 1. Something has the wild Pokémon uneasy.",
        "Catch your first Pokémon and win your first battle, then report back for field guidance.",
        "explore"),
     ]
+    # Recurring characters have ONE canonical physical actor, not a second
+    # Rin/Rowan NPC for each campaign chapter. Follow-up choices target
+    # distinct story checkpoints while authenticating against the same actor.
+    recurring_scenes = {"rin_canyon", "rin_summit", "ranger_epilogue"}
     for c in campaign["npc"]:
+        if c["id"] in recurring_scenes:
+            continue
         opening.append((c["id"],c["name"],c["dialogue"],c["followup"],"continue"))
     ids=set()
     for npc,name,greeting,detail,choice in opening:
         if npc in ids: raise ValueError("Duplicate story NPC "+npc)
         ids.add(npc)
         generated[f"data/pride_story/npcs/{npc}.json"]=dump(native_npc(npc,name))
-        generated[f"data/pride_story/dialogues/{npc}.json"]=dump(
-            mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice))
+        d = mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice)
+        if npc == "rin":
+            d["pages"][0]["input"]["options"].insert(1, {
+                "text": "Discuss the evidence against Eclipse (canyon).",
+                "value": "rin_canyon", "action": [
+                    script_action("rin_canyon", "continue"),
+                    "q.dialogue.close();"
+                ]
+            })
+            d["pages"][0]["input"]["options"].insert(2, {
+                "text": "Compare the research at the summit.",
+                "value": "rin_summit", "action": [
+                    script_action("rin_summit", "continue"),
+                    "q.dialogue.close();"
+                ]
+            })
+        if npc == "ranger_rowan":
+            d["pages"][0]["input"]["options"].insert(1, {
+                "text": "Brief the Rangers about the Resonance Engine.",
+                "value": "crisis_briefing", "action": [
+                    script_action("ranger_epilogue", "continue"),
+                    "q.dialogue.close();"
+                ]
+            })
+        generated[f"data/pride_story/dialogues/{npc}.json"]=dump(d)
         # Compatible with existing League spawn runtime function.
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
             f"# Pride Story native NPC: {name}. Run as a player, away from other NPCs.\n"
@@ -220,7 +249,7 @@ def main():
         ).encode("utf-8")
     # No physical items or commands are awarded by these checkpoints.
     # FTB Quests Per Player can consume each as an ordinary advancement task.
-    for npc in ["sequoia", "theo", "avery", "thorn"] + sorted(ids):
+    for npc in ["sequoia", "theo", "avery", "thorn", "rin_canyon", "rin_summit", "ranger_epilogue"] + sorted(ids):
         generated[f"data/pride_story/advancement/{npc}.json"] = dump({
             "criteria":{"done":{"trigger":"minecraft:impossible"}},
             "requirements":[["done"]]
@@ -273,7 +302,7 @@ def main():
     with zipfile.ZipFile(dest) as z:
         assert z.testzip() is None
         assert len(z.namelist()) == len(generated)
-        assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 23
+        assert len([x for x in z.namelist() if x.startswith("data/pride_story/npcs/")]) == 20
         assert len([x for x in z.namelist() if x.startswith("data/pride_story/advancement/")]) == 36
         if args.league_zip:
             assert all(x in z.namelist() for x in
