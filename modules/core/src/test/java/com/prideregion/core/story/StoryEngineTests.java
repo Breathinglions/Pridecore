@@ -255,6 +255,61 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.coveredStages() == 29,
             "Every milestone stage and newly verified Verdant win has guidance");
 
+        // Regression: Rin may be visited out of sequence without undoing a
+        // real Gym victory, and existing profiles stuck at rival_introduced
+        // must reconcile ONLY when the original League actually awarded Grass.
+        UUID stuckRival = UUID.randomUUID();
+        store.transition(stuckRival, "pride:rival_introduced",
+            Set.of("pride:met_thorn", "pride:met_avery", "pride:met_rin"), Set.of());
+        actualMarkers.put(stuckRival, Set.of("league_started", "league_grass"));
+        check(gymEngine.reconcileVerdantVictory(stuckRival),
+            "Verified Gym win recovers the historical Rin stage overwrite");
+        check(store.get(stuckRival).storyStage().equals("pride:verdant_victory"),
+            "Stuck rival stage advances to Warden rather than replaying the Gym");
+        long recoveredRevision = store.get(stuckRival).revision();
+        check(!gymEngine.reconcileVerdantVictory(stuckRival)
+                && store.get(stuckRival).revision() == recoveredRevision,
+            "Rin recovery is idempotent, with no repeat writes");
+
+        UUID fakeRivalWin = UUID.randomUUID();
+        store.transition(fakeRivalWin, "pride:rival_introduced",
+            Set.of("pride:met_thorn"), Set.of());
+        actualMarkers.put(fakeRivalWin, Set.of("league_started"));
+        check(!gymEngine.reconcileVerdantVictory(fakeRivalWin),
+            "Rin cannot imply an official Gym victory without league_grass");
+        UUID noRivalThorn = UUID.randomUUID();
+        store.transition(noRivalThorn, "pride:rival_introduced",
+            Set.of("pride:met_rin"), Set.of());
+        actualMarkers.put(noRivalThorn, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileVerdantVictory(noRivalThorn),
+            "Verified League tags cannot skip the Thorn story checkpoint");
+
+        var rin = new StoryDefinition.Npc("rin", "Rin",
+            Set.of("pride:met_avery"), "pride:met_rin",
+            "hello", "again", Map.of(
+                "hello", new StoryDefinition.Node("hello", "Rival encounter", List.of(
+                    new StoryDefinition.Option("continue", "Continue", null,
+                        "pride:rival_introduced", Set.of("pride:met_rin"),
+                        Set.of(), Set.of()))),
+                "again", new StoryDefinition.Node("again", "Hi", List.of())));
+        var rinEngine = new StoryEngine(new StoryDefinition(Map.of("rin", rin)), store);
+        UUID afterGym = UUID.randomUUID();
+        store.transition(afterGym, "pride:verdant_victory",
+            Set.of("pride:met_avery", "pride:met_thorn"), Set.of());
+        rinEngine.begin(afterGym, "rin");
+        rinEngine.choose(afterGym, "continue");
+        check(store.get(afterGym).storyStage().equals("pride:verdant_victory"),
+            "Late Rin dialogue does not roll verified Gym progress backwards");
+        check(store.get(afterGym).facts().contains("pride:met_rin"),
+            "Late Rin encounter still completes its optional story fact");
+        UUID earlyRin = UUID.randomUUID();
+        store.transition(earlyRin, "pride:verdant_approach",
+            Set.of("pride:met_avery"), Set.of());
+        rinEngine.begin(earlyRin, "rin");
+        rinEngine.choose(earlyRin, "continue");
+        check(store.get(earlyRin).storyStage().equals("pride:rival_introduced"),
+            "Rin introduction can progress normally before meeting Thorn");
+
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
