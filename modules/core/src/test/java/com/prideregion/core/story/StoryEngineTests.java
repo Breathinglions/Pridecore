@@ -307,8 +307,47 @@ public final class StoryEngineTests {
             Set.of("pride:met_avery"), Set.of());
         rinEngine.begin(earlyRin, "rin");
         rinEngine.choose(earlyRin, "continue");
-        check(store.get(earlyRin).storyStage().equals("pride:rival_introduced"),
-            "Rin introduction can progress normally before meeting Thorn");
+        check(store.get(earlyRin).storyStage().equals("pride:verdant_approach"),
+            "Rin never overwrites mainline destination even before Verdant Gym");
+
+        // Mandatory rival: Sequoia's verified starter selection establishes
+        // Rin at the Lab without requiring a second NPC or altering stage.
+        var labWithRin = new StoryEngine(new StoryDefinition(Map.of(
+            "mom",autoMom,"sequoia",autoSequoia,"rin",rin)), store,
+            id -> actualMarkers.getOrDefault(id, Set.of()));
+        UUID newRival = UUID.randomUUID();
+        labWithRin.begin(newRival, "mom");
+        labWithRin.choose(newRival, "begin");
+        actualMarkers.put(newRival, Set.of("sequoia_met"));
+        check(labWithRin.reconcileOnboarding(newRival).isEmpty(),
+            "Speaking to Sequoia without selecting a starter cannot introduce Rin");
+        actualMarkers.put(newRival, Set.of("sequoia_met", "starter_chosen"));
+        check(labWithRin.reconcileOnboarding(newRival).equals(List.of("sequoia", "rin")),
+            "Actual starter choice completes Sequoia and mandatory Rin milestone");
+        check(store.get(newRival).facts().contains("pride:met_rin"),
+            "Rival becomes an owned story checkpoint automatically");
+        check(store.get(newRival).storyStage().equals("pride:trainer_registration"),
+            "Introducing Rin never hides Theo's next objective");
+        long rivalRevision = store.get(newRival).revision();
+        check(labWithRin.reconcileOnboarding(newRival).isEmpty()
+                && store.get(newRival).revision() == rivalRevision,
+            "Mandatory rival starter sync remains one-time");
+        check(!store.get(newbie).facts().contains("pride:met_rin"),
+            "Starter rival checkpoint does not appear in unrelated player profiles");
+        UUID oldStarter = UUID.randomUUID();
+        store.transition(oldStarter, "pride:field_orientation",
+            Set.of("pride:met_mom", "pride:met_sequoia"), Set.of());
+        actualMarkers.put(oldStarter, Set.of("sequoia_met", "starter_chosen"));
+        check(labWithRin.reconcileOnboarding(oldStarter).equals(List.of("rin")),
+            "Returning established trainer safely receives missing rival checkpoint");
+        check(store.get(oldStarter).storyStage().equals("pride:field_orientation"),
+            "Retroactive Rin reconciliation keeps advanced trainer destination");
+        UUID noSequoia = UUID.randomUUID();
+        store.transition(noSequoia, "pride:trainer_registration",
+            Set.of("pride:met_mom"), Set.of());
+        actualMarkers.put(noSequoia, Set.of("sequoia_met", "starter_chosen"));
+        check(labWithRin.reconcileOnboarding(noSequoia).isEmpty(),
+            "Legacy starter tags cannot skip the actual Sequoia story gate");
 
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
