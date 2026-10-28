@@ -69,15 +69,8 @@ public final class StoryEvidenceEngineTests {
                 "Clue is visible to FTB advancement projection");
             check(StoryEvidenceEngine.discovered(store.get(outsider)).isEmpty(),
                 "No leaked FTB evidence for other player");
-            check(new ProgressionService(new ProfileStore(storePathHint()))
-                    != null, "Story service type remains usable");
         }
         System.out.println("PASS: "+checks+" authenticated evidence gates, "
             + "no reward replay, chapter isolation and stage persistence");
-    }
-
-    // Pure smoke-test helper, does not touch actual service paths.
-    private static java.nio.file.Path storePathHint() throws Exception {
-        return Files.createTempDirectory("pride-evidence-smoke-");
     }
 }
