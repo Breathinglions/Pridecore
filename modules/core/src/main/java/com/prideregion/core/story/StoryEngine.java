@@ -207,6 +207,11 @@ public final class StoryEngine {
         return Set.copyOf(done);
     }
 
+    /** Read-only evidence checkpoints, mirrored to FTB advancement tasks. */
+    public synchronized Set<String> completedEvidence(UUID playerId) throws IOException {
+        return StoryEvidenceEngine.discovered(progression.get(playerId));
+    }
+
     /** Read-only stage lookup for next-objective hints; never advances progress. */
     public synchronized String currentStage(UUID playerId) throws IOException {
         return progression.get(playerId).storyStage();
