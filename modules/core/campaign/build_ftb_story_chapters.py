@@ -86,7 +86,7 @@ def main():
                 if event_id in seen: raise SystemExit("ID collision")
                 seen.add(event_id)
                 extras.append((event_id,"prideregion:league/"+badge))
-                locale.append(f"\\ttask.{event_id}.title: {q('Win the official '+badge+' League challenge')}")
+                locale.append(f"\ttask.{event_id}.title: {q('Win the official '+badge+' League challenge')}")
             # These nine tasks are physical world interactions with
             # authenticated minecraft:interaction clue markers; they are not
             # auto-completed by talking to the preceding NPC.
