@@ -181,6 +181,7 @@ public final class StoryModule {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
         story.then(CommandManager.literal("objective").executes(ctx -> objective(ctx.getSource())));
+        story.then(CommandManager.literal("evidence").executes(ctx -> evidenceStatus(ctx.getSource())));
         // The original RCT League Thorn is now the sole physical encounter.
         // Never expose the retired duplicate TBCS "Story Thorn" battle path.
         // Battle outcomes and one-time rewards remain RCT/League-owned.
@@ -258,6 +259,26 @@ public final class StoryModule {
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Onboarding sync refused for {}: {}", player.getUuid(), ex.toString());
             source.sendError(Text.literal("Story sync unavailable: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    /** Read-only investigator notebook: never fabricates or grants a clue. */
+    private static int evidenceStatus(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return message(source, "In-game player required.");
+        try {
+            var service = PrideCoreMod.progression(source.getServer())
+                .orElseThrow(() -> new IOException("Module 01 unavailable"));
+            Set<String> clues = StoryEvidenceEngine.discovered(service.get(player.getUuid()));
+            List<String> titles = new ArrayList<>();
+            for (var clue : StoryEvidenceEngine.definitions())
+                if (clues.contains(clue.id())) titles.add(clue.title());
+            return message(source, "Evidence found " + clues.size() + "/"
+                + StoryEvidenceEngine.definitions().size() + ": "
+                + (titles.isEmpty() ? "None yet." : String.join("; ", titles)));
+        } catch (IOException ex) {
+            source.sendError(Text.literal("Evidence status unavailable."));
             return 0;
         }
     }
