@@ -64,6 +64,20 @@ public final class StoryEngine {
             throw new IllegalStateException("Choice prerequisites not met");
         if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
             throw new IllegalStateException("Complete the existing starter, registration or field objective first");
+        // A conversation is never proof of a scripted battle victory.
+        // Keep boss and rival narrative checkpoints locked until the trusted
+        // server-side battle adapter has persisted the corresponding win fact.
+        String verifiedBattle = switch (npc.id()) {
+            case "rin_canyon" -> "pride:rin_canyon_won";
+            case "rin_summit" -> "pride:rin_summit_won";
+            case "eclipse_operative" -> "pride:eclipse_lieutenant_won";
+            case "sable" -> "pride:sable_battle_won";
+            case "director_cael" -> "pride:cael_battle_won";
+            default -> null;
+        };
+        if (verifiedBattle != null && option.grant().contains(npc.completedFact())
+                && !before.facts().contains(verifiedBattle))
+            throw new IllegalStateException("Win the scripted story battle before advancing");
         // Rin is the mandatory partner-selection rival, NOT a replacement
         // mainline stage. Conversations with Rin may award only his checkpoint;
         // they cannot redirect or regress the active Gym / investigation goal.
