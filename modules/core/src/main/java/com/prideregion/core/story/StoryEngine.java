@@ -64,16 +64,13 @@ public final class StoryEngine {
             throw new IllegalStateException("Choice prerequisites not met");
         if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
             throw new IllegalStateException("Complete the existing starter, registration or field objective first");
-        // Rin's introduction is an optional Route 1 encounter. Recording it
-        // after Thorn's story introduction must never roll the active Gym /
-        // forest objective backwards to "rival_introduced". Preserve Rin's
-        // completed fact, but keep the current mainline stage intact.
+        // Rin is the mandatory partner-selection rival, NOT a replacement
+        // mainline stage. Conversations with Rin may award only his checkpoint;
+        // they cannot redirect or regress the active Gym / investigation goal.
         String destinationStage = option.stage();
         if ("rin".equals(npc.id())
-                && "pride:rival_introduced".equals(destinationStage)
-                && before.facts().contains("pride:met_thorn")) {
+                && "pride:rival_introduced".equals(destinationStage))
             destinationStage = null;
-        }
         var change = progression.transition(playerId, destinationStage,
                 option.grant(), option.revoke());
         if (option.next() == null) {
@@ -133,7 +130,30 @@ public final class StoryEngine {
                     option.grant(), Set.of());
             if (result.changed()) advanced.add(step.npc());
         }
+        // Once Sequoia's *real* starter service confirms the Pokémon was
+        // chosen, Rin is introduced as part of this compulsory Lab milestone.
+        // The Professor's native dialogue delivers the actual introduction.
+        // This checkpoint adds NO rewards or invented starter data.
+        if (reconcileRivalAtStarter(playerId, verified))
+            advanced.add("rin");
         return List.copyOf(advanced);
+    }
+
+    private boolean reconcileRivalAtStarter(UUID playerId, Set<String> verified)
+            throws IOException {
+        var rin = story.npcs().get("rin");
+        if (rin == null || !"pride:met_rin".equals(rin.completedFact()))
+            return false; // Custom story may omit the canonical rival.
+        if (!verified.contains("starter_chosen") || !verified.contains("sequoia_met"))
+            return false; // A dialogue choice is not proof of starter selection.
+        ProfileState current = progression.get(playerId);
+        if (!current.facts().contains("pride:met_mom")
+                || !current.facts().contains("pride:met_sequoia")
+                || current.facts().contains("pride:met_rin"))
+            return false;
+        // Do not force an old rival_introduced stage over the Lab / route goal.
+        return progression.transition(playerId, null,
+            Set.of("pride:met_rin"), Set.of()).changed();
     }
 
     /**
