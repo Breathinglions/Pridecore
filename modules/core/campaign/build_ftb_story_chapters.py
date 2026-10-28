@@ -87,6 +87,23 @@ def main():
                 seen.add(event_id)
                 extras.append((event_id,"prideregion:league/"+badge))
                 locale.append(f"\\ttask.{event_id}.title: {q('Win the official '+badge+' League challenge')}")
+            # These nine tasks are physical world interactions with
+            # authenticated minecraft:interaction clue markers; they are not
+            # auto-completed by talking to the preceding NPC.
+            world_evidence = {
+                "miner_lyra":"forest", "eclipse_scout":"mine",
+                "meridian_scientist":"foundry", "ranger_rowan":"river",
+                "cael_aide":"grid", "ice_archivist":"ward",
+                "rin_summit":"ice", "eclipse_operative":"echo",
+                "ranger_epilogue":"engine"
+            }
+            if name in world_evidence:
+                clue = world_evidence[name]
+                clue_task = id_for("task", "world_clue_"+clue)
+                if clue_task in seen: raise SystemExit("World clue task collision")
+                seen.add(clue_task)
+                extras.append((clue_task,"pride_story:clue_"+clue))
+                locale.append(f"\ttask.{clue_task}.title: {q('Investigate the '+clue+' evidence')}")
             tasks = [f'\t\t\t{{ id: "{task}", type: "advancement", advancement: "pride_story:{name}" }}']
             tasks += [f'\t\t\t{{ id: "{t}", type: "advancement", advancement: "{adv}" }}'
                       for t,adv in extras]
