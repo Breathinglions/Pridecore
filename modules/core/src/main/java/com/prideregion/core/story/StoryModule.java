@@ -40,8 +40,36 @@ public final class StoryModule {
 
     public static void registerHooks() {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND
-                || entity.getType() != EntityType.VILLAGER)
+            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
+                return ActionResult.PASS;
+            // Environmental evidence uses ONLY intentionally placed interaction
+            // entities. Never intercept unrelated world props or native NPCs.
+            if (entity.getType() == EntityType.INTERACTION) {
+                List<StoryEvidenceEngine.Clue> clues = StoryEvidenceEngine.definitions()
+                    .stream().filter(clue -> entity.getCommandTags().contains(clue.markerTag()))
+                    .toList();
+                if (clues.isEmpty()) return ActionResult.PASS;
+                if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D)
+                    return ActionResult.FAIL;
+                try {
+                    var service = PrideCoreMod.progression(sp.getServer())
+                        .orElseThrow(() -> new IOException("Progression unavailable"));
+                    var evidence = new StoryEvidenceEngine(service,
+                        id -> id.equals(sp.getUuid()) ? Set.copyOf(sp.getCommandTags()) : Set.of());
+                    var result = evidence.complete(sp.getUuid(), clues.getFirst().id());
+                    StoryEngine running = liveServer == sp.getServer() ? engine : null;
+                    if (running != null) StoryAdvancementBridge.synchronize(sp, running);
+                    sp.sendMessage(Text.literal(result.firstDiscovery()
+                            ? "[Pride Region] Evidence discovered: " + result.clue().title()
+                            : "[Pride Region] You've already examined this evidence.")
+                        .formatted(Formatting.AQUA), false);
+                } catch (IOException | RuntimeException ex) {
+                    sp.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
+                        .formatted(Formatting.RED), false);
+                }
+                return ActionResult.SUCCESS;
+            }
+            if (entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
             StoryEngine running = liveServer == sp.getServer() ? engine : null;
             if (running == null) return ActionResult.PASS;
