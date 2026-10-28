@@ -26,6 +26,12 @@ public final class StoryAdvancementBridge {
             var entry = advancements.get(Identifier.of("pride_story", npcId));
             if (entry != null && tracker.grantCriterion(entry, "done")) granted++;
         }
+        // Investigation proofs are per-player, reward-free vanilla advancements.
+        // Never mark them from dialogue or from a different player's discovery.
+        for (String evidenceId : engine.completedEvidence(player.getUuid())) {
+            var entry = advancements.get(Identifier.of("pride_story", "clue_" + evidenceId));
+            if (entry != null && tracker.grantCriterion(entry, "done")) granted++;
+        }
         return granted;
     }
 }
