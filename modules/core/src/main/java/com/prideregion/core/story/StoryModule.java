@@ -181,11 +181,9 @@ public final class StoryModule {
         var story = CommandManager.literal("story");
         story.then(CommandManager.literal("status").executes(ctx -> status(ctx.getSource())));
         story.then(CommandManager.literal("objective").executes(ctx -> objective(ctx.getSource())));
-        // Normal players can challenge only their nearby, authenticated Gym 1
-        // story NPC. The TBCS commands themselves stay permission-restricted.
-        story.then(CommandManager.literal("battle")
-            .then(CommandManager.literal("thorn")
-                .executes(ctx -> challengeThorn(ctx.getSource()))));
+        // The original RCT League Thorn is now the sole physical encounter.
+        // Never expose the retired duplicate TBCS "Story Thorn" battle path.
+        // Battle outcomes and one-time rewards remain RCT/League-owned.
         story.then(CommandManager.literal("sync")
             .executes(ctx -> sync(ctx.getSource())));
         story.then(CommandManager.literal("validate")
