@@ -33,6 +33,7 @@ public final class StoryModule {
     private static final String PREFIX = "pride_npc_";
     private static volatile MinecraftServer liveServer;
     private static volatile StoryEngine engine;
+    private static volatile StoryBattleProof battleProof;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
 
@@ -112,12 +113,15 @@ public final class StoryModule {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
+            StoryBattleProof proof = liveServer == server ? battleProof : null;
+            if (proof != null) proof.cancelPlayer(handler.getPlayer().getUuid());
         });
     }
 
     public static void start(MinecraftServer server) {
         liveServer = server;
         engine = null;
+        battleProof = null;
         health = "disabled";
         configStatus = "unchecked";
         try {
@@ -152,11 +156,13 @@ public final class StoryModule {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
+            battleProof = new StoryBattleProof(service);
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
         } catch (IOException | RuntimeException ex) {
             engine = null;
+            battleProof = null;
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -165,11 +171,60 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            if (battleProof != null) battleProof.clear();
+            battleProof = null;
             engine = null;
             liveServer = null;
             health = "disabled";
             configStatus = "unchecked";
         }
+    }
+
+    /**
+     * Server-side integration API for a verified native Cobblemon battle adapter.
+     * Do not invoke from chat commands, NPC dialogue options or client packets.
+     * Adapters must validate the actual configured opponent and battle UUID.
+     */
+    public static StoryBattleProof.Ticket beginVerifiedBattle(
+            MinecraftServer server, UUID playerId, UUID battleId, String encounterId)
+            throws IOException {
+        StoryBattleProof proof = liveServer == server ? battleProof : null;
+        if (proof == null || engine == null)
+            throw new IllegalStateException("Story battles disabled");
+        if (!server.isOnThread())
+            throw new IllegalStateException("Story battle start must run on server thread");
+        if (server.getPlayerManager().getPlayer(playerId) == null)
+            throw new IllegalStateException("Story battle player offline");
+        return proof.arm(playerId, battleId, encounterId);
+    }
+
+    /** Only a trusted native battle victory event may call this method. */
+    public static boolean completeVerifiedBattle(
+            MinecraftServer server, StoryBattleProof.Ticket ticket,
+            UUID actualBattleId, UUID actualWinnerId) throws IOException {
+        StoryBattleProof proof = liveServer == server ? battleProof : null;
+        if (proof == null || engine == null) return false;
+        if (!server.isOnThread())
+            throw new IllegalStateException("Story battle win must run on server thread");
+        if (ticket == null || server.getPlayerManager().getPlayer(ticket.player()) == null)
+            return false;
+        boolean completed = proof.victory(ticket, actualBattleId, actualWinnerId);
+        if (completed) {
+            ServerPlayerEntity player = server.getPlayerManager().getPlayer(ticket.player());
+            player.sendMessage(Text.literal("[Pride Region] Story battle victory recorded.")
+                .formatted(Formatting.GREEN), false);
+        }
+        return completed;
+    }
+
+    /** Loss, disconnect or genuine battle cancellation: no story credit. */
+    public static void cancelVerifiedBattle(
+            MinecraftServer server, UUID playerId, UUID battleId) {
+        StoryBattleProof proof = liveServer == server ? battleProof : null;
+        if (proof == null) return;
+        if (!server.isOnThread())
+            throw new IllegalStateException("Story battle cancellation must run on server thread");
+        proof.cancel(playerId, battleId);
     }
 
     private static Path configDir() {
