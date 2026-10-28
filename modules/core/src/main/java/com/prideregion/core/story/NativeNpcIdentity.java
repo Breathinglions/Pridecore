@@ -7,7 +7,11 @@ public final class NativeNpcIdentity {
     private static final Map<String, String> EXISTING = Map.of(
         "sequoia", "pride_npc_professor_sequoia",
         "theo", "pride_npc_technician_theo",
-        "avery", "pride_npc_avery"
+        "avery", "pride_npc_avery",
+        // One physical actor; multiple story checkpoints for the same person.
+        "rin_canyon", "pride_npc_rin",
+        "rin_summit", "pride_npc_rin",
+        "ranger_epilogue", "pride_npc_ranger_rowan"
     );
     private NativeNpcIdentity() {}
     public static String tagFor(String storyId) {
