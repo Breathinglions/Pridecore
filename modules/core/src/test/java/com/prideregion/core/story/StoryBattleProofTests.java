@@ -25,6 +25,14 @@ public final class StoryBattleProofTests {
             check(locked);
             progression.grant(owner, definition.requiredFact());
             var ticket = proofs.arm(owner, battle, definition.id());
+            // The underlying Cobblemon battle UUID must never be shared by
+            // two different players or assigned to another story encounter.
+            progression.grant(other, definition.requiredFact());
+            boolean collisionDenied = false;
+            try { proofs.arm(other, battle, definition.id()); }
+            catch (IllegalStateException expected) { collisionDenied = true; }
+            check(collisionDenied);
+            check(proofs.arm(owner, battle, definition.id()).equals(ticket));
             check(!proofs.victory(ticket, UUID.randomUUID(), owner));
             check(!proofs.victory(ticket, battle, other));
             check(!progression.get(owner).facts().contains(definition.earnedFact()));
