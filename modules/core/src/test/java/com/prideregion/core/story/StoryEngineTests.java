@@ -124,6 +124,12 @@ public final class StoryEngineTests {
             "Existing Avery NPC tag mapped");
         check(NativeNpcIdentity.tagFor("mom").equals("pride_npc_mom"),
             "New native NPC tag is predictable");
+        check(NativeNpcIdentity.tagFor("rin_canyon").equals("pride_npc_rin")
+                && NativeNpcIdentity.tagFor("rin_summit").equals("pride_npc_rin"),
+            "Rin's three story scenes authenticate against one canonical actor");
+        check(NativeNpcIdentity.tagFor("ranger_epilogue")
+                .equals("pride_npc_ranger_rowan"),
+            "Captain Rowan's recurring scenes share one actor");
         rejected(() -> NativeNpcIdentity.tagFor("../escape"));
         // Normal Lab services should promote story automatically, without an
         // additional "Continue my Pride Region story" dialogue button.
