@@ -74,6 +74,18 @@ public final class StoryConfigManager {
                 addedNpcs++;
                 continue;
             }
+            // Canonical campaign requirement: meeting Rin through the
+            // verified starter-selection service is mandatory before Mira.
+            // Preserve existing custom conditions; add only this specific
+            // requirement when upgrading old server story.json files.
+            if ("ranger".equals(npcId)) {
+                JsonArray requirements = existingNpc.getAsJsonArray("requires");
+                JsonArray canonical = newerNpc.getAsJsonArray("requires");
+                if (canonical != null
+                        && contains(canonical, "pride:met_rin")
+                        && !contains(requirements, "pride:met_rin"))
+                    requirements.add("pride:met_rin");
+            }
             JsonArray oldNodes = existingNpc.getAsJsonArray("nodes");
             for (JsonElement node : newerNpc.getAsJsonArray("nodes")) {
                 JsonObject proposed = node.getAsJsonObject();
@@ -133,6 +145,13 @@ public final class StoryConfigManager {
         }
         atomicWrite(file, output);
         return new Result(Change.UPGRADED, backup, addedNpcs, addedGates);
+    }
+
+    private static boolean contains(JsonArray values, String target) {
+        if (values == null) return false;
+        for (JsonElement value : values)
+            if (target.equals(value.getAsString())) return true;
+        return false;
     }
 
     private static JsonObject byId(JsonArray collection, String id) {
