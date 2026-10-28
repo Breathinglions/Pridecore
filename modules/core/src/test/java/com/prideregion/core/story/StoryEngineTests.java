@@ -374,6 +374,29 @@ public final class StoryEngineTests {
         check(labWithRin.reconcileOnboarding(noSequoia).isEmpty(),
             "Legacy starter tags cannot skip the actual Sequoia story gate");
 
+        // Dialogue-only completion cannot bypass scripted Act IV boss battles.
+        var sableNpc = new StoryDefinition.Npc("sable", "Sable",
+            Set.of("pride:eclipse_assault"), "pride:sable_warning",
+            "main", "again", Map.of(
+                "main", new StoryDefinition.Node("main", "Face me in battle.",
+                    List.of(new StoryDefinition.Option("continue", "Continue", null,
+                        "pride:sable_confrontation", Set.of("pride:sable_warning"),
+                        Set.of(), Set.of()))),
+                "again", new StoryDefinition.Node("again", "We have settled this.", List.of())));
+        var sableStory = new StoryEngine(new StoryDefinition(Map.of("sable", sableNpc)), store);
+        UUID bossPlayer = UUID.randomUUID(), bystander = UUID.randomUUID();
+        store.grant(bossPlayer, "pride:eclipse_assault");
+        store.grant(bystander, "pride:eclipse_assault");
+        sableStory.begin(bossPlayer, "sable");
+        rejected(() -> sableStory.choose(bossPlayer, "continue"));
+        check(!store.get(bossPlayer).facts().contains("pride:sable_warning"),
+            "Dialogue cannot substitute for authenticated Sable victory");
+        store.grant(bossPlayer, "pride:sable_battle_won");
+        check(sableStory.choose(bossPlayer, "continue").options().isEmpty(),
+            "Verified Sable victory unlocks the canonical story checkpoint");
+        check(!store.get(bystander).facts().contains("pride:sable_warning"),
+            "Sable battle story completion remains player-isolated");
+
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
