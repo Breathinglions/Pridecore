@@ -167,21 +167,24 @@ public final class StoryEngine {
      */
     public synchronized boolean reconcileVerdantVictory(UUID playerId) throws IOException {
         ProfileState current = progression.get(playerId);
-        // Existing players may have met Rin after Thorn and had their current
-        // stage overwritten by the optional rival introduction. The owned
-        // Thorn checkpoint plus official League markers establish eligibility
-        // to recover without fabricating any battle result or regressing players
-        // already in Act I or later.
-        if (!Set.of("pride:verdant_gym_intro", "pride:rival_introduced")
-                .contains(current.storyStage()))
+        // One physical Thorn: the existing RCT League NPC owns the *actual*
+        // fight, badge, FTB and economy. A separate Pride Story Thorn NPC is
+        // no longer needed. Require Ranger Mira's verified Route 1 checkpoint
+        // for fresh players, or the prior Thorn story checkpoint for veterans.
+        // Never skip onboarding merely because legacy badges preexist.
+        if (!Set.of("pride:verdant_approach", "pride:verdant_gym_intro",
+                    "pride:rival_introduced").contains(current.storyStage()))
             return false;
-        if (!current.facts().contains("pride:met_thorn"))
+        boolean metThorn = current.facts().contains("pride:met_thorn");
+        if (!metThorn && !current.facts().contains("pride:route1_briefed"))
             return false;
         Set<String> legacy = legacyFor(playerId);
         if (!legacy.contains("league_started") || !legacy.contains("league_grass"))
             return false;
+        // Grant the original Thorn STORY checkpoint only after a verified
+        // original RCT Gym victory. Nothing here manufactures League rewards.
         return progression.transition(playerId, "pride:verdant_victory",
-            Set.of(), Set.of()).changed();
+            metThorn ? Set.of() : Set.of("pride:met_thorn"), Set.of()).changed();
     }
 
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
