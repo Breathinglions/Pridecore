@@ -321,7 +321,8 @@
       "id": "miner_lyra",
       "name": "Miner Lyra",
       "requires": [
-        "pride:forest_evidence"
+        "pride:forest_evidence",
+        "pride:clue_forest"
       ],
       "completedFact": "pride:mine_records",
       "start": "main",
@@ -371,7 +372,8 @@
       "id": "eclipse_scout",
       "name": "Eclipse Scout",
       "requires": [
-        "pride:mine_records"
+        "pride:mine_records",
+        "pride:clue_mine"
       ],
       "completedFact": "pride:eclipse_contact",
       "start": "main",
@@ -515,7 +517,8 @@
       "id": "meridian_scientist",
       "name": "Researcher Vela",
       "requires": [
-        "pride:heat_anomaly"
+        "pride:heat_anomaly",
+        "pride:clue_foundry"
       ],
       "completedFact": "pride:meridian_leads",
       "start": "main",
@@ -612,7 +615,8 @@
       "id": "ranger_rowan",
       "name": "Captain Rowan",
       "requires": [
-        "pride:water_evidence"
+        "pride:water_evidence",
+        "pride:clue_river"
       ],
       "completedFact": "pride:ranger_probe",
       "start": "main",
@@ -709,7 +713,8 @@
       "id": "cael_aide",
       "name": "Aide Iris",
       "requires": [
-        "pride:engine_plan"
+        "pride:engine_plan",
+        "pride:clue_grid"
       ],
       "completedFact": "pride:meridian_documents",
       "start": "main",
@@ -806,7 +811,8 @@
       "id": "ice_archivist",
       "name": "Archivist Sera",
       "requires": [
-        "pride:ancient_ward"
+        "pride:ancient_ward",
+        "pride:clue_ward"
       ],
       "completedFact": "pride:frozen_warning",
       "start": "main",
@@ -856,7 +862,8 @@
       "id": "rin_summit",
       "name": "Rin",
       "requires": [
-        "pride:frozen_warning"
+        "pride:frozen_warning",
+        "pride:clue_ice"
       ],
       "completedFact": "pride:rival_ally",
       "start": "main",
@@ -953,7 +960,8 @@
       "id": "eclipse_operative",
       "name": "Eclipse Lieutenant",
       "requires": [
-        "pride:memory_truth"
+        "pride:memory_truth",
+        "pride:clue_echo"
       ],
       "completedFact": "pride:eclipse_assault",
       "start": "main",
@@ -1094,7 +1102,8 @@
       "id": "ranger_epilogue",
       "name": "Captain Rowan",
       "requires": [
-        "pride:cael_confronted"
+        "pride:cael_confronted",
+        "pride:clue_engine"
       ],
       "completedFact": "pride:crisis_intel_complete",
       "start": "main",
