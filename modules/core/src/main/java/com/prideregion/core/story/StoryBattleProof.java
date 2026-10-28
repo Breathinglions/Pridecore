@@ -39,6 +39,7 @@ public final class StoryBattleProof {
 
     private final ProgressionService progression;
     private final Map<UUID, Ticket> active = new HashMap<>();
+    private final Map<UUID, UUID> battleOwners = new HashMap<>();
 
     public StoryBattleProof(ProgressionService progression) {
         this.progression = Objects.requireNonNull(progression);
@@ -56,9 +57,17 @@ public final class StoryBattleProof {
         if (!progression.get(player).facts().contains(encounter.requiredFact()))
             throw new IllegalStateException("Story battle chapter locked");
         Ticket ticket = new Ticket(player, battle, encounterId);
-        Ticket previous = active.putIfAbsent(player, ticket);
-        if (previous != null && !previous.equals(ticket))
+        Ticket previous = active.get(player);
+        if (previous != null) {
+            if (previous.equals(ticket)) return ticket;
             throw new IllegalStateException("Player already has an active story battle");
+        }
+        UUID assigned = battleOwners.get(battle);
+        if (assigned != null && !assigned.equals(player))
+            throw new IllegalStateException("Battle already assigned to another player");
+        // Never claim a battle for two different story encounters.
+        battleOwners.put(battle, player);
+        active.put(player, ticket);
         return ticket;
     }
 
@@ -80,15 +89,19 @@ public final class StoryBattleProof {
         // Only clear after persistent write succeeds; allow callback retry on IO failure.
         boolean changed = progression.grant(ticket.player(), encounter.earnedFact()).changed();
         active.remove(ticket.player());
+        battleOwners.remove(ticket.battle(), ticket.player());
         return changed;
     }
 
     /** Battle loss, cancellation, disconnect or callback timeout: never grant credit. */
     public synchronized void cancel(UUID player, UUID battle) {
         Ticket ticket = active.get(player);
-        if (ticket != null && ticket.battle().equals(battle)) active.remove(player);
+        if (ticket != null && ticket.battle().equals(battle)) {
+            active.remove(player);
+            battleOwners.remove(battle, player);
+        }
     }
 
     /** Clear pending runtime tickets on shutdown. Persistence is fact-based. */
-    public synchronized void clear() { active.clear(); }
+    public synchronized void clear() { active.clear(); battleOwners.clear(); }
 }
