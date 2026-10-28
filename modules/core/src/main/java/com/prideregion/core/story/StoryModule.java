@@ -4,7 +4,6 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
@@ -323,96 +322,9 @@ public final class StoryModule {
      * No player name accepted from command arguments, no OP privileges granted.
      * A matching tagged native Cobblemon NPC must be physically near the player.
      */
-    /**
-     * Bridge the authenticated Cobblemon NPC dialogue to the existing RCT team
-     * through TBCS without allowing ordinary players to issue arbitrary TBCS
-     * commands. Actual first-win rewards are granted ONLY by the TBCS onwin
-     * callback, which invokes the exact League-derived win function in the
-     * matching story datapack. A conversation can never grant the badge.
-     */
-    /**
-     * Start the registered RCT Thorn team through TBCS 0.14+.
-     *
-     * `as rctmod:pride_thorn` is TBCS's documented one-step attach-and-battle
-     * interface. Never gate on an earlier `tbcs attach` command's integer
-     * result (some successful commands return 0), and never issue rewards on
-     * dialogue acceptance. Only the onwin callback runs the legacy first-win
-     * guard and existing League advancement/payout/FTB completion.
-     */
-    private static int challengeThorn(ServerCommandSource source) {
-        ServerPlayerEntity player = source.getPlayer();
-        if (player == null) {
-            source.sendError(Text.literal("A player must speak with Thorn in person."));
-            return 0;
-        }
-        try {
-            StoryEngine active = ready(source.getServer());
-            if (!FabricLoader.getInstance().isModLoaded("tbcs"))
-                throw new IllegalStateException("TBCS is not installed on the server");
-            if (!player.getCommandTags().contains("league_started"))
-                throw new IllegalStateException("Finish your Trainer registration before challenging Thorn");
-
-            List<Entity> matches = player.getWorld().getOtherEntities(player,
-                player.getBoundingBox().expand(5.0),
-                e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
-                    && e.getCommandTags().contains("pride_npc_thorn")
-                    && e.squaredDistanceTo(player) <= 36.0D);
-            if (matches.isEmpty())
-                throw new IllegalStateException("Talk to the real Verdant Gym Thorn NPC in person");
-            if (matches.size() > 1)
-                throw new IllegalStateException("Multiple tagged Thorn NPCs nearby; ask an admin to remove duplicates");
-            Entity thorn = matches.getFirst();
-
-            boolean finishedIntro = active.completedNpcs(player.getUuid()).contains("thorn");
-            if (!finishedIntro) {
-                var intro = active.begin(player.getUuid(), "thorn");
-                if (intro.options().stream().noneMatch(o -> o.id().equals("challenge")))
-                    throw new IllegalStateException("Finish Ranger Mira's introduction first");
-            }
-
-            // No untrusted player arguments: battle target is the UUID of the
-            // nearby authenticated NPC, verified in this method.
-            String battleCommand = "tbcs battle GEN_9_SINGLES @s vs "
-                + thorn.getUuidAsString() + " as rctmod:pride_thorn"
-                + " rules {maxItemUses:3}"
-                // TBCS's '@1 ' prefix runs the command FROM the player,
-                // which can lose the permissions required by function/rewards
-                // on servers where the player is deliberately de-opped.
-                // Server-owned execute-as retains winCommandsPermission (4)
-                // while making @s the actual first-side winner.
-                + " onwin {1:['execute as @1 run function pride_story:league/grass_win',"
-                + "'execute as @1 run pridecore story sync']}";
-            var dispatcher = source.getServer().getCommandManager().getDispatcher();
-            ServerCommandSource elevated = source.withLevel(4);
-            int result = dispatcher.execute(battleCommand, elevated);
-
-            // Brigadier results are mod-defined; 0 is not conclusive evidence of
-            // command failure. TBCS owns the actual battle state and logs.
-            if (result <= 0) {
-                LOGGER.warn("TBCS Thorn battle command returned {} for {}; verify actual battle state and console",
-                    result, player.getUuid());
-                return 1;
-            }
-            if (!finishedIntro) {
-                try {
-                    active.choose(player.getUuid(), "challenge");
-                    StoryAdvancementBridge.synchronize(player, active);
-                    sendNextObjective(player, active.currentStage(player.getUuid()));
-                } catch (IOException | RuntimeException progressError) {
-                    LOGGER.error("Thorn battle started but story checkpoint could not be saved for {}",
-                        player.getUuid(), progressError);
-                }
-            }
-            LOGGER.info("Issued official Thorn battle through TBCS: player={} npc={}",
-                player.getUuid(), thorn.getUuid());
-            return 1;
-        } catch (Exception ex) {
-            LOGGER.warn("Verdant Gym challenge refused for {}: {}",
-                player.getUuid(), ex.toString());
-            source.sendError(Text.literal("Verdant battle unavailable: " + safe(ex.getMessage())));
-            return 0;
-        }
-    }
+    // All 13 official League trainers retain their existing RCT battles and
+    // first-win callbacks. Narrative synchronization reads verified League
+    // tags; Pride Core never launches a second shadow trainer battle.
 
     private static int nativeChoice(ServerCommandSource source, String npc, String option) {
         ServerPlayerEntity player = source.getPlayer();
