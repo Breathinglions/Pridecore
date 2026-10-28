@@ -27,7 +27,19 @@ for entry in data["encounters"]:
     assert isinstance(entry["minBadges"], int) and 0 <= entry["minBadges"] <= 8
     assert 1 <= len(entry["team"]) <= 6
     assert entry["intro"].strip() and entry["win"].strip()
+    assert entry["minBadges"] >= 0
+    assert 1 <= len(entry["team"]) <= 6
     for pokemon in entry["team"]:
         assert re.fullmatch(r"[a-z0-9_-]+", pokemon["species"])
         assert isinstance(pokemon["level"], int) and 1 <= pokemon["level"] <= 100
+# Rival continuity: single character, growing team, increasing progression gate.
+rivals = [next(e for e in data["encounters"] if e["id"] == battle)
+          for battle in ("rin_route1", "rin_canyon", "rin_summit")]
+assert [r["minBadges"] for r in rivals] == sorted(r["minBadges"] for r in rivals)
+assert [len(r["team"]) for r in rivals] == sorted(len(r["team"]) for r in rivals)
+assert [max(p["level"] for p in r["team"]) for r in rivals] == sorted(
+    max(p["level"] for p in r["team"]) for r in rivals)
+# Ensure no unapproved battle content can override official League opponents.
+assert all(e["actor"] not in {"thorn","rook","ashen","kai","vega","draven","freya","nyx","magnus"}
+           for e in data["encounters"])
 print("PASS: six versioned story encounter roster definitions validated (NOT runtime tested)")
