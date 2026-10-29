@@ -201,9 +201,9 @@ public final class StoryModule {
                     var result = evidence.complete(sp.getUuid(), clues.getFirst().id());
                     StoryEngine running = liveServer == sp.getServer() ? engine : null;
                     if (running != null) StoryAdvancementBridge.synchronize(sp, running);
+                    var passage = StoryClueNarration.forClue(result.clue().id());
                     sp.sendMessage(Text.literal(result.firstDiscovery()
-                            ? "[Pride Region] Evidence discovered: " + result.clue().title()
-                            : "[Pride Region] You've already examined this evidence.")
+                            ? passage.discovered() : passage.revisit())
                         .formatted(Formatting.AQUA), false);
                 } catch (IOException | RuntimeException ex) {
                     sp.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
