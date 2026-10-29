@@ -117,3 +117,6 @@ assert "catch (RuntimeException presentationFailure)" in effects, "Particle fail
 assert "world.spawnParticles(fallback" in effects, "Failed modded effects must retry vanilla"
 print("PASS: story effect override safeguards")
 PY
+
+# Optional staging prop template must never ship with unknown or broad kill selectors.
+python3 "$ROOT/qa/test_staging_world.py"
