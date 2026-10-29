@@ -299,7 +299,16 @@ public final class StoryModule {
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
         } catch (IOException | ReflectiveOperationException | LinkageError | RuntimeException ex) {
-            victoryListener = null;
+            if (victoryListener != null) {
+                try { victoryListener.uninstall(); }
+                catch (ReflectiveOperationException cleanup) {
+                    LOGGER.error("Story startup failed and battle listener cleanup failed", cleanup);
+                }
+                victoryListener = null;
+            }
+            if (launchLedger != null) launchLedger.clear();
+            launchLedger = null;
+            if (battleRouter != null) battleRouter.clear();
             engine = null;
             battleProof = null;
             battleRouter = null;
