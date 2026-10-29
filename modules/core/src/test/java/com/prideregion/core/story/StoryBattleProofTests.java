@@ -66,6 +66,21 @@ public final class StoryBattleProofTests {
             // A stale ticket must not obstruct later unrelated story encounters.
             proofs.cancelPlayer(externallyCredited);
         }
+        // A playthrough reset can revoke an encounter's prerequisite while a
+        // trainer fight is active. The stale result must not lock future fights.
+        UUID resetPlayer = UUID.randomUUID();
+        String gate = "pride:met_rin";
+        progression.grant(resetPlayer, gate);
+        UUID abandonedId = UUID.randomUUID();
+        var abandoned = proofs.arm(resetPlayer, abandonedId, "rin_route1");
+        progression.revoke(resetPlayer, gate);
+        check(!proofs.victory(abandoned, abandonedId, resetPlayer));
+        check(!progression.get(resetPlayer).facts().contains("pride:rin_route1_won"));
+        progression.grant(resetPlayer, gate);
+        UUID retryId = UUID.randomUUID();
+        var retryTicket = proofs.arm(resetPlayer, retryId, "rin_route1");
+        check(retryTicket.battle().equals(retryId));
+        check(proofs.victory(retryTicket, retryId, resetPlayer));
         System.out.println("PASS: " + checks + " story battle proof assertions");
     }
 }
