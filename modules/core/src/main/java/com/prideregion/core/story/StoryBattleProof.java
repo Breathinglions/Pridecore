@@ -92,8 +92,15 @@ public final class StoryBattleProof {
             return false;
         Encounter encounter = DEFINITIONS.get(ticket.encounterId());
         if (encounter == null) return false;
-        if (!progression.get(ticket.player()).facts().contains(encounter.requiredFact()))
+        Set<String> facts = progression.get(ticket.player()).facts();
+        if (!facts.contains(encounter.requiredFact())) return false;
+        if (facts.contains(encounter.earnedFact())) {
+            // If another trusted path already persisted the fact, retire this
+            // ticket without crediting or replaying presentation.
+            active.remove(ticket.player());
+            battleOwners.remove(ticket.battle(), ticket.player());
             return false;
+        }
         // Only clear after persistent write succeeds; allow callback retry on IO failure.
         boolean changed = progression.grant(ticket.player(), encounter.earnedFact()).changed();
         active.remove(ticket.player());
