@@ -608,6 +608,35 @@ public final class StoryModule {
     }
 
     /** Show each encounter's prerequisite and verified-win status; never grants anything. */
+    /** Player-facing chapter combat checklist; all facts originate server-side. */
+    private static int playerEncounterStatus(ServerCommandSource source) {
+        try {
+            ServerPlayerEntity player = source.getPlayerOrThrow();
+            var facts = PrideCoreMod.progression(source.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"))
+                .get(player.getUuid()).facts();
+            source.sendFeedback(() -> Text.literal("Resonance Crisis story battles:"), false);
+            int won = 0;
+            for (var encounter : StoryBattleProof.definitions()) {
+                boolean complete = facts.contains(encounter.earnedFact());
+                if (complete) won++;
+                boolean eligible = facts.contains(encounter.requiredFact());
+                String state = complete ? "COMPLETE"
+                    : eligible ? "READY" : "LOCKED";
+                source.sendFeedback(() -> Text.literal(" - " + encounter.id()
+                    + ": " + state), false);
+            }
+            int completed = won;
+            source.sendFeedback(() -> Text.literal("Story battle victories: "
+                + completed + "/" + StoryBattleProof.definitions().size()), false);
+            return 1;
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Story battle status unavailable: "
+                + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
     /** Player-facing, read-only finale objective: never unlocks or advances a phase. */
     private static int finaleStatus(ServerCommandSource source) {
         try {
@@ -845,6 +874,8 @@ public final class StoryModule {
         story.then(CommandManager.literal("evidence").executes(ctx -> evidenceStatus(ctx.getSource())));
         story.then(CommandManager.literal("finale")
             .executes(ctx -> finaleStatus(ctx.getSource())));
+        story.then(CommandManager.literal("encounters")
+            .executes(ctx -> playerEncounterStatus(ctx.getSource())));
         // The original RCT League Thorn is now the sole physical encounter.
         // Never expose the retired duplicate TBCS "Story Thorn" battle path.
         // Battle outcomes and one-time rewards remain RCT/League-owned.
