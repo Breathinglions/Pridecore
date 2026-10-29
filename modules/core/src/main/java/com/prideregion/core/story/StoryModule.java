@@ -611,7 +611,8 @@ public final class StoryModule {
     /** Player-facing chapter combat checklist; all facts originate server-side. */
     private static int playerEncounterStatus(ServerCommandSource source) {
         try {
-            ServerPlayerEntity player = source.getPlayerOrThrow();
+            ServerPlayerEntity player = source.getPlayer();
+            if (player == null) return message(source, "Run this command in-game as a player.");
             if (liveServer != source.getServer() || engine == null)
                 return message(source, "The Resonance Crisis campaign is currently unavailable.");
             var facts = PrideCoreMod.progression(source.getServer())
@@ -642,7 +643,8 @@ public final class StoryModule {
     /** Player-facing, read-only finale objective: never unlocks or advances a phase. */
     private static int finaleStatus(ServerCommandSource source) {
         try {
-            ServerPlayerEntity player = source.getPlayerOrThrow();
+            ServerPlayerEntity player = source.getPlayer();
+            if (player == null) return message(source, "Run this command in-game as a player.");
             if (liveServer != source.getServer() || finale == null)
                 return message(source, "The Resonance Engine operation is currently unavailable.");
             restoreFinale(player.getUuid());
