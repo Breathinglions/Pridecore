@@ -45,6 +45,37 @@ public final class StoryModule {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
                 return ActionResult.PASS;
+            // Physical finale devices are explicitly tagged interaction entities.
+            // No world coordinates are guessed; builders place each device.
+            if (entity.getType() == EntityType.INTERACTION &&
+                    entity.getCommandTags().stream().anyMatch(t ->
+                        t.startsWith("pride_finale_"))) {
+                if (entity.squaredDistanceTo(sp) > 36.0D) return ActionResult.FAIL;
+                var markers = entity.getCommandTags().stream()
+                    .filter(t -> t.startsWith("pride_finale_")).toList();
+                if (markers.size() != 1) return ActionResult.FAIL;
+                try {
+                    if (finale == null || liveServer != sp.getServer())
+                        throw new IllegalStateException("Story finale is disabled");
+                    String marker = markers.getFirst();
+                    if (marker.equals("pride_finale_core")) {
+                        finale.stabilize(sp.getUuid());
+                        completeResonanceFinale(sp.getServer(), sp.getUuid());
+                    } else if (marker.startsWith("pride_finale_conduit_")) {
+                        String direction = marker.substring("pride_finale_conduit_".length());
+                        var state = finale.conduit(sp.getUuid(), direction);
+                        sp.sendMessage(Text.literal("[Pride Region] Resonance conduits " +
+                            state.conduits() + "/4; phase " + state.phase())
+                            .formatted(Formatting.AQUA), false);
+                    } else {
+                        throw new IllegalArgumentException("Unknown finale device");
+                    }
+                } catch (IOException | RuntimeException ex) {
+                    sp.sendMessage(Text.literal("Finale interaction denied: " +
+                        safe(ex.getMessage())).formatted(Formatting.RED), false);
+                }
+                return ActionResult.SUCCESS;
+            }
             // Environmental evidence uses ONLY intentionally placed interaction
             // entities. Never intercept unrelated world props or native NPCs.
             if (entity.getType() == EntityType.INTERACTION) {
