@@ -109,6 +109,7 @@ public final class StoryConfigManager {
             // Existing servers retain custom dialogue but cannot skip
             // verified native battles when upgrading older story templates.
             String battleGate = switch (npcId) {
+                case "eclipse_operative" -> "pride:eclipse_lieutenant_won";
                 case "heat_technician" -> "pride:rin_canyon_won";
                 case "ghost_medium" -> "pride:rin_summit_won";
                 case "director_cael" -> "pride:sable_battle_won";
