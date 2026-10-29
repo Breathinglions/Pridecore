@@ -93,7 +93,13 @@ public final class StoryBattleProof {
         Encounter encounter = DEFINITIONS.get(ticket.encounterId());
         if (encounter == null) return false;
         Set<String> facts = progression.get(ticket.player()).facts();
-        if (!facts.contains(encounter.requiredFact())) return false;
+        if (!facts.contains(encounter.requiredFact())) {
+            // The encounter's prerequisite may have been revoked while an RCT
+            // battle was in flight (e.g. staging playthrough reset). Retire
+            // this now-invalid ticket rather than locking the player forever.
+            cancel(ticket.player(), ticket.battle());
+            return false;
+        }
         if (facts.contains(encounter.earnedFact())) {
             // If another trusted path already persisted the fact, retire this
             // ticket without crediting or replaying presentation.
