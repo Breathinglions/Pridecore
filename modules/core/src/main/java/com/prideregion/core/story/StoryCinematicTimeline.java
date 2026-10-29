@@ -36,6 +36,18 @@ public final class StoryCinematicTimeline {
         new Cue(0, "RESONANCE ENGINE  |  SHIELD DEFENDER", "finale.shield", 34),
         new Cue(25, "A defensive field activates.", "battle.electric", 24),
         new Cue(55, "Break through the shield!", "finale.shield", 16));
+    private static final List<Cue> CONDUITS_COMPLETE = List.of(
+        new Cue(0, "RESONANCE ENGINE  |  CONDUITS ONLINE", "finale.conduit", 42),
+        new Cue(24, "Three defensive shields materialize.", "finale.shield", 32),
+        new Cue(55, "Defeat the defenders to reach the core.", "finale.end_rod", 24));
+    private static final List<Cue> SHIELDS_COMPLETE = List.of(
+        new Cue(0, "RESONANCE ENGINE  |  SHIELDS OFFLINE", "finale.shield", 40),
+        new Cue(24, "The core is exposed.", "finale.end_rod", 30),
+        new Cue(55, "Stabilize the engine before it overloads!", "finale.totem", 25));
+    private static final List<Cue> ENGINE_STABILIZED = List.of(
+        new Cue(0, "RESONANCE ENGINE  |  STABILIZED", "finale.totem", 45),
+        new Cue(28, "The crisis has been contained.", "finale.end_rod", 28),
+        new Cue(65, "The path forward is yours.", "finale.totem", 18));
     private static final List<Cue> LIEUTENANT = List.of(
         new Cue(0, "ECLIPSE  |  LIEUTENANT", "battle.electric", 26),
         new Cue(35, "The operation is compromised!", "battle.enchant", 14));
@@ -50,6 +62,9 @@ public final class StoryCinematicTimeline {
             case "sable" -> SABLE;
             case "director_cael" -> CAEL;
             case "eclipse_lieutenant" -> LIEUTENANT;
+            case "finale_conduits_complete" -> CONDUITS_COMPLETE;
+            case "finale_shields_complete" -> SHIELDS_COMPLETE;
+            case "finale_stabilized" -> ENGINE_STABILIZED;
             default -> List.of();
         };
     }
