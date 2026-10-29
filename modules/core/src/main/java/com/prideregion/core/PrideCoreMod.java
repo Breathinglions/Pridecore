@@ -43,6 +43,11 @@ public final class PrideCoreMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
                 config = PrideCoreConfig.load(FabricLoader.getInstance().getConfigDir());
+                try {
+                    OnboardingRewards.load();
+                } catch (IOException invalidKitConfig) {
+                    LOGGER.error("Custom onboarding grants disabled; story service remains online", invalidKitConfig);
+                }
                 activeProgression = new ProgressionService(new ProfileStore(
                     server.getSavePath(WorldSavePath.ROOT)
                           .resolve("data").resolve("pride_core").resolve("players")));
@@ -106,8 +111,30 @@ public final class PrideCoreMod implements ModInitializer {
                         .executes(ctx -> stage(ctx.getSource(),
                             EntityArgumentType.getPlayer(ctx, "player"),
                             StringArgumentType.getString(ctx, "stage"))))));
+            root.then(CommandManager.literal("onboarding")
+                .then(CommandManager.literal("claim")
+                    .then(CommandManager.literal("theo")
+                        .executes(ctx -> OnboardingRewards.claim(ctx.getSource(), "theo_registration")))
+                    .then(CommandManager.literal("avery")
+                        .executes(ctx -> OnboardingRewards.claim(ctx.getSource(), "avery_field_kit"))))
+                .then(CommandManager.literal("config-status")
+                    .requires(source -> source.hasPermissionLevel(4))
+                    .executes(ctx -> feedback(ctx.getSource(), OnboardingRewards.health())))
+                .then(CommandManager.literal("reload")
+                    .requires(source -> source.hasPermissionLevel(4))
+                    .executes(ctx -> reloadOnboarding(ctx.getSource()))));
             dispatcher.register(root.then(admin).then(StoryModule.commands()));
         });
+    }
+
+    private static int reloadOnboarding(ServerCommandSource source) {
+        try {
+            OnboardingRewards.reload();
+            return feedback(source, "Onboarding rewards reloaded and validated.");
+        } catch (IOException invalid) {
+            LOGGER.warn("Onboarding config rejected by operator reload", invalid);
+            return error(source, "Onboarding grants disabled: " + invalid.getMessage());
+        }
     }
 
     private static ProgressionService service(ServerCommandSource source) throws IOException {
