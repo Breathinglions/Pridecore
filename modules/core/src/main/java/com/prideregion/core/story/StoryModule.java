@@ -128,6 +128,34 @@ public final class StoryModule {
                 }
                 return ActionResult.SUCCESS;
             }
+            // Intentionally placed story battle trainers. Only living
+            // entities carrying one exact, registered encounter tag qualify.
+            // Unrelated RCT NPCs and official League trainers are untouched.
+            if (entity instanceof net.minecraft.entity.LivingEntity trainer) {
+                final String battlePrefix = "pride_battle_";
+                var battleTags = entity.getCommandTags().stream()
+                    .filter(t -> t.startsWith(battlePrefix)).toList();
+                if (!battleTags.isEmpty()) {
+                    if (battleTags.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D)
+                        return ActionResult.FAIL;
+                    String encounterId = battleTags.getFirst().substring(battlePrefix.length());
+                    if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(encounterId))
+                        return ActionResult.FAIL;
+                    try {
+                        var launched = launchRctStoryBattle(sp.getServer(), sp, trainer, encounterId);
+                        if (launched.isEmpty())
+                            sp.sendMessage(Text.literal(
+                                "[Pride Region] This encounter isn't available yet, or is already completed.")
+                                .formatted(Formatting.YELLOW), false);
+                    } catch (IOException | RuntimeException ex) {
+                        LOGGER.warn("Story trainer battle launch denied for {} / {}",
+                            sp.getUuid(), encounterId, ex);
+                        sp.sendMessage(Text.literal("Story battle unavailable: " +
+                            safe(ex.getMessage())).formatted(Formatting.RED), false);
+                    }
+                    return ActionResult.SUCCESS;
+                }
+            }
             if (entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
             StoryEngine running = liveServer == sp.getServer() ? engine : null;
