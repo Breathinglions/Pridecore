@@ -87,6 +87,21 @@ public final class StoryPrivateSceneDirectorTests {
                 StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
         } catch (IllegalArgumentException expected) { invalidDimension = true; }
         ok(invalidDimension && director.size() == 0);
+        // One canonical Rin identity, distinct staged appearances. No later
+        // chapter can request a second starter UI or forge a story checkpoint.
+        for (var scene : List.of(
+                StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION,
+                StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION)) {
+            var later = director.begin(alice, "pride:staging", scene);
+            ok(later.started());
+            var fallback = director.skip(alice, later.session());
+            ok(fallback.stream().filter(e -> e.kind() ==
+                StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE).count() == 1);
+            ok(fallback.stream().noneMatch(e -> e.kind() ==
+                StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER));
+            ok(fallback.stream().allMatch(e -> e.scene() == scene
+                && e.owner().equals(alice) && e.session().equals(later.session())));
+        }
         System.out.println("PASS: " + assertions + " per-player Rin scene state assertions");
     }
 }
