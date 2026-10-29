@@ -24,7 +24,10 @@ public final class StoryBattleSessionRouter {
         "rin_summit","pride_story:rin_summit",
         "eclipse_lieutenant","pride_story:eclipse_lieutenant",
         "sable","pride_story:sable",
-        "director_cael","pride_story:director_cael"
+        "director_cael","pride_story:director_cael",
+        "shield_alpha","pride_story:shield_alpha",
+        "shield_beta","pride_story:shield_beta",
+        "shield_gamma","pride_story:shield_gamma"
     );
     private final StoryBattleProof proof;
     private final Map<UUID, StoryBattleProof.Ticket> byBattle = new HashMap<>();
