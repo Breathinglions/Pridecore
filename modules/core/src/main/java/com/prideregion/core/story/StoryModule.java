@@ -259,6 +259,8 @@ public final class StoryModule {
                 try {
                     var opened = running.beginBoundNpc(sp.getUuid(), nativeTags.getFirst());
                     if (opened.isEmpty()) {
+                        running.cancel(sp.getUuid());
+                        DIALOGUE_ANCHORS.clear(sp.getUuid());
                         sp.sendMessage(Text.literal(
                             "[Pride Region] There is more to discover before this story unfolds.")
                             .formatted(Formatting.GRAY), false);
@@ -268,6 +270,8 @@ public final class StoryModule {
                         sp.getWorld().getRegistryKey().getValue().toString());
                     show(sp, opened.get());
                 } catch (IOException | RuntimeException storyError) {
+                    running.cancel(sp.getUuid());
+                    DIALOGUE_ANCHORS.clear(sp.getUuid());
                     LOGGER.warn("Could not open bound story NPC for {}", sp.getUuid(), storyError);
                     sp.sendMessage(Text.literal(
                         "[Pride Region] This conversation cannot begin right now.")
@@ -514,6 +518,7 @@ public final class StoryModule {
         if (liveServer == server) {
             STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
+            DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             if (victoryListener != null) {
@@ -1236,6 +1241,7 @@ public final class StoryModule {
     /** Clears only temporary sessions; permanent story facts, badges and prizes remain intact. */
     private static int resetTestSession(ServerCommandSource source, ServerPlayerEntity target) {
         if (engine != null) engine.cancel(target.getUuid());
+        DIALOGUE_ANCHORS.clear(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
         if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
         BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1693,6 +1699,7 @@ public final class StoryModule {
             if (liveServer != source.getServer() || engine == null)
                 throw new IOException("Story module disabled; reload cannot enable it");
             engine = next; // old conversations discarded, player progress preserved.
+            DIALOGUE_ANCHORS.clearAll();
             health = "active";
             return message(source, "Story definitions reloaded: " + next.npcCount()
                 + " NPCs. Existing conversations reset; saved progress retained.");
@@ -1707,7 +1714,9 @@ public final class StoryModule {
     /** Explicit operator test harness; no remote unprivileged NPC interaction. */
     private static int simulate(ServerCommandSource source, ServerPlayerEntity target, String npc) {
         try {
-            show(target, ready(source.getServer()).begin(target.getUuid(), npc));
+            var response = ready(source.getServer()).begin(target.getUuid(), npc);
+            DIALOGUE_ANCHORS.clear(target.getUuid());
+            show(target, response);
             return message(source, "Presented NPC " + npc + " dialogue to " + target.getName().getString());
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Admin NPC test refused for {}: {}", npc, ex.toString());
