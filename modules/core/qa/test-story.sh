@@ -11,6 +11,8 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/ProgressionService.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/LegacyOnboardingGate.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/NativeNpcIdentity.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryNpcDialogueResolver.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryDialogueAnchorLedger.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDefinition.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java" \
@@ -36,6 +38,8 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/ResonanceCheckpointStore.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryObjectiveGuide.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryNpcDialogueResolverTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryDialogueAnchorLedgerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryCombatPolicyTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryPokemonOnlyPartiesTests.java" \
@@ -61,6 +65,8 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleCompletionTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceCheckpointStoreTests.java"
 java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
+java -cp "$TMP" com.prideregion.core.story.StoryNpcDialogueResolverTests
+java -cp "$TMP" com.prideregion.core.story.StoryDialogueAnchorLedgerTests
 java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryCombatPolicyTests
 java -cp "$TMP" com.prideregion.core.story.StoryPokemonOnlyPartiesTests
