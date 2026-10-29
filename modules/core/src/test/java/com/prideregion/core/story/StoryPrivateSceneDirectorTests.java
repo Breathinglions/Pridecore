@@ -102,6 +102,17 @@ public final class StoryPrivateSceneDirectorTests {
             ok(fallback.stream().allMatch(e -> e.scene() == scene
                 && e.owner().equals(alice) && e.session().equals(later.session())));
         }
+        var live = director.begin(alice, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION);
+        director.begin(bob, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION);
+        var reaped = director.reapInvalid(owner -> owner.equals(alice)
+            ? "minecraft:overworld" : "pride:staging");
+        ok(reaped.size() == 1 && reaped.getFirst().owner().equals(alice));
+        ok(director.active(alice).isEmpty() && director.active(bob).isPresent());
+        ok(director.skip(alice, live.session()).isEmpty());
+        ok(director.reapInvalid(ignored -> null).size() == 1);
+        ok(director.size() == 0);
         System.out.println("PASS: " + assertions + " per-player Rin scene state assertions");
     }
 }
