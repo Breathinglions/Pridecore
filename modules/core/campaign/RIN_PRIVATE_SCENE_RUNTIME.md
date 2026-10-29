@@ -26,3 +26,18 @@ The coordinator enforces one active scene per player, a 64-viewer cap, determini
 The same director now models `RIN_CANYON_REUNION` and `RIN_SUMMIT_REUNION` as separate owner-only **scene instances of the single canonical Rin character**. Each requests a later `RESUME_STORY_DIALOGUE` continuation (never `OPEN_NATIVE_STARTER`) and uses builder-defined logical anchor names (`canyon_ridge`, `canyon_overlook`, `summit_trail`, `summit_overlook`). None is world-spawned or battle-authoritative. The existing verified RCT victories and prerequisite facts remain unchanged.
 
 The coordinator accepts starts only when a trusted server-side adapter decides the correct chapter and location; it must not guess character eligibility from client packets or spawn multiple Rin entities for simultaneous players. The 64-active-scene cap rejects excess starts safely. Automated tests include overflow and release behavior, as well as distinct later-scene handoffs. **These later scenes also still lack the client/private-actor adapter and are not playable world cinematics yet.**
+
+## Operator-only rehearsal (no client mod required, staging only)
+
+When `story_enabled=true` in the isolated staging dimension, OP4 can preview the narrative timing without creating NPCs, opening a starter GUI or changing player state:
+
+```mcfunction
+/pridecore story admin preview-rin <player> lab
+/pridecore story admin preview-rin <player> canyon
+/pridecore story admin preview-rin <player> summit
+/pridecore story admin cancel-rin-preview <player>
+```
+
+Only the named player sees scene dialogue and temporary descriptive actionbar cues. The rehearsal explicitly labels visual entry/movement/face cues as `[Scene preview]`, and explicitly states that the original starter/dialogue UI **would** be resumed but **is not invoked**. This is an inspection of scripted narrative, not a visual preview of a walking Rin model. Scenes automatically retire when their player disconnects, switches dimensions, or the server stops. The operator can cancel an individual scene without affecting other viewers. Do not enable the story module in production to use these commands.
+
+For future real gameplay, integrate the projector with the native Sequoia service only after testing the original Cobblemon GUI and the per-player private entity/client renderer; delete the preview text path from that production-facing workflow, but keep it available to admins as an explicitly separate test mode.
