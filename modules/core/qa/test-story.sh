@@ -60,5 +60,7 @@ import pathlib,sys
 effects=pathlib.Path(sys.argv[1]).read_text()
 assert "instanceof SimpleParticleType" in effects, "Parameterized mod particles must not be used as generic overrides"
 assert "ParticleEffect effect = fallback" in effects, "Vanilla particle fallback must remain available"
+assert "catch (RuntimeException presentationFailure)" in effects, "Particle failures must be isolated from gameplay"
+assert "world.spawnParticles(fallback" in effects, "Failed modded effects must retry vanilla"
 print("PASS: story effect override safeguards")
 PY
