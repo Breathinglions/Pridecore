@@ -93,7 +93,10 @@ public final class StoryModule {
                             finale.stabilize(sp.getUuid());
                         persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
-                        if (sp.getWorld() instanceof ServerWorld fxWorld) {
+                        // Repeat core use is safe but should not replay the
+                        // cinematic burst after completion.
+                        if (beforeCore.phase() == ResonanceFinaleController.Phase.STABILIZE
+                                && sp.getWorld() instanceof ServerWorld fxWorld) {
                             StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
                                 entity.getX(), entity.getY() + 1.0D, entity.getZ(),
                                 140, 1.5D, 1.5D, 1.5D, 0.09D);
