@@ -488,7 +488,7 @@ public final class StoryModule {
                 var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
                 player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
                     .formatted(Formatting.GOLD), false);
-            } catch (RuntimeException presentationFailure) {
+            } catch (IOException | RuntimeException presentationFailure) {
                 LOGGER.warn("RCT battle {} launched but introduction could not display",
                     battleId, presentationFailure);
             }
