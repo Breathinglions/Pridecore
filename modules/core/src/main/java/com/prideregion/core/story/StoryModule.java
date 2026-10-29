@@ -227,7 +227,9 @@ public final class StoryModule {
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             StoryEngine active = liveServer == server ? engine : null;
-            if (active == null) return;
+            if (active == null || !STORY_WORLDS.permits(
+                    handler.getPlayer().getWorld().getRegistryKey().getValue().toString()))
+                return;
             try {
                 // Read old *verified* onboarding markers, then project owned checkpoints.
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
@@ -1292,6 +1294,8 @@ public final class StoryModule {
             return 0;
         }
         try {
+            if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Story synchronization is disabled in this dimension");
             StoryEngine active = ready(source.getServer());
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
