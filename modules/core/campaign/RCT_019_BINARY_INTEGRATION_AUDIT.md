@@ -17,3 +17,7 @@ Prefer an RCT API-driven Pride Core battle launcher using `TrainerPlayer` and a 
 Before activating any launcher, inspect concrete `BattleRules` defaults, construct valid authored `Pokemon[]` from roster species and level, establish the exact server-side lifecycle of the RCT battle UUID and Cobblemon battle UUID, and verify the battle participants. A boolean from `startSingle` is not sufficient battle proof. Ensure callbacks do not accept client-supplied UUIDs or generic Cobblemon wins.
 
 **Status:** JAR signatures verified. Runtime launch, event subscriptions, and trainer-team construction are NOT YET implemented or tested. This audit alone does not make encounters playable.
+
+## 2026-10-28 compatibility fix
+
+Verified against the provided `rctapi-fabric-1.21.1-0.16.0-beta.jar` with `javap -public`: `RCTApi.initInstance(String)` and `RCTApi.getInstance(String)` both exist. The story launcher now initializes its dedicated `pridecore` instance when one does not exist, rather than failing on the first attempted battle. `BattleManager.getDefaultRules()`, `startBattle(List,List,BattleFormat,BattleRules)` returning UUID, and `end(UUID)` were also confirmed. This remains subject to server-side runtime validation; it does not prove trainer battles work end-to-end.
