@@ -22,6 +22,8 @@ public final class StoryBattleLaunchLedgerTests {
         var verified=ledger.launched(alice,npc,battle).orElseThrow();
         ok(verified.battleId().equals(battle));
         ok(ledger.owns(battle, alice));
+        ok(ledger.owner(battle).orElseThrow().equals(alice));
+        ok(ledger.owner(UUID.randomUUID()).isEmpty());
         ok(!ledger.pending(alice));
         ok(ledger.active(alice));
         ok(!ledger.owns(battle, bob));
@@ -29,6 +31,7 @@ public final class StoryBattleLaunchLedgerTests {
         ok(ledger.launched(alice,npc,battle).isEmpty());
         ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
         ledger.finished(battle);
+        ok(ledger.owner(battle).isEmpty());
         ok(!ledger.owns(battle, alice));
         ok(!ledger.active(alice));
         ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
