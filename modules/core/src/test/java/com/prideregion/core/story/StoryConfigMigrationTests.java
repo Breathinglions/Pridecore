@@ -117,6 +117,9 @@ public final class StoryConfigMigrationTests {
         JsonObject legacyMom = find(legacyStory.getAsJsonArray("npcs"), "mom");
         legacyMom.getAsJsonArray("nodes").get(0).getAsJsonObject()
             .addProperty("text", "A special introduction written by our world builder.");
+        legacyMom.getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .getAsJsonArray("options").get(0).getAsJsonObject()
+            .addProperty("text", "A custom farewell from the builder.");
         Files.writeString(legacyPath, legacyStory.toString());
         StoryConfigManager.Result storyUpgrade;
         try (InputStream input = bundled()) {
@@ -133,6 +136,10 @@ public final class StoryConfigMigrationTests {
             .get("text").getAsString().equals(
                 "A special introduction written by our world builder."),
             "A personalized NPC scene is never overwritten");
+        check(find(migratedNpcs, "mom").getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .getAsJsonArray("options").get(0).getAsJsonObject()
+            .get("text").getAsString().equals("A custom farewell from the builder."),
+            "A personalized dialogue choice label is never overwritten");
         check(find(migratedNpcs, "rin").getAsJsonArray("nodes").get(0).getAsJsonObject()
             .get("text").getAsString().contains("second sunrise"),
             "Unedited Rin dialogue moves to immersive story prose");
