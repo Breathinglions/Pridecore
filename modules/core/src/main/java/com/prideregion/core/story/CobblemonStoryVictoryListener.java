@@ -72,7 +72,6 @@ public final class CobblemonStoryVictoryListener {
             .invoke(observable, consumer);
         // Use the exact 1.8.1 BATTLE_FAINTED event to drive presentation
         // beats. The current battle ticket still supplies all authorization.
-        Object faintObservable = events.getField("BATTLE_FAINTED").get(null);
         Consumer<Object> faintConsumer = event -> {
             try {
                 Object battle = event.getClass().getMethod("getBattle").invoke(event);
@@ -100,18 +99,20 @@ public final class CobblemonStoryVictoryListener {
                 System.err.println("[PrideCore] Cobblemon faint event inspection failed: " + error);
             }
         };
+        // Faint events are optional presentation. Never disable the mandatory
+        // victory listener or entire story module if a mod build lacks them.
+        Object faintObservable = null;
+        Object faintSubscription = null;
         try {
-            Object faintSubscription = faintObservable.getClass()
+            faintObservable = events.getField("BATTLE_FAINTED").get(null);
+            faintSubscription = faintObservable.getClass()
                 .getMethod("subscribe", Consumer.class).invoke(faintObservable, faintConsumer);
-            return new CobblemonStoryVictoryListener(
-                observable, subscription, faintObservable, faintSubscription);
-        } catch (ReflectiveOperationException | RuntimeException error) {
-            try { unsubscribe(observable, subscription); }
-            catch (ReflectiveOperationException cleanupError) {
-                error.addSuppressed(cleanupError);
-            }
-            throw error;
+        } catch (ReflectiveOperationException | RuntimeException optionalError) {
+            System.err.println("[PrideCore] Optional knockout cinematics disabled: "
+                + optionalError);
         }
+        return new CobblemonStoryVictoryListener(
+            observable, subscription, faintObservable, faintSubscription);
     }
 
     /** Deterministic eligibility rule, separately testable without Cobblemon. */
@@ -125,7 +126,8 @@ public final class CobblemonStoryVictoryListener {
 
     public void uninstall() throws ReflectiveOperationException {
         try {
-            unsubscribe(faintObservable, faintSubscription);
+            if (faintObservable != null && faintSubscription != null)
+                unsubscribe(faintObservable, faintSubscription);
         } finally {
             unsubscribe(observable, subscription);
         }
