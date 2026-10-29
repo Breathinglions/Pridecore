@@ -47,6 +47,8 @@ assert d["version"]==1
 assert len(d["npcs"])==27
 league=next(n for n in d["npcs"] if n["id"]=="league_guide")
 assert "pride:finale_completed" in league["requires"], "Victory Road cannot skip the engine finale"
+ranger=next(n for n in d["npcs"] if n["id"]=="ranger")
+assert "pride:rin_route1_won" in ranger["requires"], "Route 1 rival cannot be skipped"
 assert [n["id"] for n in d["npcs"][:6]] == ["mom","sequoia","theo","avery","ranger","thorn"]
 for npc in d["npcs"]:
  assert npc["completedFact"].startswith("pride:")
