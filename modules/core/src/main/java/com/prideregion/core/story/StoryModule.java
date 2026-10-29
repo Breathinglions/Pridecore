@@ -1717,6 +1717,11 @@ public final class StoryModule {
                 sendNextObjective(player, updatedStage);
             return 1;
         } catch (IOException | RuntimeException ex) {
+            // A rejected/stale chat response must not leave an unanchored
+            // session usable from a later world position or different NPC.
+            DIALOGUE_ANCHORS.clear(player.getUuid());
+            if (liveServer == source.getServer() && engine != null)
+                engine.cancel(player.getUuid());
             LOGGER.warn("Story choice rejected player {} choice {}: {}", player.getUuid(), id, ex.toString());
             source.sendError(Text.literal(safe(ex.getMessage())));
             return 0;
