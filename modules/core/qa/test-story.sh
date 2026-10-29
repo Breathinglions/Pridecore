@@ -18,19 +18,22 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleSessionRouter.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/ResonanceFinaleController.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryPlaythroughReset.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/ResonanceFinaleCompletion.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryObjectiveGuide.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleProofTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleSessionRouterTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleControllerTests.java" \
- "$ROOT/src/test/java/com/prideregion/core/story/StoryPlaythroughResetTests.java"
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryPlaythroughResetTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleCompletionTests.java"
 java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleProofTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleSessionRouterTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleControllerTests
 java -cp "$TMP" com.prideregion.core.story.StoryPlaythroughResetTests
+java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleCompletionTests
 python3 - "$ROOT/src/main/resources/story/default.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
