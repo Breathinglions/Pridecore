@@ -38,6 +38,12 @@ public final class StoryPrivateSceneDirector {
     private record Cue(int atTick, Kind kind, String speaker, String text, String anchor) {}
     private record Running(UUID session, SceneId scene, String dimension, int elapsed) {}
     private final Map<UUID, Running> active = new LinkedHashMap<>();
+    private static final int CONTINUATION_TTL_TICKS = 120;
+    private static final int MAX_CONTINUATIONS = 256;
+    private record Continuation(UUID session, SceneId scene, Kind kind,
+                                String dimension, long expiresAt) {}
+    private final Map<UUID, Continuation> continuations = new LinkedHashMap<>();
+    private long serverTicks;
 
     private static final List<Cue> LAB = List.of(
         new Cue(0, Kind.DIALOGUE, "Professor Sequoia",
@@ -99,6 +105,8 @@ public final class StoryPrivateSceneDirector {
         Running old = active.get(player);
         if (old != null) return new Start(false, old.session());
         if (active.size() >= MAX_ACTIVE) return new Start(false, null);
+        // A new scene invalidates a previous unclaimed GUI continuation.
+        continuations.remove(player);
         UUID session = UUID.randomUUID();
         active.put(player, new Running(session, scene, dimension, 0));
         return new Start(true, session);
@@ -125,6 +133,8 @@ public final class StoryPrivateSceneDirector {
      * session token; the renderer must never broadcast them to nearby players.
      */
     public synchronized List<Event> tick() {
+        serverTicks++;
+        continuations.entrySet().removeIf(e -> e.getValue().expiresAt() <= serverTicks);
         List<Event> result = new ArrayList<>();
         var iterator = active.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -133,9 +143,12 @@ public final class StoryPrivateSceneDirector {
             Running run = entry.getValue();
             List<Cue> sequence = cues(run.scene());
             for (Cue cue : sequence) {
-                if (cue.atTick() == run.elapsed())
-                    result.add(new Event(owner, run.session(), run.scene(),
-                        cue.kind(), cue.speaker(), cue.text(), cue.anchor()));
+                if (cue.atTick() == run.elapsed()) {
+                    Event event = new Event(owner, run.session(), run.scene(),
+                        cue.kind(), cue.speaker(), cue.text(), cue.anchor());
+                    result.add(event);
+                    authorizeContinuation(event, run.dimension());
+                }
             }
             if (run.elapsed() >= MAX_TICKS ||
                     run.elapsed() >= sequence.getLast().atTick()) {
@@ -161,15 +174,50 @@ public final class StoryPrivateSceneDirector {
             if (cue.kind() == Kind.DIALOGUE || cue.kind() == Kind.OPEN_NATIVE_STARTER
                     || cue.kind() == Kind.RESUME_STORY_DIALOGUE
                     || cue.kind() == Kind.ACTOR_REMOVE)
-                result.add(new Event(player, run.session(), run.scene(),
-                    cue.kind(), cue.speaker(), cue.text(), cue.anchor()));
+                {
+                    Event event = new Event(player, run.session(), run.scene(),
+                        cue.kind(), cue.speaker(), cue.text(), cue.anchor());
+                    result.add(event);
+                    authorizeContinuation(event, run.dimension());
+                }
         }
         return List.copyOf(result);
+    }
+
+    private void authorizeContinuation(Event event, String dimension) {
+        if (event.kind() != Kind.OPEN_NATIVE_STARTER
+                && event.kind() != Kind.RESUME_STORY_DIALOGUE)
+            return;
+        if (!continuations.containsKey(event.owner())
+                && continuations.size() >= MAX_CONTINUATIONS)
+            return; // fail closed: no permission to resume GUI at capacity
+        continuations.put(event.owner(), new Continuation(event.session(),
+            event.scene(), event.kind(), dimension,
+            serverTicks + CONTINUATION_TTL_TICKS));
+    }
+
+    /**
+     * Native adapter must consume this exactly once before resuming any GUI,
+     * after checking real native eligibility and physical NPC context. A
+     * copied, stale, cross-scene or expired cue is never a valid handoff.
+     */
+    public synchronized boolean claimContinuation(Event event, String dimension) {
+        if (event == null || dimension == null) return false;
+        Continuation current = continuations.get(event.owner());
+        if (current == null || current.expiresAt() <= serverTicks
+                || !current.session().equals(event.session())
+                || current.scene() != event.scene()
+                || current.kind() != event.kind()
+                || !current.dimension().equals(dimension))
+            return false;
+        continuations.remove(event.owner());
+        return true;
     }
 
     /** Cancellations remove private projections WITHOUT reopening the GUI. */
     public synchronized Optional<Event> cancel(UUID player) {
         Running run = active.remove(player);
+        continuations.remove(player);
         return run == null ? Optional.empty() : Optional.of(
             new Event(player, run.session(), run.scene(),
                 Kind.ACTOR_REMOVE, "Rin", "", ""));
@@ -195,6 +243,8 @@ public final class StoryPrivateSceneDirector {
             if (run != null && !run.dimension().equals(actualDimension.apply(player)))
                 cancel(player).ifPresent(cleanup::add);
         }
+        continuations.entrySet().removeIf(e ->
+            !e.getValue().dimension().equals(actualDimension.apply(e.getKey())));
         return List.copyOf(cleanup);
     }
 
@@ -202,6 +252,7 @@ public final class StoryPrivateSceneDirector {
     public synchronized List<Event> clear() {
         List<Event> cleanup = new ArrayList<>();
         for (UUID owner : List.copyOf(active.keySet())) cancel(owner).ifPresent(cleanup::add);
+        continuations.clear();
         return List.copyOf(cleanup);
     }
 
@@ -211,4 +262,5 @@ public final class StoryPrivateSceneDirector {
             : Optional.of(new Receipt(player, run.session(), run.scene()));
     }
     public synchronized int size() { return active.size(); }
+    public synchronized int unclaimedContinuations() { return continuations.size(); }
 }
