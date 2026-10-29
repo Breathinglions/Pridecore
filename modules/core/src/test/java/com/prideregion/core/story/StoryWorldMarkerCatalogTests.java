@@ -64,6 +64,17 @@ public final class StoryWorldMarkerCatalogTests {
         invalid("finale", "fake");
         invalid("unknown", "core");
         invalid("battle", "rin_route1 extra");
+        check(StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of()));
+        check(StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of("other_mod_tag")));
+        check(StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of(
+            "pride_clue_forest", "other_mod_tag")));
+        check(!StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of(
+            "pride_clue_forest", "pride_finale_core")));
+        check(!StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of(
+            "pride_battle_sable", "pride_npc_sable")));
+        check(!StoryWorldMarkerCatalog.exclusiveStoryMarker(Set.of(
+            "pride_clue_forest", "pride_clue_fake")));
+        check(!StoryWorldMarkerCatalog.exclusiveStoryMarker(null));
         check(!StoryWorldMarkerCatalog.isStoryTag("other_mod_tag"));
         check(StoryWorldMarkerCatalog.isStoryTag("pride_finale_typo"));
         check(!StoryWorldMarkerCatalog.canBind(Set.of("pride_finale_typo"),
