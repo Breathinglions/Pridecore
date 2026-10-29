@@ -275,6 +275,28 @@ public final class StoryModule {
         battleRouter.cancel(battleId);
     }
 
+    /** Show each encounter's prerequisite and verified-win status; never grants anything. */
+    private static int adminEncounters(ServerCommandSource source, ServerPlayerEntity target) {
+        try {
+            var profile = PrideCoreMod.progression(source.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"))
+                .get(target.getUuid());
+            source.sendFeedback(() -> Text.literal(
+                "Module 02 scripted encounters for " + target.getName().getString() + ":"), false);
+            for (var entry : StoryBattleProof.definitions()) {
+                boolean unlocked = profile.facts().contains(entry.requiredFact());
+                boolean won = profile.facts().contains(entry.earnedFact());
+                String status = won ? "WON" : unlocked ? "ELIGIBLE (not launched)" : "LOCKED";
+                source.sendFeedback(() -> Text.literal(" - " + entry.id() + ": " + status +
+                    " [requires " + entry.requiredFact() + "]"), false);
+            }
+            return 1;
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Encounter inspection failed: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
     /** Read-only operator diagnostics; never changes story facts or rewards. */
     private static int inspectTestState(ServerCommandSource source, ServerPlayerEntity target) {
         try {
@@ -381,6 +403,12 @@ public final class StoryModule {
             .then(CommandManager.literal("finale-start")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .executes(ctx -> adminFinaleStart(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player"))))));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("encounters")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> adminEncounters(ctx.getSource(),
                         EntityArgumentType.getPlayer(ctx, "player"))))));
         return story;
     }
