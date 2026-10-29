@@ -348,6 +348,9 @@ public final class StoryModule {
             // Fail closed if the runtime cannot load all approved trainer teams.
             StoryBattleRosters.bundled();
             StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
+            if (!StoryBattleRuntimePreflight.supportsFaintEvents(
+                    StoryModule.class.getClassLoader()))
+                LOGGER.warn("Optional knockout cinematics unavailable; verified RCT battles remain enabled");
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
             launchLedger = new StoryBattleLaunchLedger();
