@@ -31,6 +31,27 @@ public final class StoryBattleRuntimePreflight {
         Class<?> events = Class.forName(
             "com.cobblemon.mod.common.api.events.CobblemonEvents", false, loader);
         events.getField("BATTLE_VICTORY");
+        // Verify the exact callback and resolved result shape, not just the
+        // presence of an event constant.
+        Class<?> victory = Class.forName(
+            "com.cobblemon.mod.common.api.events.battles.BattleVictoryEvent", false, loader);
+        Class<?> battle = Class.forName(
+            "com.cobblemon.mod.common.api.battles.model.PokemonBattle", false, loader);
+        Class<?> actor = Class.forName(
+            "com.cobblemon.mod.common.api.battles.model.actor.BattleActor", false, loader);
+        victory.getMethod("getBattle");
+        victory.getMethod("getWinners");
+        victory.getMethod("getLosers");
+        victory.getMethod("getWasWildCapture");
+        battle.getMethod("getBattleId");
+        battle.getMethod("getPlayerUUIDs");
+        actor.getMethod("getUuid");
+        Class<?> subscription = Class.forName(
+            "com.cobblemon.mod.common.api.reactive.ObservableSubscription", false, loader);
+        Class<?> observable = Class.forName(
+            "com.cobblemon.mod.common.api.reactive.SimpleObservable", false, loader);
+        observable.getMethod("subscribe", java.util.function.Consumer.class);
+        observable.getMethod("unsubscribe", subscription);
         Class<?> npc = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerNPC", false, loader);
         Class<?> bag = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerBag", false, loader);
         bag.getConstructor();
