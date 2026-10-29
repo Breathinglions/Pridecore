@@ -17,6 +17,9 @@ expected = {
     "eclipse_lieutenant": "eclipse_operative",
     "sable": "sable",
     "director_cael": "director_cael",
+    "shield_alpha": "resonance_shield_alpha",
+    "shield_beta": "resonance_shield_beta",
+    "shield_gamma": "resonance_shield_gamma",
 }
 assert data["schema"] == 1 and data["mode"] == "STAGING_ONLY"
 assert len(data["encounters"]) == len(expected)
@@ -42,4 +45,4 @@ assert [max(p["level"] for p in r["team"]) for r in rivals] == sorted(
 # Ensure no unapproved battle content can override official League opponents.
 assert all(e["actor"] not in {"thorn","rook","ashen","kai","vega","draven","freya","nyx","magnus"}
            for e in data["encounters"])
-print("PASS: six versioned story encounter roster definitions validated (NOT runtime tested)")
+print("PASS: nine versioned story encounter roster definitions validated (NOT runtime tested)")
