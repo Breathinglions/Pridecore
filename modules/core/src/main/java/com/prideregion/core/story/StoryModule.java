@@ -220,6 +220,8 @@ public final class StoryModule {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
+            // Fail closed if the runtime cannot load all approved trainer teams.
+            StoryBattleRosters.bundled();
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
             launchLedger = new StoryBattleLaunchLedger();
