@@ -98,6 +98,14 @@ public final class StoryConfigManager {
                         && !contains(requirements, requiredFact))
                     requirements.add(requiredFact);
             }
+            // Rin's Route 1 encounter was introduced after the first story
+            // templates. Preserve custom dialogue but close the progression
+            // skip in existing installations.
+            if ("ranger".equals(npcId)) {
+                JsonArray requirements = existingNpc.getAsJsonArray("requires");
+                if (!contains(requirements, "pride:rin_route1_won"))
+                    requirements.add("pride:rin_route1_won");
+            }
             JsonArray oldNodes = existingNpc.getAsJsonArray("nodes");
             for (JsonElement node : newerNpc.getAsJsonArray("nodes")) {
                 JsonObject proposed = node.getAsJsonObject();
