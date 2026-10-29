@@ -40,3 +40,17 @@ These tools create authenticated *world marker identities*, not proof that the u
 Stand near the constructed Resonance Engine and run `/pridecore story admin audit-finale`. The command checks a **64-block local area** of loaded entities for all eight required unique physical markers: four cardinal conduits, the core, and the three Alpha/Beta/Gamma shield battle actors. It reports missing markers, duplicated devices, and markers attached to the wrong entity type. It never changes the world or player records.
 
 A "MARKER SET COMPLETE" message confirms only local prop setup—not RCT compatibility, NPC AI, battle launches, correct quest prerequisites, cinematic timing, or readiness for production. If the arena extends more than 64 blocks from the operator, reposition and audit from its center. The audit does not scan unloaded chunks or other dimensions.
+
+## Restrict story interactions to a test world
+
+The existing `config/pride_core/story.properties` can optionally isolate Module 2 to one or more named Minecraft dimensions. This is particularly useful while developing a separate Multiworld test region.
+
+```properties
+story_enabled=false
+# Replace the illustrative registry ID below with your actual staging dimension ID.
+story_allowed_dimensions=example:staging_world
+```
+
+A blank `story_allowed_dimensions=` preserves compatibility by allowing story interactions in every dimension. A comma-separated list permits up to 16 explicitly named registry IDs. Invalid or duplicate IDs fail the story module's startup configuration check. The setting is read at server startup and does not modify any underlying Multiworld definitions, chunks, world borders or claims.
+
+When restricted, physical story NPC interactions, evidence clues, finale devices, RCT story launches, and player dialogue choices cannot advance the campaign outside those dimensions; pending cinematic effects are cancelled when a player leaves the allowed area. Operator world-binding tools still work as preparation utilities. Official Gym, League, NPC and other-mod behavior is unaffected. The story module remains disabled by default; this is documentation for staging, not authorization to turn it on in production.
