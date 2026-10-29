@@ -13,7 +13,7 @@ import java.util.function.Function;
  */
 public final class StoryEngine {
     public record ChoiceView(String id, String text) {}
-    public record Reply(String npcId, String npcName, String text,
+    public record Reply(String npcId, String npcName, String nodeId, String text,
                         List<ChoiceView> options, long revision) {}
     private record Session(String npcId, String nodeId, long profileRevision) {}
     private final StoryDefinition story;
@@ -55,6 +55,22 @@ public final class StoryEngine {
         String nodeId = p.facts().contains(npc.completedFact()) ? npc.repeat() : npc.start();
         sessions.put(playerId, new Session(npcId, nodeId, p.revision()));
         return reply(npc, npc.nodes().get(nodeId), p, legacyFor(playerId));
+    }
+
+    /**
+     * A clicked chat line must belong to the currently open conversation,
+     * not an older NPC, older node or older persisted profile revision.
+     */
+    public synchronized Reply chooseDisplayed(UUID playerId, String npcId,
+                                               String nodeId, long revision,
+                                               String optionId) throws IOException {
+        var session = sessions.get(playerId);
+        if (session == null || !session.npcId().equals(npcId)
+                || !session.nodeId().equals(nodeId)
+                || session.profileRevision() != revision)
+            throw new IllegalStateException(
+                "That moment has passed. Speak to the character again.");
+        return choose(playerId, optionId);
     }
 
     public synchronized Reply choose(UUID playerId, String optionId) throws IOException {
@@ -105,7 +121,7 @@ public final class StoryEngine {
                 option.grant(), option.revoke());
         if (option.next() == null) {
             sessions.remove(playerId);
-            return new Reply(npc.id(), npc.name(), "Until we meet again.",
+            return new Reply(npc.id(), npc.name(), node.id(), "Until we meet again.",
                     List.of(), change.profile().revision());
         }
         sessions.put(playerId,
@@ -226,7 +242,7 @@ public final class StoryEngine {
                 .filter(o -> player.facts().containsAll(o.requires()))
                 .filter(o -> verifiedLegacy.containsAll(o.requiresLegacy()))
                 .map(o -> new ChoiceView(o.id(), o.text())).toList();
-        return new Reply(npc.id(), npc.name(), node.text(), choices, player.revision());
+        return new Reply(npc.id(), npc.name(), node.id(), node.text(), choices, player.revision());
     }
 
     /**
