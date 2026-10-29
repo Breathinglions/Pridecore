@@ -612,6 +612,8 @@ public final class StoryModule {
     private static int playerEncounterStatus(ServerCommandSource source) {
         try {
             ServerPlayerEntity player = source.getPlayerOrThrow();
+            if (liveServer != source.getServer() || engine == null)
+                return message(source, "The Resonance Crisis campaign is currently unavailable.");
             var facts = PrideCoreMod.progression(source.getServer())
                 .orElseThrow(() -> new IOException("Progression unavailable"))
                 .get(player.getUuid()).facts();
