@@ -78,6 +78,19 @@ public final class RctStoryBattleLauncher {
                 List.of(player), List.of(opponent), singles, defaultRules);
         if (!(battle instanceof UUID id))
             throw new IllegalStateException("RCT rejected story trainer battle launch");
+        // RCT owns the encounter state. Resolve its actual Cobblemon battle
+        // before handing the UUID to Pride Core's victory-event router.
+        Object state = manager.getClass().getMethod("getState", UUID.class)
+            .invoke(manager, id);
+        if (state == null)
+            throw new IllegalStateException("RCT did not register the launched battle");
+        Object cobbleBattle = state.getClass().getMethod("getBattle").invoke(state);
+        UUID cobbleId = (UUID) cobbleBattle.getClass().getMethod("getBattleId")
+            .invoke(cobbleBattle);
+        if (!id.equals(cobbleId)) {
+            manager.getClass().getMethod("end", UUID.class).invoke(manager, id);
+            throw new IllegalStateException("RCT/Cobblemon battle ID mismatch");
+        }
         return id;
     }
 }
