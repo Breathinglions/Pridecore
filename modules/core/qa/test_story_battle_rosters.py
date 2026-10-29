@@ -10,6 +10,14 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 data = json.loads((ROOT / "campaign/story_battles.json").read_text(encoding="utf-8"))
+runtime = json.loads(
+    (ROOT / "src/main/resources/story/story_battles.json").read_text(encoding="utf-8"))
+assert data == runtime, "Bundled RCT rosters must match authored campaign content"
+expected_badges = {
+    "rin_route1": 0, "rin_canyon": 2, "rin_summit": 7,
+    "eclipse_lieutenant": 8, "sable": 8, "director_cael": 8,
+    "shield_alpha": 8, "shield_beta": 8, "shield_gamma": 8,
+}
 expected = {
     "rin_route1": "rin",
     "rin_canyon": "rin",
@@ -28,6 +36,7 @@ assert set(ids) == set(expected) and len(ids) == len(set(ids))
 for entry in data["encounters"]:
     assert entry["actor"] == expected[entry["id"]]
     assert isinstance(entry["minBadges"], int) and 0 <= entry["minBadges"] <= 8
+    assert entry["minBadges"] == expected_badges[entry["id"]], "Canonical battle badge gate changed"
     assert 1 <= len(entry["team"]) <= 6
     assert entry["intro"].strip() and entry["win"].strip()
     assert entry["minBadges"] >= 0
