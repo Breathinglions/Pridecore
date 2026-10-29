@@ -19,7 +19,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class StoryEffects {
     private static final Set<String> KEYS = Set.of(
-        "finale.end_rod", "finale.totem", "battle.electric", "battle.enchant");
+        "finale.end_rod", "finale.totem", "finale.conduit",
+        "finale.shield", "battle.electric", "battle.enchant",
+        "battle.rin", "battle.sable", "battle.cael");
     private static final Map<String, String> OVERRIDES = new ConcurrentHashMap<>();
 
     private StoryEffects() {}
@@ -49,7 +51,7 @@ public final class StoryEffects {
         String override = OVERRIDES.get(key);
         if (override != null) {
             Identifier id = Identifier.tryParse(override);
-            if (id != null) {
+            if (id != null && Registries.PARTICLE_TYPE.containsId(id)) {
                 ParticleType<?> type = Registries.PARTICLE_TYPE.get(id);
                 if (type instanceof SimpleParticleType candidate) effect = candidate;
             }
