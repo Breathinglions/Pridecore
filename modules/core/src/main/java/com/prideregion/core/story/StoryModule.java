@@ -600,6 +600,12 @@ public final class StoryModule {
         if (liveServer != server || engine == null || launchLedger == null)
             return Optional.empty();
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        boolean sameDimension = trainer.getWorld().getRegistryKey().equals(
+            player.getWorld().getRegistryKey());
+        if (!StoryTrainerBindingGate.permits(encounterId,
+                trainer.getCommandTags(), sameDimension,
+                trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                player.squaredDistanceTo(trainer))) return Optional.empty();
         if (!reserveStoryBattleLaunch(server, player.getUuid(),
                 encounterId, trainer.getUuid())) return Optional.empty();
         try {
