@@ -753,8 +753,11 @@ public final class StoryModule {
                 var state = StoryEncounterAvailability.status(encounter, facts,
                     shieldPhase, battleOccupied, badges, minBadges);
                 if (state == StoryEncounterAvailability.Status.COMPLETE) won++;
+                String badgeHint = state == StoryEncounterAvailability.Status.LOCKED
+                    && facts.contains(encounter.requiredFact()) && badges < minBadges
+                    ? " (Gym badges " + badges + "/" + minBadges + ")" : "";
                 source.sendFeedback(() -> Text.literal(" - " + encounter.id()
-                    + ": " + state), false);
+                    + ": " + state + badgeHint), false);
             }
             int completed = won;
             source.sendFeedback(() -> Text.literal("Story battle victories: "
