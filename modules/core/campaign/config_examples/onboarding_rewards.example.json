@@ -1,40 +1,27 @@
 {
-  "_notice": "DESIGN EXAMPLE ONLY. NOT LOADED BY THE CURRENT Pride Core 0.4.3-rc1 unified JAR.",
   "schema": 1,
-  "kits": {
-    "theo_registration": {
-      "items": [
-        {
-          "id": "rctmod:trainer_card",
-          "count": 1,
-          "required": true
-        },
-        {
-          "id": "knowlogy:knowlogy_book",
-          "count": 1,
-          "required": true
-        }
-      ],
-      "extra_items": []
-    },
-    "avery_field_kit": {
-      "items": [
-        {
-          "id": "cobblemon:poke_ball",
-          "count": 10,
-          "required": true
-        },
-        {
-          "id": "minecraft:bread",
-          "count": 8,
-          "required": true
-        }
-      ],
-      "extra_items": []
-    },
-    "mom_welcome": {
-      "enabled": false,
-      "items": []
-    }
+  "theo_registration": {
+    "items": [
+      {
+        "id": "rctmod:trainer_card",
+        "count": 1
+      },
+      {
+        "id": "knowlogy:knowlogy_book",
+        "count": 1
+      }
+    ]
+  },
+  "avery_field_kit": {
+    "items": [
+      {
+        "id": "cobblemon:poke_ball",
+        "count": 10
+      },
+      {
+        "id": "minecraft:bread",
+        "count": 8
+      }
+    ]
   }
 }
