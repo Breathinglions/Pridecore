@@ -49,6 +49,7 @@ public final class StoryModule {
     private static volatile StoryDimensionGate STORY_WORLDS = StoryDimensionGate.open();
     private static final StoryCinematicTimeline CINEMATICS = new StoryCinematicTimeline();
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
+    private static final StoryBattleResultRetryQueue BATTLE_RETRIES = new StoryBattleResultRetryQueue();
 
     private StoryModule() {}
 
@@ -283,6 +284,7 @@ public final class StoryModule {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
+            BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
@@ -298,6 +300,7 @@ public final class StoryModule {
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
         BATTLE_PHASES.clear();
+        BATTLE_RETRIES.clear();
         engine = null;
         battleProof = null;
         battleRouter = null;
@@ -402,6 +405,7 @@ public final class StoryModule {
             finaleStore = null;
             CINEMATICS.clear();
             BATTLE_PHASES.clear();
+            BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
             health = "error (see server log)";
             configStatus = "error";
@@ -414,6 +418,7 @@ public final class StoryModule {
             STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
             BATTLE_PHASES.clear();
+            BATTLE_RETRIES.clear();
             if (victoryListener != null) {
                 try { victoryListener.uninstall(); }
                 catch (ReflectiveOperationException ex) {
