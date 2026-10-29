@@ -28,6 +28,8 @@ public final class StoryBattleRuntimePreflight {
         manager.getMethod("getDefaultRules");
         Class<?> state = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleState", false, loader);
         state.getMethod("getBattle");
+        state.getMethod("getParticipants1");
+        state.getMethod("getParticipants2");
         Class<?> events = Class.forName(
             "com.cobblemon.mod.common.api.events.CobblemonEvents", false, loader);
         events.getField("BATTLE_VICTORY");
