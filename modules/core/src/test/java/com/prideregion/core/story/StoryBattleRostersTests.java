@@ -20,6 +20,22 @@ public final class StoryBattleRostersTests {
         check(all.find("unknown").isEmpty());
         String invalid = "{\"schema\":2,\"mode\":\"STAGING_ONLY\",\"encounters\":[]}";
         rejected(invalid);
+        // The authored team file is the only combat authority for Module 02.
+        // Hybrid damage fields and alternate formats must fail closed.
+        String authored;
+        try (var in = StoryBattleRosters.class.getResourceAsStream(
+                "/story/story_battles.json")) {
+            if (in == null) throw new AssertionError("Missing bundled story roster");
+            authored = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        check(authored.contains("\"combatMode\": \"POKEMON_ONLY\""));
+        check(authored.contains("\"battleFormat\": \"GEN_9_SINGLES\""));
+        rejected(authored.replace("\"POKEMON_ONLY\"", "\"HYBRID\""));
+        rejected(authored.replace("\"GEN_9_SINGLES\"", "\"MINECRAFT_HYBRID\""));
+        rejected(authored.replace("\"combatMode\"", "\"minecraftDamage\": 5, \"combatMode\""));
+        rejected(authored.replace("\"chapter\"", "\"mobWave\": true, \"chapter\""));
+        rejected(authored.replace("\"species\"", "\"meleeAttack\": 10, \"species\""));
+        rejected(authored.replace("\"team\"", "\"minecraftBossPhase\": true, \"team\""));
         System.out.println("PASS: story battle roster loading and schema checks");
     }
 }
