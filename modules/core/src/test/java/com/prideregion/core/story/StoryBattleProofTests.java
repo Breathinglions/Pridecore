@@ -56,6 +56,15 @@ public final class StoryBattleProofTests {
             check(transferred.player().equals(third));
             proofs.clear();
             check(!proofs.victory(transferred, disconnectBattle, third));
+            UUID externallyCredited = UUID.randomUUID();
+            UUID staleBattle = UUID.randomUUID();
+            progression.grant(externallyCredited, definition.requiredFact());
+            var staleTicket = proofs.arm(externallyCredited, staleBattle, definition.id());
+            progression.grant(externallyCredited, definition.earnedFact());
+            check(!proofs.victory(staleTicket, staleBattle, externallyCredited));
+            check(!proofs.victory(staleTicket, staleBattle, externallyCredited));
+            // A stale ticket must not obstruct later unrelated story encounters.
+            proofs.cancelPlayer(externallyCredited);
         }
         System.out.println("PASS: " + checks + " story battle proof assertions");
     }
