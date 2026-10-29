@@ -16,11 +16,13 @@ public final class StoryEncounterAvailability {
     private StoryEncounterAvailability() {}
 
     public static Status status(StoryBattleProof.Encounter encounter, Set<String> facts,
-                                boolean shieldPhase, boolean battleOccupied) {
+                                boolean shieldPhase, boolean battleOccupied,
+                                int ownedBadges, int requiredBadges) {
         Objects.requireNonNull(encounter);
         Objects.requireNonNull(facts);
         if (facts.contains(encounter.earnedFact())) return Status.COMPLETE;
         if (!facts.contains(encounter.requiredFact())) return Status.LOCKED;
+        if (ownedBadges < requiredBadges) return Status.LOCKED;
         if (encounter.id().startsWith("shield_") && !shieldPhase) return Status.LOCKED;
         if (battleOccupied) return Status.BUSY;
         return Status.READY;
