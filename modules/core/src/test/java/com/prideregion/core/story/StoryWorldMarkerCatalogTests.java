@@ -16,6 +16,22 @@ public final class StoryWorldMarkerCatalogTests {
         check(rejected);
     }
     public static void main(String[] args) {
+        check(NativeNpcIdentity.ALLOWED.size() == 27);
+        for (String id : NativeNpcIdentity.ALLOWED) {
+            String tag = StoryWorldMarkerCatalog.marker("npc", id);
+            check(tag.equals(NativeNpcIdentity.tagFor(id)));
+            check(StoryWorldMarkerCatalog.isStoryTag(tag));
+            check(StoryWorldMarkerCatalog.validOnEntity(tag, false, true, false));
+            check(!StoryWorldMarkerCatalog.validOnEntity(tag, true, false, false));
+            check(!StoryWorldMarkerCatalog.validOnEntity(tag, false, false, true));
+            check(StoryWorldMarkerCatalog.canBind(Set.of("other_mod_tag"), tag));
+            check(!StoryWorldMarkerCatalog.canBind(Set.of("pride_battle_sable"), tag));
+        }
+        check(StoryWorldMarkerCatalog.marker("npc", "rin_canyon")
+            .equals(StoryWorldMarkerCatalog.marker("npc", "rin_summit")));
+        check(StoryWorldMarkerCatalog.marker("npc", "ranger_rowan")
+            .equals(StoryWorldMarkerCatalog.marker("npc", "ranger_epilogue")));
+        invalid("npc", "unknown");
         for (String id : StoryBattleSessionRouter.acceptedTrainers().keySet()) {
             String tag = StoryWorldMarkerCatalog.marker("battle", id);
             check(tag.equals("pride_battle_" + id));
@@ -36,6 +52,13 @@ public final class StoryWorldMarkerCatalogTests {
                 : "pride_finale_conduit_" + id));
             check(StoryWorldMarkerCatalog.canBind(Set.of(), tag));
         }
+        check(!StoryWorldMarkerCatalog.validOnEntity("pride_npc_fake", false, true, false));
+        check(!StoryWorldMarkerCatalog.validOnEntity("pride_battle_fake", true, false, false));
+        check(!StoryWorldMarkerCatalog.validOnEntity("pride_clue_fake", false, false, true));
+        check(!StoryWorldMarkerCatalog.validOnEntity("pride_finale_fake", false, false, true));
+        check(StoryWorldMarkerCatalog.validOnEntity("pride_battle_sable", true, false, false));
+        check(StoryWorldMarkerCatalog.validOnEntity("pride_clue_forest", false, false, true));
+        check(StoryWorldMarkerCatalog.validOnEntity("pride_finale_core", false, false, true));
         invalid("battle", "fake");
         invalid("clue", "fake");
         invalid("finale", "fake");
