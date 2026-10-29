@@ -147,3 +147,4 @@ PY
 python3 "$ROOT/qa/test_staging_world.py"
 python3 "$ROOT/qa/test_story_combat_boundary.py"
 python3 "$ROOT/qa/test_story_narrative.py"
+python3 "$ROOT/qa/test_story_npc_interaction.py"
