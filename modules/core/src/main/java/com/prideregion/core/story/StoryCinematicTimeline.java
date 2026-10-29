@@ -21,36 +21,36 @@ public final class StoryCinematicTimeline {
     private final Map<UUID, Scene> active = new HashMap<>();
 
     private static final List<Cue> RIN = List.of(
-        new Cue(0, "RIN  |  YOUR RIVAL", "battle.rin", 25),
-        new Cue(25, "A rival's challenge!", "battle.rin", 16),
-        new Cue(55, "Make every move count.", "battle.enchant", 12));
+        new Cue(0, "RIN  |  A FAMILIAR FACE", "battle.rin", 25),
+        new Cue(25, "We have come a long way, haven't we?", "battle.rin", 16),
+        new Cue(55, "There is more ahead of us than the League.", "battle.enchant", 12));
     private static final List<Cue> SABLE = List.of(
-        new Cue(0, "SABLE  |  ECLIPSE COMMANDER", "battle.sable", 36),
+        new Cue(0, "SABLE  |  THE TRUTH BENEATH ECLIPSE", "battle.sable", 36),
         new Cue(22, "The shadows gather...", "battle.electric", 28),
-        new Cue(50, "The Eclipse is watching.", "battle.sable", 20));
+        new Cue(50, "Meridian cannot bury the truth forever.", "battle.sable", 20));
     private static final List<Cue> CAEL = List.of(
-        new Cue(0, "DIRECTOR CAEL  |  MERIDIAN", "battle.cael", 38),
+        new Cue(0, "DIRECTOR CAEL  |  THE COST OF RESONANCE", "battle.cael", 38),
         new Cue(22, "Resonance levels are rising.", "battle.electric", 30),
-        new Cue(50, "The engine cannot contain this.", "battle.cael", 22));
+        new Cue(50, "I thought I could protect everything.", "battle.cael", 22));
     private static final List<Cue> SHIELD = List.of(
-        new Cue(0, "RESONANCE ENGINE  |  SHIELD DEFENDER", "finale.shield", 34),
-        new Cue(25, "A defensive field activates.", "battle.electric", 24),
-        new Cue(55, "Break through the shield!", "finale.shield", 16));
+        new Cue(0, "RESONANCE ENGINE  |  THE ANCIENT SEAL", "finale.shield", 34),
+        new Cue(25, "An ancient light spills across the chamber.", "battle.electric", 24),
+        new Cue(55, "The sealed heart beats beneath the stone.", "finale.shield", 16));
     private static final List<Cue> CONDUITS_COMPLETE = List.of(
-        new Cue(0, "RESONANCE ENGINE  |  CONDUITS ONLINE", "finale.conduit", 42),
-        new Cue(24, "Three defensive shields materialize.", "finale.shield", 32),
-        new Cue(55, "Defeat the defenders to reach the core.", "finale.end_rod", 24));
+        new Cue(0, "RESONANCE ENGINE  |  AN AWAKENING", "finale.conduit", 42),
+        new Cue(24, "Three ancient seals emerge from the light.", "finale.shield", 32),
+        new Cue(55, "Beyond the seals, something is calling.", "finale.end_rod", 24));
     private static final List<Cue> SHIELDS_COMPLETE = List.of(
-        new Cue(0, "RESONANCE ENGINE  |  SHIELDS OFFLINE", "finale.shield", 40),
-        new Cue(24, "The core is exposed.", "finale.end_rod", 30),
-        new Cue(55, "Stabilize the engine before it overloads!", "finale.totem", 25));
+        new Cue(0, "RESONANCE ENGINE  |  THE LAST SEAL FADES", "finale.shield", 40),
+        new Cue(24, "The chamber has fallen strangely quiet.", "finale.end_rod", 30),
+        new Cue(55, "A heartbeat of light remains at the center.", "finale.totem", 25));
     private static final List<Cue> ENGINE_STABILIZED = List.of(
         new Cue(0, "RESONANCE ENGINE  |  STABILIZED", "finale.totem", 45),
         new Cue(28, "The crisis has been contained.", "finale.end_rod", 28),
         new Cue(65, "The path forward is yours.", "finale.totem", 18));
     private static final List<Cue> LIEUTENANT = List.of(
-        new Cue(0, "ECLIPSE  |  LIEUTENANT", "battle.electric", 26),
-        new Cue(35, "The operation is compromised!", "battle.enchant", 14));
+        new Cue(0, "ECLIPSE  |  THE LAST WARNING", "battle.electric", 26),
+        new Cue(35, "Everything we believed is coming apart.", "battle.enchant", 14));
 
     /**
      * Authored boss-specific presentation on an authenticated opponent KO.
@@ -68,38 +68,38 @@ public final class StoryCinematicTimeline {
         String effect;
         switch (encounter) {
             case "rin_route1", "rin_canyon", "rin_summit" -> {
-                title = phase == 1 ? "RIN  |  ADAPTING" : "RIN  |  FINAL PUSH";
+                title = phase == 1 ? "RIN  |  AN OLD PROMISE" : "RIN  |  THE ROAD CONTINUES";
                 warning = phase == 1 ? "You're stronger than I expected!"
-                    : "I'm not backing down now!";
+                    : "I still believe in the journey we began!";
                 effect = "battle.rin";
             }
             case "eclipse_lieutenant" -> {
-                title = phase == 1 ? "ECLIPSE  |  PROTOCOL SHIFT"
-                    : "ECLIPSE  |  LAST DEFENSE";
-                warning = phase == 1 ? "Deploy the reserve team!"
-                    : "Protect the Eclipse operation!";
+                title = phase == 1 ? "ECLIPSE  |  DOUBT"
+                    : "ECLIPSE  |  A CHOICE";
+                warning = phase == 1 ? "What if they were right about Meridian?"
+                    : "Sable deserves to know what we found.";
                 effect = "battle.electric";
             }
             case "sable" -> {
-                title = phase == 1 ? "SABLE  |  SHADOW PROTOCOL"
-                    : "SABLE  |  FINAL GAMBIT";
+                title = phase == 1 ? "SABLE  |  THE BURIED REPORTS"
+                    : "SABLE  |  ANOTHER WAY";
                 warning = phase == 1 ? "You have no idea what follows."
-                    : "The Eclipse will not fall here!";
+                    : "If there is another way, show me the truth.";
                 effect = "battle.sable";
             }
             case "director_cael" -> {
-                title = phase == 1 ? "CAEL  |  RESONANCE SURGE"
-                    : "CAEL  |  CORE OVERLOAD";
-                warning = phase == 1 ? "The engine is amplifying the battle!"
-                    : "The resonance cannot be stopped!";
+                title = phase == 1 ? "CAEL  |  A FRACTURED VISION"
+                    : "CAEL  |  THE LAST WARNING";
+                warning = phase == 1 ? "The readings... they were wrong all along."
+                    : "I cannot let the region pay for my mistake.";
                 effect = "battle.cael";
             }
             case "shield_alpha", "shield_beta", "shield_gamma" -> {
                 String shield = encounter.substring("shield_".length()).toUpperCase(Locale.ROOT);
-                title = phase == 1 ? "SHIELD " + shield + "  |  FRACTURED"
-                    : "SHIELD " + shield + "  |  FINAL DEFENSE";
-                warning = phase == 1 ? "The defensive field is destabilizing!"
-                    : "One last barrier remains!";
+                title = phase == 1 ? "SHIELD " + shield + "  |  AN ECHO STIRS"
+                    : "SHIELD " + shield + "  |  A FADING LIGHT";
+                warning = phase == 1 ? "The seal remembers those who came before."
+                    : "The old light is beginning to fade.";
                 effect = "finale.shield";
             }
             default -> { return List.of(); }
