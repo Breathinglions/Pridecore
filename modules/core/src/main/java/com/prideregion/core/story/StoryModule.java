@@ -60,6 +60,22 @@ public final class StoryModule {
                         throw new IllegalStateException("Story finale is disabled");
                     restoreFinale(sp.getUuid());
                     String marker = markers.getFirst();
+                    // A normal eligible player can initiate the operation by
+                    // using its first conduit. Operator rehearsal is optional.
+                    if (marker.startsWith("pride_finale_conduit_")
+                            && finale.snapshot(sp.getUuid()).phase()
+                                == ResonanceFinaleController.Phase.LOCKED) {
+                        var progression = PrideCoreMod.progression(sp.getServer())
+                            .orElseThrow(() -> new IOException("Progression unavailable"));
+                        var facts = progression.get(sp.getUuid()).facts();
+                        var started = finale.start(sp.getUuid(),
+                            facts.contains("pride:cael_battle_won"),
+                            facts.contains("pride:clue_engine"));
+                        if (started.phase() == ResonanceFinaleController.Phase.LOCKED)
+                            throw new IllegalStateException(
+                                "Defeat Director Cael and investigate the engine first");
+                        persistFinale(sp.getUuid());
+                    }
                     if (marker.equals("pride_finale_core")) {
                         if (finale.snapshot(sp.getUuid()).phase() == ResonanceFinaleController.Phase.STABILIZE)
                             finale.stabilize(sp.getUuid());
