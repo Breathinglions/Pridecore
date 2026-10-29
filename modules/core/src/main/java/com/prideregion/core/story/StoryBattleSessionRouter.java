@@ -49,6 +49,12 @@ public final class StoryBattleSessionRouter {
         return true;
     }
 
+    /** Read-only lookup for trusted victory handlers before the ticket is cleared. */
+    public synchronized Optional<String> encounterForBattle(UUID battleId) {
+        StoryBattleProof.Ticket ticket = byBattle.get(battleId);
+        return ticket == null ? Optional.empty() : Optional.of(ticket.encounterId());
+    }
+
     /** Winner ID must come from the resolved native battle, not a client. */
     public synchronized boolean ended(UUID battleId, UUID winnerId)
             throws java.io.IOException {
