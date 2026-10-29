@@ -60,6 +60,48 @@ public final class ResonanceFinaleController {
             s == null ? 0 : s.conduits().size(), s == null ? 0 : s.shields().size());
     }
 
+    /**
+     * Immutable checkpoint for a future durable store. The caller is
+     * responsible for saving it; this method itself does not persist data.
+     */
+    public record Checkpoint(UUID player, Phase phase, Set<String> conduits,
+                             Set<String> shields) {
+        public Checkpoint {
+            Objects.requireNonNull(player);
+            Objects.requireNonNull(phase);
+            conduits = Set.copyOf(Objects.requireNonNull(conduits));
+            shields = Set.copyOf(Objects.requireNonNull(shields));
+        }
+    }
+
+    public synchronized Optional<Checkpoint> checkpoint(UUID player) {
+        State state = sessions.get(player);
+        return state == null ? Optional.empty() : Optional.of(
+            new Checkpoint(player, state.phase(), state.conduits(), state.shields()));
+    }
+
+    /**
+     * Validates a previously saved checkpoint before recovering a player.
+     * Corrupt, forged or impossible phase combinations are rejected.
+     * The trusted caller must separately re-check campaign prerequisites.
+     */
+    public synchronized Snapshot restore(Checkpoint checkpoint) {
+        Objects.requireNonNull(checkpoint);
+        Phase phase = checkpoint.phase();
+        Set<String> conduits = checkpoint.conduits();
+        Set<String> shields = checkpoint.shields();
+        if (phase == Phase.LOCKED
+                || !CONDUITS.containsAll(conduits) || !SHIELDS.containsAll(shields)
+                || (phase == Phase.CONDUITS && (!shields.isEmpty() || conduits.size() == 4))
+                || (phase == Phase.SHIELDS && (!conduits.equals(CONDUITS) || shields.size() == 3))
+                || ((phase == Phase.STABILIZE || phase == Phase.COMPLETE)
+                    && (!conduits.equals(CONDUITS) || !shields.equals(SHIELDS))))
+            throw new IllegalArgumentException("Invalid Resonance finale checkpoint");
+        sessions.put(checkpoint.player(),
+            new State(phase, Set.copyOf(conduits), Set.copyOf(shields)));
+        return snapshot(checkpoint.player());
+    }
+
     public synchronized void disconnect(UUID player) { sessions.remove(player); }
     public synchronized void clear() { sessions.clear(); }
 
