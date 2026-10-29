@@ -52,6 +52,30 @@ public final class StoryCinematicTimelineTests {
             check(events.size() == 2);
             check(timeline.activeCount() == 0);
         }
+        // Every authenticated encounter has its own two narrative beats per
+        // phase, with no untrusted ID accepted as a scene name.
+        for (String encounter : StoryBattleSessionRouter.acceptedTrainers().keySet()) {
+            for (int phase : List.of(1, 2)) {
+                String name = StoryCinematicTimeline.phaseScene(encounter, phase);
+                check(name != null);
+                var authored = StoryCinematicTimeline.cuesFor(name);
+                check(authored.size() == 2);
+                check(authored.getFirst().title().contains(
+                    encounter.startsWith("rin_") ? "RIN"
+                    : encounter.startsWith("shield_") ? "SHIELD"
+                    : encounter.equals("director_cael") ? "CAEL"
+                    : encounter.equals("eclipse_lieutenant") ? "ECLIPSE" : "SABLE"));
+                UUID actor = UUID.randomUUID();
+                check(timeline.begin(actor, name));
+                var first = timeline.tick();
+                check(first.size() == 1 && first.getFirst().cue().tick() == 0);
+                timeline.cancel(actor);
+            }
+        }
+        check(StoryCinematicTimeline.phaseScene("forged", 1) == null);
+        check(StoryCinematicTimeline.phaseScene("sable", 3) == null);
+        check(StoryCinematicTimeline.cuesFor("bossphase_forged_p1").isEmpty());
+        check(StoryCinematicTimeline.cuesFor("bossphase_sable_p99").isEmpty());
         check(StoryCinematicTimeline.cuesFor("invalid").isEmpty());
         check(!timeline.begin(UUID.randomUUID(), "invalid"));
         UUID leaving = UUID.randomUUID();
