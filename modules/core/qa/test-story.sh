@@ -19,6 +19,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleLaunchLedger.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryWorldMarkerCatalog.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryCinematicTimeline.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryEncounterAvailability.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/ResonanceFinaleController.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryPlaythroughReset.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/ResonanceFinaleCompletion.java" \
@@ -31,6 +32,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleLaunchLedgerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryWorldMarkerCatalogTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryCinematicTimelineTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryEncounterAvailabilityTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleControllerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryPlaythroughResetTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleCompletionTests.java" \
@@ -42,6 +44,7 @@ java -cp "$TMP" com.prideregion.core.story.StoryBattleSessionRouterTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleLaunchLedgerTests
 java -cp "$TMP" com.prideregion.core.story.StoryWorldMarkerCatalogTests
 java -cp "$TMP" com.prideregion.core.story.StoryCinematicTimelineTests
+java -cp "$TMP" com.prideregion.core.story.StoryEncounterAvailabilityTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleControllerTests
 java -cp "$TMP" com.prideregion.core.story.StoryPlaythroughResetTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleCompletionTests
