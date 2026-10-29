@@ -21,11 +21,17 @@ for required in [
     'DIALOGUE_ANCHORS.clear(player.getUuid());',
     'DIALOGUE_ANCHORS.clearAll();',
     'new ClickEvent(ClickEvent.Action.RUN_COMMAND, command)',
+    'String command = "/pridecore story respond "',
+    'LongArgumentType.getLong(ctx, "revision")',
+    'active.chooseDisplayed(player.getUuid(), expectedNpc, expectedNode,',
     'new HoverEvent(HoverEvent.Action.SHOW_TEXT,',
 ]:
     assert required in module, f"Unwired physical NPC feature: {required}"
 assert 'Choose: /pridecore' not in module
 assert '"Conversation finished. Your progress was saved."' not in engine
+assert 'before.revision() != session.profileRevision()' in engine
+assert 'session.nodeId().equals(nodeId)' in engine
+assert 'session.npcId().equals(npcId)' in engine
 for service in [
     "pride_npc_professor_sequoia", "pride_npc_technician_theo",
     "pride_npc_avery", "pride_npc_thorn",
