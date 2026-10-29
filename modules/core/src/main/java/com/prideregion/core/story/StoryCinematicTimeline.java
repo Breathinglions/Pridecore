@@ -144,7 +144,12 @@ public final class StoryCinematicTimeline {
         List<Cue> cues = cuesFor(encounter);
         if (cues.isEmpty() || active.containsKey(player)
             || active.size() >= MAX_ACTIVE_SCENES) return false;
-        active.put(player, new Scene(encounter, 0, cues));
+        StoryPresentationConfig presentation = StoryPresentationConfig.current();
+        if (!presentation.enabled()) return false;
+        List<Cue> scaled = cues.stream()
+            .map(c -> new Cue(presentation.tick(c.tick()), c.title(),
+                c.effectKey(), c.particles())).toList();
+        active.put(player, new Scene(encounter, 0, scaled));
         return true;
     }
 
