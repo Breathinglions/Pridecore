@@ -14,7 +14,7 @@ public final class StoryBattleSessionRouterTests {
         var service = new ProgressionService(new ProfileStore(
             Files.createTempDirectory("story-session-router-")));
         var router = new StoryBattleSessionRouter(new StoryBattleProof(service));
-        check(StoryBattleSessionRouter.acceptedTrainers().size() == 6);
+        check(StoryBattleSessionRouter.acceptedTrainers().size() == 9);
         for (var battle : StoryBattleProof.definitions()) {
             UUID player = UUID.randomUUID(), other = UUID.randomUUID(),
                  battleId = UUID.randomUUID();
