@@ -384,6 +384,13 @@ public final class StoryModule {
             // Development rehearsal only: an OP4 operator starts each preview.
             // Cues are delivered to the exact owner, never to nearby players.
             // The real native GUI continuation is deliberately NOT executed.
+            // Check every owner each tick, including silent portions of a
+            // cutscene; no ghost projection may survive a world switch/logout.
+            PRIVATE_SCENES.reapInvalid(owner -> {
+                ServerPlayerEntity participant = server.getPlayerManager().getPlayer(owner);
+                return participant == null ? null
+                    : participant.getWorld().getRegistryKey().getValue().toString();
+            });
             for (var cue : PRIVATE_SCENES.tick()) {
                 ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(cue.owner());
                 if (viewer == null || !STORY_WORLDS.permits(
@@ -391,8 +398,6 @@ public final class StoryModule {
                     PRIVATE_SCENES.cancel(cue.owner());
                     continue;
                 }
-                PRIVATE_SCENES.checkDimension(cue.owner(),
-                    viewer.getWorld().getRegistryKey().getValue().toString());
                 if (PRIVATE_SCENES.active(cue.owner()).isEmpty()
                         && cue.kind() != StoryPrivateSceneDirector.Kind.ACTOR_REMOVE
                         && cue.kind() != StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER
