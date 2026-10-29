@@ -62,6 +62,10 @@ public final class StoryConfigManager {
             throw new IOException("Existing story config invalid; preserved without changes", ex);
         }
         JsonObject merged = current.deepCopy();
+        // Upgrade only exact, untouched first-party stock dialogue to the
+        // narrative-first text. Never overwrite the user's customized prose,
+        // story nodes or dialogue choices.
+        JsonObject originalStock = legacyStockDialogue();
         int addedNpcs = 0;
         int addedGates = 0;
         JsonArray existingNpcs = merged.getAsJsonArray("npcs");
@@ -69,6 +73,8 @@ public final class StoryConfigManager {
             JsonObject newerNpc = entry.getAsJsonObject();
             String npcId = newerNpc.get("id").getAsString();
             JsonObject existingNpc = byId(existingNpcs, npcId);
+            JsonObject oldStockNpc = originalStock == null ? null
+                : byId(originalStock.getAsJsonArray("npcs"), npcId);
             if (existingNpc == null) {
                 existingNpcs.add(newerNpc.deepCopy());
                 addedNpcs++;
@@ -125,20 +131,28 @@ public final class StoryConfigManager {
             for (JsonElement node : newerNpc.getAsJsonArray("nodes")) {
                 JsonObject proposed = node.getAsJsonObject();
                 JsonObject originalNode = byId(oldNodes, proposed.get("id").getAsString());
+                JsonObject stockNode = oldStockNpc == null ? null
+                    : byId(oldStockNpc.getAsJsonArray("nodes"),
+                        proposed.get("id").getAsString());
                 if (originalNode == null) {
                     // New dialogue nodes can be added without editing existing ones.
                     oldNodes.add(proposed.deepCopy());
                     continue;
                 }
+                migrateStockText(originalNode, stockNode, proposed);
                 JsonArray oldOptions = originalNode.getAsJsonArray("options");
                 for (JsonElement opt : proposed.getAsJsonArray("options")) {
                     JsonObject newerOption = opt.getAsJsonObject();
                     JsonObject previousOption = byId(oldOptions, newerOption.get("id").getAsString());
+                    JsonObject stockOption = stockNode == null ? null
+                        : byId(stockNode.getAsJsonArray("options"),
+                            newerOption.get("id").getAsString());
                     if (previousOption == null) {
                         // New choices are add-only; no existing choice is rewritten.
                         oldOptions.add(newerOption.deepCopy());
                         continue;
                     }
+                    migrateStockText(previousOption, stockOption, newerOption);
                     if (!newerOption.has("requiresLegacy")) continue;
                     TreeSet<String> allowed = new TreeSet<>();
                     if (previousOption.has("requiresLegacy"))
@@ -180,6 +194,29 @@ public final class StoryConfigManager {
         }
         atomicWrite(file, output);
         return new Result(Change.UPGRADED, backup, addedNpcs, addedGates);
+    }
+
+    /** Use the exact first-party v1 template as an immutable comparison. */
+    private static JsonObject legacyStockDialogue() throws IOException {
+        try (InputStream input = StoryConfigManager.class.getResourceAsStream(
+                "/story/legacy_stock_dialogue_v1.json")) {
+            if (input == null)
+                throw new IOException("Bundled original story dialogue reference is missing");
+            return JsonParser.parseReader(
+                new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject();
+        } catch (RuntimeException ex) {
+            throw new IOException("Original story dialogue comparison is invalid", ex);
+        }
+    }
+
+    private static void migrateStockText(JsonObject existing, JsonObject original,
+                                         JsonObject latest) {
+        if (existing == null || original == null || latest == null) return;
+        if (existing.has("text") && original.has("text") && latest.has("text")
+                && existing.get("text").equals(original.get("text"))
+                && !latest.get("text").equals(original.get("text"))) {
+            existing.add("text", latest.get("text").deepCopy());
+        }
     }
 
     private static boolean contains(JsonArray values, String target) {
