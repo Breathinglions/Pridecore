@@ -867,13 +867,8 @@ public final class StoryModule {
             restoreFinale(player.getUuid());
             reconcileFinaleShields(player.getUuid());
             var state = finale.snapshot(player.getUuid());
-            String next = switch (state.phase()) {
-                case LOCKED -> "Defeat Director Cael and investigate the engine.";
-                case CONDUITS -> "Activate all four conduits around the Resonance Engine.";
-                case SHIELDS -> "Defeat Alpha, Beta and Gamma shield defenders.";
-                case STABILIZE -> "Interact with the engine core to stabilize it.";
-                case COMPLETE -> "The Resonance Engine has been stabilized.";
-            };
+            String next = StoryFinaleObjectiveGuide.next(
+                state, finale.checkpoint(player.getUuid()));
             return message(source, "Resonance Engine: " + state.phase()
                 + " | Conduits " + state.conduits() + "/4"
                 + " | Shields " + state.shields() + "/3. " + next);
