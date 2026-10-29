@@ -24,6 +24,8 @@ jobs:
         run: bash modules/core/qa/test-story.sh
       - name: Module 02 FTB chapter and localization regression tests
         run: python3 modules/core/qa/test_ftb_story_overlay.py
+      - name: Validate native Cobblemon text-only override generator
+        run: python3 modules/core/qa/test_native_dialogue_text_overlay.py
       - name: Check configurable native Theo/Avery reward migration
         run: python3 modules/core/qa/test_configurable_onboarding.py
       - name: Verify unified Hearthleaf native dialogue safety
@@ -58,6 +60,7 @@ jobs:
             modules/core/build/PrideStoryNative_0.3.5-rc1.zip
             modules/core/campaign/build_native_overlay.py
             modules/core/campaign/build_unified_module02_dialogue_v043.py
+            modules/core/campaign/build_native_dialogue_text_overlay.py
             modules/core/campaign/config_examples/onboarding_rewards.example.json
             modules/core/campaign/acts.json
             modules/core/build/PrideStoryFTB_0.3.5-rc1.zip
