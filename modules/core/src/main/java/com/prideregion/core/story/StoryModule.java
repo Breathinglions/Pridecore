@@ -89,10 +89,10 @@ public final class StoryModule {
                         persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
                         if (sp.getWorld() instanceof ServerWorld fxWorld) {
-                            fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                            StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
                                 entity.getX(), entity.getY() + 1.0D, entity.getZ(),
                                 140, 1.5D, 1.5D, 1.5D, 0.09D);
-                            fxWorld.spawnParticles(ParticleTypes.TOTEM_OF_UNDYING,
+                            StoryEffects.emit(fxWorld, "finale.totem", ParticleTypes.TOTEM_OF_UNDYING,
                                 entity.getX(), entity.getY() + 1.0D, entity.getZ(),
                                 80, 1.2D, 1.3D, 1.2D, 0.05D);
                         }
@@ -102,10 +102,10 @@ public final class StoryModule {
                         var state = finale.conduit(sp.getUuid(), direction);
                         persistFinale(sp.getUuid());
                         if (sp.getWorld() instanceof ServerWorld fxWorld) {
-                            fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                            StoryEffects.emit(fxWorld, "battle.electric", ParticleTypes.ELECTRIC_SPARK,
                                 entity.getX(), entity.getY() + 0.6D, entity.getZ(),
                                 36, 0.65D, 0.8D, 0.65D, 0.055D);
-                            fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                            StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
                                 entity.getX(), entity.getY() + 0.6D, entity.getZ(),
                                 12, 0.45D, 0.6D, 0.45D, 0.02D);
                         }
@@ -490,13 +490,13 @@ public final class StoryModule {
             // battle launch: after ownership confirmation the battle is live.
             try {
                 if (player.getWorld() instanceof ServerWorld fxWorld) {
-                    fxWorld.spawnParticles(ParticleTypes.ENCHANT,
+                    StoryEffects.emit(fxWorld, "battle.enchant", ParticleTypes.ENCHANT,
                         trainer.getX(), trainer.getY() + 1.15D, trainer.getZ(),
                         28, 0.7D, 1.0D, 0.7D, 0.04D);
                     if (encounterId.equals("director_cael") ||
                             encounterId.equals("sable") ||
                             encounterId.startsWith("shield_")) {
-                        fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                        StoryEffects.emit(fxWorld, "battle.electric", ParticleTypes.ELECTRIC_SPARK,
                             trainer.getX(), trainer.getY() + 1.1D, trainer.getZ(),
                             35, 0.9D, 1.0D, 0.9D, 0.06D);
                     }
@@ -546,10 +546,10 @@ public final class StoryModule {
                 ServerPlayerEntity victor = server.getPlayerManager().getPlayer(winnerId);
                 if (victor != null) {
                     if (victor.getWorld() instanceof ServerWorld fxWorld) {
-                        fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                        StoryEffects.emit(fxWorld, "battle.electric", ParticleTypes.ELECTRIC_SPARK,
                             victor.getX(), victor.getY() + 1.0D, victor.getZ(),
                             52, 1.0D, 1.2D, 1.0D, 0.08D);
-                        fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                        StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
                             victor.getX(), victor.getY() + 1.0D, victor.getZ(),
                             30, 0.9D, 1.0D, 0.9D, 0.035D);
                     }
