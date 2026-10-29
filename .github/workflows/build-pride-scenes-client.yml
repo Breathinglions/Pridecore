@@ -18,6 +18,8 @@ jobs:
         with: { distribution: temurin, java-version: '21' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.12.1' }
+      - name: Verify optional private-scene wire contract
+        run: python3 modules/core/qa/test_private_scene_wire.py
       - name: Compile optional Fabric client preview JAR
         working-directory: modules/client
         run: gradle --no-daemon clean build
