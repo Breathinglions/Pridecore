@@ -35,6 +35,7 @@ public final class StoryModule {
     private static volatile StoryEngine engine;
     private static volatile StoryBattleProof battleProof;
     private static volatile StoryBattleSessionRouter battleRouter;
+    private static volatile ResonanceFinaleController finale;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
 
@@ -116,6 +117,8 @@ public final class StoryModule {
             if (running != null) running.cancel(handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
             if (router != null) router.disconnect(handler.getPlayer().getUuid());
+            ResonanceFinaleController activeFinale = liveServer == server ? finale : null;
+            if (activeFinale != null) activeFinale.disconnect(handler.getPlayer().getUuid());
         });
     }
 
@@ -124,6 +127,7 @@ public final class StoryModule {
         engine = null;
         battleProof = null;
         battleRouter = null;
+        finale = null;
         health = "disabled";
         configStatus = "unchecked";
         try {
@@ -160,6 +164,7 @@ public final class StoryModule {
             });
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
+            finale = new ResonanceFinaleController();
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
@@ -167,6 +172,7 @@ public final class StoryModule {
             engine = null;
             battleProof = null;
             battleRouter = null;
+            finale = null;
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -175,6 +181,8 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            if (finale != null) finale.clear();
+            finale = null;
             if (battleRouter != null) battleRouter.clear();
             battleRouter = null;
             if (battleProof != null) battleProof.clear();
@@ -267,6 +275,59 @@ public final class StoryModule {
         battleRouter.cancel(battleId);
     }
 
+    /** Read-only operator diagnostics; never changes story facts or rewards. */
+    private static int inspectTestState(ServerCommandSource source, ServerPlayerEntity target) {
+        try {
+            var profile = PrideCoreMod.progression(source.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"))
+                .get(target.getUuid());
+            var phase = finale == null ? null : finale.snapshot(target.getUuid());
+            source.sendFeedback(() -> Text.literal(
+                "Module 02 [" + target.getName().getString() + "] stage=" +
+                profile.storyStage() + " revision=" + profile.revision() +
+                " battleTickets=" + (battleRouter == null ? "disabled" : "active") +
+                " finale=" + (phase == null ? "disabled" : phase.phase()) +
+                " conduits=" + (phase == null ? 0 : phase.conduits()) +
+                " shields=" + (phase == null ? 0 : phase.shields())), false);
+            return 1;
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Module 02 inspect failed: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    /** Clears only temporary sessions; permanent story facts, badges and prizes remain intact. */
+    private static int resetTestSession(ServerCommandSource source, ServerPlayerEntity target) {
+        if (engine != null) engine.cancel(target.getUuid());
+        if (battleRouter != null) battleRouter.disconnect(target.getUuid());
+        if (finale != null) finale.disconnect(target.getUuid());
+        LOGGER.info("Operator {} reset temporary Module 02 sessions for {}",
+            source.getName(), target.getUuid());
+        return message(source, "Temporary story, battle and finale sessions cleared for " +
+            target.getName().getString() + "; saved progress preserved.");
+    }
+
+    /** Starts a finale rehearsal only when persisted victory and clue evidence are real. */
+    private static int adminFinaleStart(ServerCommandSource source, ServerPlayerEntity target) {
+        try {
+            if (finale == null) throw new IllegalStateException("Story finale disabled");
+            var profile = PrideCoreMod.progression(source.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"))
+                .get(target.getUuid());
+            var state = finale.start(target.getUuid(),
+                profile.facts().contains("pride:cael_battle_won"),
+                profile.facts().contains("pride:clue_engine"));
+            if (state.phase() == ResonanceFinaleController.Phase.LOCKED)
+                throw new IllegalStateException("Requires actual Cael victory and engine evidence");
+            LOGGER.info("Operator {} started finale rehearsal for {}", source.getName(), target.getUuid());
+            return message(source, "Finale phase for " + target.getName().getString() +
+                ": " + state.phase() + " (no story facts or rewards granted).");
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Finale rehearsal refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
     private static Path configDir() {
         return FabricLoader.getInstance().getConfigDir().resolve("pride_core");
     }
@@ -307,6 +368,20 @@ public final class StoryModule {
                         .executes(ctx -> simulate(ctx.getSource(),
                             EntityArgumentType.getPlayer(ctx, "player"),
                             StringArgumentType.getString(ctx, "npc")))))));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("inspect")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> inspectTestState(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player")))))
+            .then(CommandManager.literal("reset-session")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> resetTestSession(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player")))))
+            .then(CommandManager.literal("finale-start")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> adminFinaleStart(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player"))))));
         return story;
     }
 
