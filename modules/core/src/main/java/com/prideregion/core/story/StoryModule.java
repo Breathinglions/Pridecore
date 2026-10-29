@@ -460,7 +460,7 @@ public final class StoryModule {
                 encounterId, trainer.getUuid())) return Optional.empty();
         try {
             UUID battleId = RctStoryBattleLauncher.launch(encounterId, player, trainer,
-                StoryModule.class.getClassLoader());
+                player.getUuid(), StoryModule.class.getClassLoader());
             if (!confirmStoryBattleLaunch(server, player.getUuid(),
                     trainer.getUuid(), battleId)) {
                 nativeStoryBattleCancelled(server, battleId);
