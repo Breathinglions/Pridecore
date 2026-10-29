@@ -17,7 +17,7 @@ Safeguards: no cheat win command is supplied; arbitrary player fact grants and s
 
 The finale controller has durable per-player checkpoint storage and server-side physical conduit/core and defender battle adapters. Inspect/rehearsal remains useful for staging but does not prove a playable boss instance until the exact installed RCT/Cobblemon stack passes in-game verification. Use only a staging copy with `story_enabled=true` and a tested build.
 \n**Important for full onboarding replay:** This reset does not erase your existing Cobblemon starter, League badges, external Minecraft command tags, FTB quest data, or inventory. Reconciliation may recognize previously earned external milestones. For a genuine first-player experience, use an isolated staging player/profile with a backup; do not clear external production data.\n
-## Player-facing encounter checklist
+## Operator-only encounter diagnostics
 
 Only operators can inspect `/pridecore story encounters`; it exposes internal battle IDs and eligibility flags for staging diagnostics, not the player's narrative. It only reads persisted story facts; it does not attempt to start an RCT match or modify badges, money, quests, Pokémon, or rewards. Players can run `/pridecore story objective` and `/pridecore story finale` for the Resonance Engine phase and next objective.
 
@@ -31,7 +31,7 @@ Both tools are read-only with respect to player progression. They are operator l
 
 ## Additional safeguards in this development branch
 
-The encounter inspector and player checklist now reflect actual `minBadges` from the bundled story rosters, with badge counts derived only from the eight original League Gym tags. Use `/pridecore story admin audit-finale` at the staged finale arena to report missing, duplicated or wrongly typed core/conduit/defender entities within 64 blocks.
+The operator encounter inspectors now reflect actual `minBadges` from the bundled story rosters, with badge counts derived only from the eight original League Gym tags. Use `/pridecore story admin audit-finale` at the staged finale arena to report missing, duplicated or wrongly typed core/conduit/defender entities within 64 blocks.
 
 The `story_allowed_dimensions` setting in `config/pride_core/story.properties` can confine Module 2 interactions, battles, synchronization and dialogue choices to your selected staging-world dimension IDs (see `STORY_WORLD_BINDING.md`). This does not modify the Multiworld configuration or affect unrelated mods. It loads at startup. Blank means all dimensions for backward compatibility; `story_enabled=false` remains the installation default.
 
