@@ -16,6 +16,11 @@ public final class StoryWorldMarkerCatalog {
     public static String marker(String kind, String id) {
         if (kind == null || id == null) throw new IllegalArgumentException("Missing marker");
         return switch (kind) {
+            case "npc" -> {
+                if (!NativeNpcIdentity.isAllowed(id))
+                    throw new IllegalArgumentException("Unknown story NPC " + id);
+                yield NativeNpcIdentity.tagFor(id);
+            }
             case "battle" -> {
                 if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(id))
                     throw new IllegalArgumentException("Unknown story battle " + id);
@@ -38,7 +43,8 @@ public final class StoryWorldMarkerCatalog {
 
     /** Reject conflicting or unrecognized story tags, including stale typos. */
     public static boolean isStoryTag(String tag) {
-        return tag != null && (tag.startsWith("pride_battle_")
+        return tag != null && (tag.startsWith("pride_npc_")
+            || tag.startsWith("pride_battle_")
             || tag.startsWith("pride_clue_")
             || tag.startsWith("pride_finale_"));
     }
