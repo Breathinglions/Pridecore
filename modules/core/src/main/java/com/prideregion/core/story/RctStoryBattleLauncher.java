@@ -76,8 +76,11 @@ public final class RctStoryBattleLauncher {
             "pride_story:" + encounterId, team, bag, ai, livingTrainer);
         Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", true, loader);
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Object singles = Enum.valueOf((Class<? extends Enum>)format.asSubclass(Enum.class), "GEN_9_SINGLES");
+        // RCT BattleFormat is an API interface; avoid assuming it is an enum.
+        // Resolve the default format from RCT's battle manager instead.
+        Object singles = manager.getClass().getMethod("getDefaultFormat").invoke(manager);
+        if (singles == null || !format.isInstance(singles))
+            throw new IllegalStateException("RCT default battle format unavailable");
         Object defaultRules = manager.getClass().getMethod("getDefaultRules").invoke(manager);
         if (defaultRules == null) defaultRules = rules.getConstructor().newInstance();
         Object battle = manager.getClass().getMethod("startBattle",
