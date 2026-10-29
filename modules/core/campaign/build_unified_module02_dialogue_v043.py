@@ -179,6 +179,65 @@ def refine_story_prologue(story: dict[str, bytes]) -> None:
             raise AssertionError("Changed story choice behavior")
         story[path] = serialize(d)
 
+def wire_configurable_onboarding(league: dict[str, bytes]) -> list[str]:
+    """Replace only original one-time *give* actions with server-validated kit claims.
+
+    The server remains authority for progression and receipts; native Cobblemon
+    dialogues remain original native GUI interactions. Preserve all original
+    advancement / quest IDs and recovery functions.
+    """
+    theo_path = "data/prideregion/function/onboarding/trainer_card.mcfunction"
+    avery_path = "data/prideregion/function/onboarding/trainer_guide.mcfunction"
+    theo_original = league[theo_path].decode("utf-8")
+    avery_original = league[avery_path].decode("utf-8")
+    for needle in ("run give @s rctmod:trainer_card 1",
+                   "run give @s knowlogy:knowlogy_book 1",
+                   "tag @s add trainer_card_received",
+                   "tag @s add pokepedia_received",
+                   "ftbquests change_progress @s complete 1C33DAB0F3691DAE"):
+        if needle not in theo_original:
+            raise ValueError("Unexpected original Theo native service: " + needle)
+    for needle in ("run give @s cobblemon:poke_ball 10",
+                   "run give @s minecraft:bread 8",
+                   "run rctmod player set series pride_region",
+                   "tag @s add trainer_guide_received",
+                   "tag @s add pride_avery_kit",
+                   "ftbquests change_progress @s complete 38E1E086CB6ECE25"):
+        if needle not in avery_original:
+            raise ValueError("Unexpected original Avery native service: " + needle)
+
+    # The Java claim sets the original completion tags only *after*
+    # inventory capacity has been checked and each configured item inserted.
+    # Hence an invalid/missing mod item never advances onboarding.
+    theo = [
+        "# Theo native service: configurable items via Pride Core, original tag and quest authority retained.",
+        'execute unless entity @s[tag=starter_chosen] run tellraw @s {"text":"Choose your starter and return to Professor Sequoia first.","color":"red"}',
+        "execute if entity @s[tag=starter_chosen] unless entity @s[tag=trainer_card_received] run pridecore onboarding claim theo",
+        "execute if entity @s[tag=trainer_card_received] run advancement grant @s only prideregion:onboarding/trainer_card",
+        "execute if entity @s[tag=trainer_card_received] run ftbquests change_progress @s complete 1C33DAB0F3691DAE",
+        ""
+    ]
+    avery = [
+        "# Avery native service: one configurable item kit, original registration / FTB / series integration.",
+        'execute unless entity @s[tag=trainer_card_received] run tellraw @s {"text":"Get your Trainer Card and Poképedia from Technician Theo first.","color":"red"}',
+        "# Reset stale first-steps detector tasks ONLY at initial unclaimed visit, never on replay.",
+        "execute if entity @s[tag=trainer_card_received] unless entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] run advancement revoke @s only prideregion:onboarding/first_catch_event",
+        "execute if entity @s[tag=trainer_card_received] unless entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] run ftbquests change_progress @s reset 008C694ADAE81F20",
+        "execute if entity @s[tag=trainer_card_received] unless entity @s[tag=trainer_guide_received] unless entity @s[tag=first_battle_win] run advancement revoke @s only prideregion:onboarding/first_battle_event",
+        "execute if entity @s[tag=trainer_card_received] unless entity @s[tag=trainer_guide_received] unless entity @s[tag=first_battle_win] run ftbquests change_progress @s reset 70B779849A4D0F73",
+        "execute if entity @s[tag=trainer_card_received] unless entity @s[tag=pride_avery_kit] unless entity @s[tag=trainer_guide_received] run pridecore onboarding claim avery",
+        "# The original RCT series remains a one-time non-item service operation.",
+        "execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=pride_onboarding_series_synced] run rctmod player set series pride_region",
+        "execute if entity @s[tag=trainer_guide_received] run tag @s add pride_onboarding_series_synced",
+        "execute if entity @s[tag=trainer_guide_received] run advancement grant @s only prideregion:onboarding/trainer_guide",
+        "execute if entity @s[tag=trainer_guide_received] run ftbquests change_progress @s complete 38E1E086CB6ECE25",
+        ""
+    ]
+    league[theo_path] = ("\\n".join(theo)).encode("utf-8")
+    league[avery_path] = ("\\n".join(avery)).encode("utf-8")
+    return [theo_path, avery_path]
+
+
 def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path) -> dict:
     if digest(league_path.read_bytes()) != EXPECTED_LEAGUE_SHA:
         raise ValueError("League datapack checksum differs from original audited 7.10.10")
@@ -212,7 +271,10 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
         commands = json.loads(league[mob]).get("winCommands",{}).get("1")
         if not commands:
             raise ValueError("Original RCT win callback missing " + trainer)
+    # Assert original authored resources *before* any override.
+    immutable_original = dict(league)
     lab = rewrite_lab(league)
+    changed_onboarding = wire_configurable_onboarding(league)
     refine_story_prologue(story)
     resources = {**league, **story, **lab}
     thorn = "data/rctmod/mobs/trainers/single/pride_thorn.json"
@@ -226,9 +288,9 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     resources[thorn] = serialize(thorn_def)
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
-    changed_league = sorted(k for k,v in league.items() if resources[k]!=v)
-    # Explicit path comparison: no accidental item/badge/money edits.
-    expected_changed = sorted([thorn] + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
+    # Explicit path comparison: only approved dialogue, kit functions and safe Thorn sync.
+    expected_changed = sorted([thorn] + changed_onboarding + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
@@ -238,6 +300,8 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
         "authoritative_league_trainers": len(LEAGUE), "story_npc_types": len(npcs),
         "story_clue_markers": len(CLUES), "datapack_data_entries": len(resources),
         "overridden_lab_dialogues": sorted(lab),
+        "onboarding_kit_config": "config/pride_core/onboarding_rewards.json",
+        "configurable_native_reward_functions": changed_onboarding,
         "only_approved_original_league_changes": changed_league,
         "player_data_changed": False, "ftb_quest_ids_changed": False,
         "story_npc_duplicates_removed": ["thorn", "rin_canyon", "rin_summit", "ranger_epilogue"],
