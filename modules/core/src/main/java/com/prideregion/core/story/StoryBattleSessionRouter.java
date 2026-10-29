@@ -42,7 +42,9 @@ public final class StoryBattleSessionRouter {
         if (!Objects.equals(expected, start.trainerIdentity())) return false;
         StoryBattleProof.Ticket old = byBattle.get(start.battleId());
         if (old != null) return old.player().equals(start.playerId())
-            && old.encounterId().equals(start.encounterId());
+            && old.encounterId().equals(start.encounterId())
+            && Objects.equals(TRUSTED_TRAINERS.get(old.encounterId()),
+                start.trainerIdentity());
         StoryBattleProof.Ticket ticket = proof.arm(
             start.playerId(), start.battleId(), start.encounterId());
         byBattle.put(start.battleId(), ticket);
