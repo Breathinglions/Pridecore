@@ -36,6 +36,8 @@ import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["version"]==1
 assert len(d["npcs"])==27
+league=next(n for n in d["npcs"] if n["id"]=="league_guide")
+assert "pride:finale_completed" in league["requires"], "Victory Road cannot skip the engine finale"
 assert [n["id"] for n in d["npcs"][:6]] == ["mom","sequoia","theo","avery","ranger","thorn"]
 for npc in d["npcs"]:
  assert npc["completedFact"].startswith("pride:")
