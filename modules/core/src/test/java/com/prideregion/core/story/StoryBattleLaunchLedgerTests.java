@@ -28,9 +28,18 @@ public final class StoryBattleLaunchLedgerTests {
         ok(ledger.active(alice));
         ok(!ledger.owns(battle, bob));
         ok(verified.trainerIdentity().equals("pride_story:rin_route1"));
+        ok(ledger.matches(verified));
+        ok(!ledger.matches(new StoryBattleSessionRouter.NativeStart(
+            battle, alice, "sable", "pride_story:sable")));
+        ok(!ledger.matches(new StoryBattleSessionRouter.NativeStart(
+            battle, bob, verified.encounterId(), verified.trainerIdentity())));
+        ok(!ledger.matches(new StoryBattleSessionRouter.NativeStart(
+            battle, alice, verified.encounterId(), "pride_story:forged")));
+
         ok(ledger.launched(alice,npc,battle).isEmpty());
         ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
         ledger.finished(battle);
+        ok(!ledger.matches(verified));
         ok(ledger.owner(battle).isEmpty());
         ok(!ledger.owns(battle, alice));
         ok(!ledger.active(alice));
