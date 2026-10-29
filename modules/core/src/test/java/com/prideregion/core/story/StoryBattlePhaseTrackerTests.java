@@ -37,6 +37,20 @@ public final class StoryBattlePhaseTrackerTests {
         check(!tracker.register(UUID.randomUUID(), player, "sable", 1));
         check(!tracker.register(UUID.randomUUID(), player, "sable", 7));
         check(tracker.activeCount() == 0);
+        UUID alice = UUID.randomUUID(), bob = UUID.randomUUID();
+        UUID aliceBattle = UUID.randomUUID(), bobBattle = UUID.randomUUID();
+        check(tracker.register(aliceBattle, alice, "sable", 5));
+        check(tracker.register(bobBattle, bob, "director_cael", 6));
+        tracker.cancelPlayer(alice);
+        check(tracker.opponentFainted(aliceBattle, UUID.randomUUID()).isEmpty());
+        check(tracker.opponentFainted(bobBattle, UUID.randomUUID()).isPresent());
+        tracker.finish(bobBattle);
+        check(tracker.activeCount() == 0);
+        for (int i = 0; i < 96; i++)
+            check(tracker.register(UUID.randomUUID(), UUID.randomUUID(), "sable", 5));
+        check(!tracker.register(UUID.randomUUID(), UUID.randomUUID(), "sable", 5));
+        tracker.clear();
+        check(tracker.activeCount() == 0);
         System.out.println("PASS: " + checks + " knockout-driven boss phases");
     }
 }
