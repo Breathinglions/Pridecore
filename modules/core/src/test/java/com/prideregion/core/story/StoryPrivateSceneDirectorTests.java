@@ -65,6 +65,28 @@ public final class StoryPrivateSceneDirectorTests {
         ok(cleanup.size() == 2 && director.size() == 0);
         ok(cleanup.stream().allMatch(e -> e.kind() ==
             StoryPrivateSceneDirector.Kind.ACTOR_REMOVE));
+        // Cap all private projections and free their slots without leaking states.
+        var viewers = new ArrayList<UUID>();
+        for (int i = 0; i < StoryPrivateSceneDirector.MAX_ACTIVE; i++) {
+            UUID viewer = UUID.randomUUID();
+            viewers.add(viewer);
+            ok(director.begin(viewer, "pride:staging",
+                StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO).started());
+        }
+        UUID excess = UUID.randomUUID();
+        var rejected = director.begin(excess, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
+        ok(!rejected.started() && rejected.session() == null);
+        ok(director.cancel(viewers.getFirst()).isPresent());
+        ok(director.begin(excess, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO).started());
+        ok(director.clear().size() == StoryPrivateSceneDirector.MAX_ACTIVE);
+        boolean invalidDimension = false;
+        try {
+            director.begin(alice, "  ",
+                StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
+        } catch (IllegalArgumentException expected) { invalidDimension = true; }
+        ok(invalidDimension && director.size() == 0);
         System.out.println("PASS: " + assertions + " per-player Rin scene state assertions");
     }
 }
