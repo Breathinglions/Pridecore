@@ -363,12 +363,14 @@ public final class StoryModule {
                     if (viewer.getWorld() instanceof ServerWorld fxWorld) {
                         // Short vanilla audio sting on each authenticated scene
                         // entrance. No client-only sound mod is required.
-                        if (scene.cue().tick() == 0)
+                        var presentation = StoryPresentationConfig.current();
+                        if (scene.cue().tick() == 0 && presentation.enabled() && presentation.sounds())
                             fxWorld.playSound(null, viewer.getBlockPos(),
                                 scene.encounter().startsWith("finale_")
                                     ? SoundEvents.BLOCK_BEACON_ACTIVATE
                                     : SoundEvents.BLOCK_BEACON_DEACTIVATE,
-                                SoundCategory.PLAYERS, 0.55F, 0.85F);
+                                SoundCategory.PLAYERS, presentation.soundVolume(),
+                                presentation.soundPitch());
                         var fallback = scene.cue().effectKey().equals("battle.electric")
                             || scene.cue().effectKey().equals("finale.shield")
                             ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.ENCHANT;
@@ -455,6 +457,7 @@ public final class StoryModule {
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
         StoryBattleRosters.clearConfig();
+        StoryPresentationConfig.reset();
         PRIVATE_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         BATTLE_PHASES.clear();
@@ -491,6 +494,7 @@ public final class StoryModule {
             try (var input = Files.newInputStream(settings)) { props.load(input); }
             STORY_WORLDS = StoryDimensionGate.parse(
                 props.getProperty("story_allowed_dimensions", ""));
+            StoryPresentationConfig.load(directory);
             StoryEffects.reset();
             for (String key : StoryEffects.keys()) {
                 String configuredParticle = props.getProperty("effects." + key, "").trim();
