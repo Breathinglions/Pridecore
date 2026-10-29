@@ -99,7 +99,7 @@
           "options": [
             {
               "id": "next",
-              "text": "I'll use the registration service.",
+              "text": "I'll carry my card with pride.",
               "stage": "pride:field_orientation",
               "grant": [
                 "pride:met_theo"
