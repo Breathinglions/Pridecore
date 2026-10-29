@@ -104,9 +104,9 @@ public final class RctStoryBattleLauncher {
                 .getMethod("getParticipants2").invoke(state);
             if (!(participants1 instanceof List<?> side1)
                     || !(participants2 instanceof List<?> side2)
-                    || !side1.contains(player) || !side2.contains(opponent)
-                    || side1.contains(opponent) || side2.contains(player))
-                throw new IllegalStateException("RCT registered the wrong story battle participants");
+                    || !StoryPokemonOnlyParties.valid(side1, side2, player, opponent))
+                throw new IllegalStateException(
+                    "RCT story encounter must be a Pokémon-only 1v1 trainer match");
             Object cobbleBattle = state.getClass().getMethod("getBattle").invoke(state);
             UUID cobbleId = (UUID) cobbleBattle.getClass()
                 .getMethod("getBattleId").invoke(cobbleBattle);
