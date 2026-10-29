@@ -178,7 +178,7 @@
           "level": 62
         }
       ],
-      "intro": "The Steel-aligned Resonance Shield activates. Defeat its Pokémon team to release the seal.",
+      "intro": "A silver light coils around the ancient seal. Something inside the chamber recognizes your presence.",
       "win": "The alpha shield disengages. The engine is becoming stable."
     },
     {
@@ -196,7 +196,7 @@
           "level": 63
         }
       ],
-      "intro": "The Electric-aligned Resonance Shield activates. Defeat its Pokémon team to release the seal.",
+      "intro": "Electric light races across the stone. The second seal answers with a pulse like a distant heartbeat.",
       "win": "The beta shield disengages. The engine is becoming stable."
     },
     {
@@ -214,7 +214,7 @@
           "level": 64
         }
       ],
-      "intro": "The Psychic-aligned Resonance Shield activates. Defeat its Pokémon team to release the seal.",
+      "intro": "The air grows still as the last seal begins to glow. For a moment, the chamber feels full of memories.",
       "win": "The gamma shield disengages. The engine is becoming stable."
     }
   ],
