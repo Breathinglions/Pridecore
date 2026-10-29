@@ -19,10 +19,13 @@ public final class StoryBattleLaunchLedgerTests {
         ok(ledger.launched(bob,npc,battle).isEmpty());
         var verified=ledger.launched(alice,npc,battle).orElseThrow();
         ok(verified.battleId().equals(battle));
+        ok(ledger.owns(battle, alice));
+        ok(!ledger.owns(battle, bob));
         ok(verified.trainerIdentity().equals("pride_story:rin_route1"));
         ok(ledger.launched(alice,npc,battle).isEmpty());
         ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
         ledger.finished(battle);
+        ok(!ledger.owns(battle, alice));
         ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
         ledger.cancelPlayer(alice);
         ok(ledger.launched(alice,npc,UUID.randomUUID()).isEmpty());
