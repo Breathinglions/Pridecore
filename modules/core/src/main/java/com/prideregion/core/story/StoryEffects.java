@@ -8,6 +8,8 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Overrides never participate in battle authentication or story progression.
  */
 public final class StoryEffects {
+    private static final Logger LOGGER = LoggerFactory.getLogger("PrideStoryEffects");
+    private static final Set<String> FAILED_OVERRIDES = ConcurrentHashMap.newKeySet();
     private static final Set<String> KEYS = Set.of(
         "finale.end_rod", "finale.totem", "finale.conduit",
         "finale.shield", "battle.electric", "battle.enchant",
@@ -26,7 +30,7 @@ public final class StoryEffects {
 
     private StoryEffects() {}
 
-    public static void reset() { OVERRIDES.clear(); }
+    public static void reset() { OVERRIDES.clear(); FAILED_OVERRIDES.clear(); }
 
     public static Set<String> keys() { return KEYS; }
 
@@ -41,6 +45,7 @@ public final class StoryEffects {
                 || !(Registries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType))
             return false;
         OVERRIDES.put(key, particleId);
+        FAILED_OVERRIDES.remove(key);
         return true;
     }
 
@@ -49,7 +54,7 @@ public final class StoryEffects {
                             double spreadX, double spreadY, double spreadZ, double speed) {
         ParticleEffect effect = fallback;
         String override = OVERRIDES.get(key);
-        if (override != null) {
+        if (override != null && !FAILED_OVERRIDES.contains(key)) {
             Identifier id = Identifier.tryParse(override);
             if (id != null && Registries.PARTICLE_TYPE.containsId(id)) {
                 ParticleType<?> type = Registries.PARTICLE_TYPE.get(id);
@@ -61,6 +66,9 @@ public final class StoryEffects {
         } catch (RuntimeException presentationFailure) {
             // Particles must never roll back or interrupt a verified story action.
             if (effect != fallback) {
+                if (FAILED_OVERRIDES.add(key))
+                    LOGGER.warn("Modded particle override {} ({}) failed; disabling until next reload",
+                        key, override, presentationFailure);
                 try {
                     world.spawnParticles(fallback, x, y, z, count,
                         spreadX, spreadY, spreadZ, speed);
