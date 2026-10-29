@@ -20,7 +20,11 @@ public final class ResonanceFinaleControllerTests {
         check(finale.start(alice, true, false).phase() == ResonanceFinaleController.Phase.LOCKED);
         denied(() -> finale.conduit(alice, "north"));
         check(finale.start(alice, true, true).phase() == ResonanceFinaleController.Phase.CONDUITS);
-        for (String direction : List.of("north", "south", "east", "west"))
+        check(finale.conduit(alice, "north").conduits() == 1);
+        var stable = finale.checkpoint(alice).orElseThrow();
+        check(finale.conduit(alice, "north").conduits() == 1);
+        check(finale.checkpoint(alice).orElseThrow().equals(stable));
+        for (String direction : List.of("south", "east", "west"))
             finale.conduit(alice, direction);
         check(finale.snapshot(alice).phase() == ResonanceFinaleController.Phase.SHIELDS);
         check(finale.snapshot(alice).conduits() == 4);
