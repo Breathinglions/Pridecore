@@ -31,3 +31,29 @@ Cleanup destroys **only** nearby `minecraft:interaction` entities with the uniqu
 ## Important constraints
 
 The hitboxes alone do not make the finale playable. Module 02 still requires an authenticated Cael win and engine evidence, all four conduits, three genuine RCT defender victories, and an authenticated core interaction. No scripted battle can be granted through the datapack. These functions use the executing player's current coordinates; running them from the console without a deliberate execution position is unsupported. The included automated test checks the five tags, duplication guard and cleanup selector, but does not prove correct in-game hitbox interaction.
+
+## Optional distributed evidence hitboxes
+
+The same staging-only datapack now includes one placement function per authored investigation clue:
+
+```mcfunction
+/function pridecore:staging/place_clue_forest
+/function pridecore:staging/place_clue_mine
+/function pridecore:staging/place_clue_foundry
+/function pridecore:staging/place_clue_river
+/function pridecore:staging/place_clue_grid
+/function pridecore:staging/place_clue_ward
+/function pridecore:staging/place_clue_ice
+/function pridecore:staging/place_clue_echo
+/function pridecore:staging/place_clue_engine
+```
+
+Stand where the actual investigation object will be built and run the appropriate command as a staging operator. Each function places a single invisible `minecraft:interaction` hitbox with the correct `pride_clue_<id>` tag and the unique `pride_staging_clue` cleanup tag. If a matching clue is already within three blocks, another copy is not placed. The associated environmental structure, decorations, and clues' intended story locations are **not invented by the datapack**.
+
+To remove one incorrectly positioned generated clue, stand within four blocks and run:
+
+```mcfunction
+/function pridecore:staging/remove_nearest_clue
+```
+
+This deletes only the nearest staging-generated clue hitbox. It cannot remove the five finale props or unrelated entities. None of these functions grant or complete evidence; a real eligible player must interact with the device and pass the normal campaign prerequisites.
