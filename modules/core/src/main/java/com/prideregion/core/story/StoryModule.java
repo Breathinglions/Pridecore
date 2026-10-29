@@ -245,9 +245,13 @@ public final class StoryModule {
                     return ActionResult.SUCCESS;
                 }
             }
-            // Real story-only Cobblemon NPCs open our chapter-appropriate
-            // dialogue. Existing native starter/registration/kit/Gym NPCs
-            // retain their own Cobblemon GUIs and original reward services.
+            // Story-only real Cobblemon NPCs already own a full native
+            // pride_story:<npc> dialogue resource inside the unified JAR.
+            // Never consume these clicks or print a second chat transcript:
+            // Cobblemon must show its overlay and invoke the protected
+            // /pridecore story native <npc> <choice> action from that GUI.
+            // The Java nativeChoice handler independently validates physical
+            // NPC proximity, world permissions, story facts and prerequisites.
             if ("cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(entity.getType()).toString())) {
                 StoryEngine running = liveServer == sp.getServer() ? engine : null;
                 if (running == null) return ActionResult.PASS;
@@ -259,28 +263,11 @@ public final class StoryModule {
                 if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
-                try {
-                    var opened = running.beginBoundNpc(sp.getUuid(), nativeTags.getFirst());
-                    if (opened.isEmpty()) {
-                        running.cancel(sp.getUuid());
-                        DIALOGUE_ANCHORS.clear(sp.getUuid());
-                        sp.sendMessage(Text.literal(
-                            "[Pride Region] There is more to discover before this story unfolds.")
-                            .formatted(Formatting.GRAY), false);
-                        return ActionResult.SUCCESS;
-                    }
-                    DIALOGUE_ANCHORS.bind(sp.getUuid(), entity.getUuid(), nativeTags.getFirst(),
-                        sp.getWorld().getRegistryKey().getValue().toString());
-                    show(sp, opened.get());
-                } catch (IOException | RuntimeException storyError) {
-                    running.cancel(sp.getUuid());
-                    DIALOGUE_ANCHORS.clear(sp.getUuid());
-                    LOGGER.warn("Could not open bound story NPC for {}", sp.getUuid(), storyError);
-                    sp.sendMessage(Text.literal(
-                        "[Pride Region] This conversation cannot begin right now.")
-                        .formatted(Formatting.YELLOW), false);
-                }
-                return ActionResult.SUCCESS;
+                // Clear stale prototype chat sessions without changing facts;
+                // the native overlay owns the actual dialogue state.
+                running.cancel(sp.getUuid());
+                DIALOGUE_ANCHORS.clear(sp.getUuid());
+                return ActionResult.PASS;
             }
             if (entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
