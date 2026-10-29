@@ -1,6 +1,7 @@
 package com.prideregion.core.story;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
@@ -1415,6 +1416,18 @@ public final class StoryModule {
             .then(CommandManager.argument("option", StringArgumentType.word())
                 .executes(ctx -> choose(ctx.getSource(),
                     StringArgumentType.getString(ctx, "option")))));
+        // Actual clickable conversation choices include the NPC, exact
+        // dialogue node and profile revision to reject old chat-line replay.
+        story.then(CommandManager.literal("respond")
+            .then(CommandManager.argument("npc", StringArgumentType.word())
+                .then(CommandManager.argument("node", StringArgumentType.word())
+                    .then(CommandManager.argument("revision", LongArgumentType.longArg(0))
+                        .then(CommandManager.argument("option", StringArgumentType.word())
+                            .executes(ctx -> respond(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "npc"),
+                                StringArgumentType.getString(ctx, "node"),
+                                LongArgumentType.getLong(ctx, "revision"),
+                                StringArgumentType.getString(ctx, "option"))))))));
         story.then(CommandManager.literal("cancel").executes(ctx -> cancel(ctx.getSource())));
         story.then(CommandManager.literal("reload")
             .requires(source -> source.hasPermissionLevel(4))
@@ -1651,6 +1664,17 @@ public final class StoryModule {
     }
 
     private static int choose(ServerCommandSource source, String id) {
+        return chooseInternal(source, id, null, null, -1);
+    }
+
+    private static int respond(ServerCommandSource source, String npc, String node,
+                               long revision, String option) {
+        return chooseInternal(source, option, npc, node, revision);
+    }
+
+    private static int chooseInternal(ServerCommandSource source, String id,
+                                     String expectedNpc, String expectedNode,
+                                     long expectedRevision) {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) {
             source.sendError(Text.literal("Only players can choose story responses"));
@@ -1679,7 +1703,10 @@ public final class StoryModule {
                 }
             }
             String previousStage = active.currentStage(player.getUuid());
-            var response = active.choose(player.getUuid(), id);
+            var response = expectedNpc == null
+                ? active.choose(player.getUuid(), id)
+                : active.chooseDisplayed(player.getUuid(), expectedNpc, expectedNode,
+                    expectedRevision, id);
             if (response.options().isEmpty()) DIALOGUE_ANCHORS.clear(player.getUuid());
             show(player, response);
             active.reconcileOnboarding(player.getUuid());
@@ -1757,7 +1784,9 @@ public final class StoryModule {
             // Story choices are clickable dialogue, not a chat command
             // tutorial. The server still revalidates the active session,
             // selected option, owning player and physical NPC range.
-            String command = "/pridecore story choose " + option.id();
+            String command = "/pridecore story respond "
+                + reply.npcId() + " " + reply.nodeId() + " "
+                + reply.revision() + " " + option.id();
             player.sendMessage(Text.literal("  › " + option.text()).styled(style ->
                 style.withColor(Formatting.AQUA)
                     .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command))
