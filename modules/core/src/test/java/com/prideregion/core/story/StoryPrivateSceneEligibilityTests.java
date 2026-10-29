@@ -53,6 +53,20 @@ public final class StoryPrivateSceneEligibilityTests {
             StoryPrivateSceneDirector.Kind.ACTOR_MOVE, "Rin", "", "lab_entry");
         check(!StoryPrivateSceneEligibility.nativeStarterContinuationAllowed(spoofedType,
             Set.of("pride:met_mom"), Set.of()));
+        // Atomic native integration begins only from server-supplied facts.
+        var director = new StoryPrivateSceneDirector();
+        check(!director.beginVerified(owner, "pride:staging", lab, Set.of(), Set.of()).started());
+        check(director.active(owner).isEmpty());
+        var authorized = director.beginVerified(owner, "pride:staging", lab,
+            Set.of("pride:met_mom"), Set.of());
+        check(authorized.started());
+        check(!director.beginVerified(owner, "pride:staging", lab,
+            Set.of("pride:met_mom"), Set.of()).started());
+        check(director.active(owner).orElseThrow().session().equals(authorized.session()));
+        check(director.cancel(owner).isPresent());
+        check(!director.beginVerified(owner, "pride:staging", lab,
+            Set.of("pride:met_mom"), Set.of("starter_chosen")).started());
+        check(director.size() == 0);
         System.out.println("PASS: " + checks + " Rin scene prerequisite checks");
     }
 }
