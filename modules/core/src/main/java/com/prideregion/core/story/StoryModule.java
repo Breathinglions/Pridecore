@@ -154,7 +154,8 @@ public final class StoryModule {
                 var battleTags = entity.getCommandTags().stream()
                     .filter(t -> t.startsWith(battlePrefix)).toList();
                 if (!battleTags.isEmpty()) {
-                    if (battleTags.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D)
+                    if (battleTags.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D
+                            || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                         return ActionResult.FAIL;
                     String encounterId = battleTags.getFirst().substring(battlePrefix.length());
                     if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(encounterId))
