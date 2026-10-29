@@ -23,4 +23,11 @@ tasks.register('verifyStoryConfigMigration', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.prideregion.core.story.StoryConfigMigrationTests'
 }
-tasks.named('check') { dependsOn 'verifyStoryConfigMigration' }
+tasks.register('verifyStoryBattleRosters', JavaExec) {
+    group = 'verification'
+    description = 'Validate all nine packaged RCT story battle rosters'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryBattleRostersTests'
+}
+tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters' }
