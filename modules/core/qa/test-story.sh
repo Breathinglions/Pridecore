@@ -55,3 +55,10 @@ for npc in d["npcs"]:
  assert all(x["id"] for x in npc["nodes"])
 print("PASS: bundled story JSON validated")
 PY
+python3 - "$ROOT/src/main/java/com/prideregion/core/story/StoryEffects.java" <<'PY'
+import pathlib,sys
+effects=pathlib.Path(sys.argv[1]).read_text()
+assert "instanceof SimpleParticleType" in effects, "Parameterized mod particles must not be used as generic overrides"
+assert "ParticleEffect effect = fallback" in effects, "Vanilla particle fallback must remain available"
+print("PASS: story effect override safeguards")
+PY
