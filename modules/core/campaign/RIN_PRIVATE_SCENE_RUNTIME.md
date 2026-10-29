@@ -49,3 +49,9 @@ For future real gameplay, integrate the projector with the native Sequoia servic
 The eventual native integration should call `beginVerified(...)` with server-owned facts and verified legacy tags rather than unrestricted `begin(...)`. Before acting on `OPEN_NATIVE_STARTER`, the adapter must check `nativeStarterContinuationAllowed(...)`, revalidate the exact owner/session/world and **also** ask Cobblemon's actual original starter selector whether a selection is still allowed. The scene cannot mint starter eligibility or issue a starter by itself.
 
 The OP4 `preview-rin` command intentionally bypasses these storyline prerequisites solely to rehearse prose and timing; its continuation never performs a native action. The additional CI suite checks denied starts, missing facts, duplicate scenes, stale starter evidence and later-scene isolation.
+
+## Session-bound native continuation safety
+
+The director now issues a **single-use, 120-server-tick expiration ticket** when the last scene cue requests a native action. The ticket records owner UUID, random scene session UUID, exact scene, intended handoff type and world registry identifier. A future native adapter must `claimContinuation(event, currentServerDimension)` **after** independently re-checking the original native service authorization. Claim consumes the ticket exactly once; repeated, forged, stale, cross-world or cancelled events cannot reopen a selector.
+
+Tickets are also cleared on new scene start, disconnect, world change, cancellation and shutdown. The director limits outstanding continuations to 256 to keep memory bounded; reaching capacity refuses new continuation claims instead of widening authority. OP4 text previews intentionally leave these tokens unclaimed; they expire automatically. The story module still performs no native UI calls, no starter grants and no storyline combat modifications.
