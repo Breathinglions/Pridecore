@@ -81,6 +81,8 @@ public final class RctStoryBattleLauncher {
         Object singles = format.getField("GEN_9_SINGLES").get(null);
         Object defaultRules = manager.getClass().getMethod("getDefaultRules").invoke(manager);
         if (defaultRules == null) defaultRules = rules.getConstructor().newInstance();
+        // Use the exact 0.16.0 API method signature. Reflection against the
+        // concrete BattleFormat enum avoids overload resolution ambiguity.
         Object battle = manager.getClass().getMethod("startBattle",
             List.class, List.class, format, rules).invoke(manager,
                 List.of(player), List.of(opponent), singles, defaultRules);
