@@ -97,6 +97,15 @@ public final class RctStoryBattleLauncher {
                 .invoke(manager, id);
             if (state == null)
                 throw new IllegalStateException("RCT did not register the launched battle");
+            Object participants1 = state.getClass()
+                .getMethod("getParticipants1").invoke(state);
+            Object participants2 = state.getClass()
+                .getMethod("getParticipants2").invoke(state);
+            if (!(participants1 instanceof List<?> side1)
+                    || !(participants2 instanceof List<?> side2)
+                    || !side1.contains(player) || !side2.contains(opponent)
+                    || side1.contains(opponent) || side2.contains(player))
+                throw new IllegalStateException("RCT registered the wrong story battle participants");
             Object cobbleBattle = state.getClass().getMethod("getBattle").invoke(state);
             UUID cobbleId = (UUID) cobbleBattle.getClass()
                 .getMethod("getBattleId").invoke(cobbleBattle);
