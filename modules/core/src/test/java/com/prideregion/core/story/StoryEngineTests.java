@@ -81,6 +81,25 @@ public final class StoryEngineTests {
         rejected(() -> engine.choose(other,"yes"));
         check(new ProgressionService(new ProfileStore(path)).get(p).revision()==2,
             "Progression survives service restart");
+        // An old choice must not rewind a player's chapter after another
+        // authentic event updates their saved profile.
+        UUID stale = UUID.randomUUID();
+        var initialReply = engine.begin(stale, "mom");
+        check(initialReply.revision() == 0, "Initial conversation binds revision zero");
+        store.grant(stale, "pride:outside_event");
+        rejected(() -> engine.choose(stale, "yes"));
+        rejected(() -> engine.choose(stale, "yes")); // Session retired.
+        check(!store.get(stale).facts().contains("pride:met_mom"),
+            "Stale choice cannot award an old story fact");
+        check(store.get(stale).storyStage().equals("pride:unstarted"),
+            "Stale choice cannot rewind or change the active chapter");
+        check(engine.begin(stale, "mom").revision() == 1,
+            "Reopening a real character binds the newest profile revision");
+        check(engine.choose(stale, "yes").revision() == 2,
+            "A renewed valid conversation still advances normally");
+        check(store.get(stale).facts().contains("pride:met_mom"),
+            "A renewed legitimate story choice is credited once");
+
         rejected(() -> new StoryDefinition.Npc("bad-name", "X",Set.of(),
             "pride:ok","first","first",Map.of("first",
             new StoryDefinition.Node("first","text",List.of()))));
