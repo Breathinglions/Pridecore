@@ -2,8 +2,10 @@ package com.prideregion.core.story;
 
 import com.google.gson.*;
 import java.io.*;
+import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
 
 /** Strict authored encounter roster, loaded by the future native RCT launcher. */
 public final class StoryBattleRosters {
@@ -70,6 +72,81 @@ public final class StoryBattleRosters {
             throw new IllegalArgumentException(
                 "Unknown or missing Pokémon-only story roster fields: " + object.keySet());
     }
+
+
+    /**
+     * The original schema / authority / encounter identity and badge gates
+     * remain immutable. Only teams, intro and win narration may be edited.
+     * The snapshot is loaded once at startup: never hot-swap active RCT fights.
+     */
+    private static volatile StoryBattleRosters configured;
+
+    public static StoryBattleRosters active() throws IOException {
+        StoryBattleRosters current = configured;
+        if (current == null) throw new IOException("Story roster config not initialized");
+        return current;
+    }
+
+    public static synchronized void loadConfig(Path configDirectory) throws IOException {
+        Files.createDirectories(configDirectory);
+        Path file = configDirectory.resolve("story_battles.json");
+        if (Files.isSymbolicLink(file)) throw new IOException("Refusing symlinked story battle config");
+        byte[] base;
+        try (InputStream stream = StoryBattleRosters.class.getResourceAsStream(
+                "/story/story_battles.json")) {
+            if (stream == null) throw new IOException("Missing bundled story battle template");
+            base = stream.readAllBytes();
+        }
+        if (Files.notExists(file)) {
+            try { Files.write(file, base, CREATE_NEW); }
+            catch (FileAlreadyExistsException ignored) { }
+        }
+        if (!Files.isRegularFile(file) || Files.isSymbolicLink(file)
+                || Files.size(file) > 65536)
+            throw new IOException("Unsafe or oversized story battles file");
+        byte[] bytes = Files.readAllBytes(file);
+        try {
+            JsonObject locked = JsonParser.parseString(new String(base, StandardCharsets.UTF_8))
+                .getAsJsonObject();
+            JsonObject editable = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8))
+                .getAsJsonObject();
+            for (String key : List.of("schema", "mode", "authority",
+                    "combatMode", "battleFormat")) {
+                if (!Objects.equals(locked.get(key), editable.get(key)))
+                    throw new IllegalArgumentException("Cannot change story battle authority: " + key);
+            }
+            JsonArray original = locked.getAsJsonArray("encounters");
+            JsonArray revised = editable.getAsJsonArray("encounters");
+            if (revised == null || revised.size() != original.size())
+                throw new IllegalArgumentException("Story encounter identities changed");
+            Map<String, JsonObject> byId = new HashMap<>();
+            for (JsonElement entry : revised) {
+                JsonObject obj = entry.getAsJsonObject();
+                String id = obj.get("id").getAsString();
+                if (byId.putIfAbsent(id, obj) != null)
+                    throw new IllegalArgumentException("Duplicate story encounter " + id);
+            }
+            for (JsonElement entry : original) {
+                JsonObject originalEncounter = entry.getAsJsonObject();
+                String id = originalEncounter.get("id").getAsString();
+                JsonObject changed = byId.get(id);
+                if (changed == null) throw new IllegalArgumentException("Missing story encounter " + id);
+                for (String lockedKey : List.of("id", "actor", "chapter", "minBadges")) {
+                    if (!Objects.equals(originalEncounter.get(lockedKey), changed.get(lockedKey)))
+                        throw new IllegalArgumentException(
+                            "Story encounter identity/badge gate cannot change: " + id + "." + lockedKey);
+                }
+            }
+            StoryBattleRosters checked = parse(
+                new InputStreamReader(new ByteArrayInputStream(bytes), StandardCharsets.UTF_8));
+            configured = checked;
+        } catch (RuntimeException invalid) {
+            configured = null; // No mixed/partially updated encounter state.
+            throw new IOException("Invalid story_battles.json; story fails closed", invalid);
+        }
+    }
+
+    public static synchronized void clearConfig() { configured = null; }
 
     public static StoryBattleRosters bundled() throws IOException {
         try (InputStream source = StoryBattleRosters.class.getResourceAsStream("/story/story_battles.json")) {
