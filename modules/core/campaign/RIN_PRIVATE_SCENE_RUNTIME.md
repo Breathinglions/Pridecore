@@ -20,3 +20,9 @@ The coordinator enforces one active scene per player, a 64-viewer cap, determini
 **Java test coverage:** dual-player session isolation, repeated starts, stale token refusal, skip/normal single handoff, scene completion, dimension invalidation, disconnect/shutdown cleanup. Run through `bash modules/core/qa/test-story.sh`.
 
 **Acceptance remains blocked** until the native Cobblemon 1.8.1 GUI path and 1.21.1 Fabric private projection are proven on the disposable staging server with two players. Storyline Pokémon battles remain strictly Cobblemon/RCT; hybrid Minecraft combat belongs only to Flashpoints, Operations, raids and World Bosses.
+
+## Later appearances — one Rin identity, no permanent duplicates
+
+The same director now models `RIN_CANYON_REUNION` and `RIN_SUMMIT_REUNION` as separate owner-only **scene instances of the single canonical Rin character**. Each requests a later `RESUME_STORY_DIALOGUE` continuation (never `OPEN_NATIVE_STARTER`) and uses builder-defined logical anchor names (`canyon_ridge`, `canyon_overlook`, `summit_trail`, `summit_overlook`). None is world-spawned or battle-authoritative. The existing verified RCT victories and prerequisite facts remain unchanged.
+
+The coordinator accepts starts only when a trusted server-side adapter decides the correct chapter and location; it must not guess character eligibility from client packets or spawn multiple Rin entities for simultaneous players. The 64-active-scene cap rejects excess starts safely. Automated tests include overflow and release behavior, as well as distinct later-scene handoffs. **These later scenes also still lack the client/private-actor adapter and are not playable world cinematics yet.**
