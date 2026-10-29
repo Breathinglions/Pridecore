@@ -26,7 +26,7 @@ This document separates Java/build readiness from actual Cobblemon/RCT functiona
 - The physical world geometry, decorations, NPC models, trainer positioning and marker placement for the full region.
 - Native player UX of the scripted dialogue and its integration with FTB Quests and the real client pack.
 - Full cinematic visual and audio quality on the exact installed shaders and resource pack.
-- Gameplay balance, difficulty pacing and true Pokémon AI/combat-phase changes; current phase effects are **presentation**, not opponent power changes.
+- Gameplay balance, difficulty pacing and Pokémon-only RCT battle strategies; cinematic faint-triggered phases are **presentation**, not damage/AI changes. Story boss fights must never use Minecraft combat.
 - Dedicated staging server soak test, world claims, unloaded chunks, player permissions and cross-world exploits.
 
 ## Staging procedure after the 90% code-completion target
@@ -40,3 +40,17 @@ This document separates Java/build readiness from actual Cobblemon/RCT functiona
 7. Compare saved player facts, FTB Quest markers, economy, League results, and player inventories before and after; confirm no unintended side effects.
 
 Do not interpret the percentage development estimate as gameplay readiness or guarantee of production stability. Testing may reveal more code work.
+
+## Combat separation — mandatory staging acceptance
+
+The storyline bosses are **exclusively Pokémon battles**. Verify on a disposable
+staging player that each `pride_battle_*` actor triggers Cobblemon/RCT combat
+from interaction, cannot be beaten by hitting it with a sword, bow, fist or
+other Minecraft damage, and awards no story credit from entity deaths.
+Normal unrelated mobs and the original League NPCs must **not** gain damage
+immunity. Verify that turning `story_enabled=false` leaves unrelated gameplay
+untouched. See `COMBAT_BOUNDARIES.md`.
+
+Pride Core Flashpoints, Operations, Raids and World Bosses will own separate
+**hybrid Minecraft + Pokémon** combat systems. Module 02 does not implement,
+simulate or take over those endgame encounter systems.
