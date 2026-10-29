@@ -58,8 +58,77 @@ public final class StoryCinematicTimeline {
         new Cue(0, "ECLIPSE  |  LIEUTENANT", "battle.electric", 26),
         new Cue(35, "The operation is compromised!", "battle.enchant", 14));
 
+    /**
+     * Authored boss-specific presentation on an authenticated opponent KO.
+     * Combat state stays entirely in Cobblemon/RCT.
+     */
+    public static String phaseScene(String encounter, int phase) {
+        if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(encounter)
+                || (phase != 1 && phase != 2)) return null;
+        return "bossphase_" + encounter + "_p" + phase;
+    }
+
+    private static List<Cue> phaseCues(String encounter, int phase) {
+        String title;
+        String warning;
+        String effect;
+        switch (encounter) {
+            case "rin_route1", "rin_canyon", "rin_summit" -> {
+                title = phase == 1 ? "RIN  |  ADAPTING" : "RIN  |  FINAL PUSH";
+                warning = phase == 1 ? "You're stronger than I expected!"
+                    : "I'm not backing down now!";
+                effect = "battle.rin";
+            }
+            case "eclipse_lieutenant" -> {
+                title = phase == 1 ? "ECLIPSE  |  PROTOCOL SHIFT"
+                    : "ECLIPSE  |  LAST DEFENSE";
+                warning = phase == 1 ? "Deploy the reserve team!"
+                    : "Protect the Eclipse operation!";
+                effect = "battle.electric";
+            }
+            case "sable" -> {
+                title = phase == 1 ? "SABLE  |  SHADOW PROTOCOL"
+                    : "SABLE  |  FINAL GAMBIT";
+                warning = phase == 1 ? "You have no idea what follows."
+                    : "The Eclipse will not fall here!";
+                effect = "battle.sable";
+            }
+            case "director_cael" -> {
+                title = phase == 1 ? "CAEL  |  RESONANCE SURGE"
+                    : "CAEL  |  CORE OVERLOAD";
+                warning = phase == 1 ? "The engine is amplifying the battle!"
+                    : "The resonance cannot be stopped!";
+                effect = "battle.cael";
+            }
+            case "shield_alpha", "shield_beta", "shield_gamma" -> {
+                String shield = encounter.substring("shield_".length()).toUpperCase(Locale.ROOT);
+                title = phase == 1 ? "SHIELD " + shield + "  |  FRACTURED"
+                    : "SHIELD " + shield + "  |  FINAL DEFENSE";
+                warning = phase == 1 ? "The defensive field is destabilizing!"
+                    : "One last barrier remains!";
+                effect = "finale.shield";
+            }
+            default -> { return List.of(); }
+        }
+        return List.of(new Cue(0, title, effect, phase == 1 ? 32 : 40),
+            new Cue(24, warning, "battle.electric", phase == 1 ? 18 : 24));
+    }
+
     public static List<Cue> cuesFor(String encounter) {
         if (encounter == null) return List.of();
+        if (encounter.startsWith("bossphase_")) {
+            String raw = encounter.substring("bossphase_".length());
+            int cut = raw.lastIndexOf("_p");
+            if (cut > 0) {
+                String id = raw.substring(0, cut);
+                String phase = raw.substring(cut + 2);
+                if (phase.equals("1") || phase.equals("2")) {
+                    String expected = phaseScene(id, Integer.parseInt(phase));
+                    if (encounter.equals(expected)) return phaseCues(id, Integer.parseInt(phase));
+                }
+            }
+            return List.of();
+        }
         if (encounter.startsWith("rin_") &&
             StoryBattleSessionRouter.acceptedTrainers().containsKey(encounter)) return RIN;
         if (encounter.startsWith("shield_") &&
