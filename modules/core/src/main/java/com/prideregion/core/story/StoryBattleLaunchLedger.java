@@ -18,10 +18,11 @@ public final class StoryBattleLaunchLedger {
     }
     private final Map<UUID, Launch> pending = new HashMap<>();
     private final Map<UUID, StoryBattleSessionRouter.NativeStart> battles = new HashMap<>();
+    private final Map<UUID, UUID> trainerByBattle = new HashMap<>();
 
     public synchronized boolean reserve(Launch launch) {
-        if (pending.containsKey(launch.player()) || active(launch.player()))
-            return false;
+        if (pending.containsKey(launch.player()) || active(launch.player())
+                || trainerBusy(launch.trainerEntity())) return false;
         pending.put(launch.player(), launch);
         return true;
     }
@@ -37,6 +38,7 @@ public final class StoryBattleLaunchLedger {
             nativeBattle, player, launch.encounter(),
             StoryBattleSessionRouter.acceptedTrainers().get(launch.encounter()));
         battles.put(nativeBattle, start);
+        trainerByBattle.put(nativeBattle, trainerEntity);
         return Optional.of(start);
     }
 
@@ -48,7 +50,13 @@ public final class StoryBattleLaunchLedger {
 
     public synchronized void cancelPlayer(UUID player) {
         pending.remove(player);
-        battles.entrySet().removeIf(e -> e.getValue().playerId().equals(player));
+        Set<UUID> retired = new HashSet<>();
+        battles.entrySet().removeIf(e -> {
+            boolean owned = e.getValue().playerId().equals(player);
+            if (owned) retired.add(e.getKey());
+            return owned;
+        });
+        for (UUID id : retired) trainerByBattle.remove(id);
     }
 
     /** Read-only authorization check for native battle event callbacks. */
@@ -68,6 +76,21 @@ public final class StoryBattleLaunchLedger {
             .map(StoryBattleSessionRouter.NativeStart::playerId);
     }
 
-    public synchronized void finished(UUID battle) { battles.remove(battle); }
-    public synchronized void clear() { pending.clear(); battles.clear(); }
+    /** A physical RCT trainer may service only one pending or live story fight. */
+    public synchronized boolean trainerBusy(UUID trainerEntity) {
+        if (trainerEntity == null) return false;
+        return pending.values().stream()
+            .anyMatch(x -> x.trainerEntity().equals(trainerEntity))
+            || trainerByBattle.containsValue(trainerEntity);
+    }
+
+    public synchronized void finished(UUID battle) {
+        battles.remove(battle);
+        trainerByBattle.remove(battle);
+    }
+    public synchronized void clear() {
+        pending.clear();
+        battles.clear();
+        trainerByBattle.clear();
+    }
 }
