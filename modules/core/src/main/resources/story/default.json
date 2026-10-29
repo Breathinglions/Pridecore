@@ -1150,7 +1150,8 @@
       "id": "league_guide",
       "name": "League Guide",
       "requires": [
-        "pride:crisis_intel_complete"
+        "pride:crisis_intel_complete",
+        "pride:finale_completed"
       ],
       "completedFact": "pride:league_path",
       "start": "main",
