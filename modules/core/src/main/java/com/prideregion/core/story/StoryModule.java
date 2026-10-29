@@ -512,7 +512,20 @@ public final class StoryModule {
         if (!facts.contains("pride:cael_battle_won") ||
                 !facts.contains("pride:clue_engine"))
             throw new IOException("Finale resume prerequisites missing");
-        try { finale.restore(saved.get()); }
+        try {
+            finale.restore(saved.get());
+            // The authenticated battle win is persisted before its finale
+            // checkpoint. Recover after a crash between those two writes.
+            if (finale.snapshot(player).phase() == ResonanceFinaleController.Phase.SHIELDS) {
+                for (String shield : List.of("alpha", "beta", "gamma")) {
+                    if (facts.contains("pride:shield_" + shield + "_won")
+                            && finale.snapshot(player).phase()
+                                == ResonanceFinaleController.Phase.SHIELDS)
+                        finale.shieldVictory(player, shield);
+                }
+                persistFinale(player);
+            }
+        }
         catch (IllegalArgumentException ex) {
             throw new IOException("Finale checkpoint invalid", ex);
         }
