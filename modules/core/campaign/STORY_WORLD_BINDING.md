@@ -54,3 +54,17 @@ story_allowed_dimensions=example:staging_world
 A blank `story_allowed_dimensions=` preserves compatibility by allowing story interactions in every dimension. A comma-separated list permits up to 16 explicitly named registry IDs. Invalid or duplicate IDs fail the story module's startup configuration check. The setting is read at server startup and does not modify any underlying Multiworld definitions, chunks, world borders or claims.
 
 When restricted, physical story NPC interactions, evidence clues, finale devices, RCT story launches, and player dialogue choices cannot advance the campaign outside those dimensions; pending cinematic effects are cancelled when a player leaves the allowed area. Operator world-binding tools still work as preparation utilities. Official Gym, League, NPC and other-mod behavior is unaffected. The story module remains disabled by default; this is documentation for staging, not authorization to turn it on in production.
+
+## Chapter-zone validation while constructing the story
+
+An operator can stand near a staged build cluster and run:
+
+```mcfunction
+/pridecore story admin audit-zone hearthleaf
+/pridecore story admin audit-zone eclipse
+/pridecore story admin audit-zone finale
+```
+
+Each command inspects **only nearby loaded entities within 96 blocks in the operator's current dimension**. It checks the expected marker set, duplicate identities and mixed roles. The Hearthleaf set includes Mom, Sequoia, Theo, Avery, Ranger, Thorn, Rin and the first scripted rival opponent. The Eclipse set includes the Eclipse operative, Sable, Director Cael and the three separate scripted lieutenant/commander/director opponents. The finale set includes all four conduits, the core and Alpha/Beta/Gamma defender actors. The CLI reports every missing and duplicate marker, and verifies physical entity categories.
+
+These are **build-site checklists, not world-wide completion claims**. A town may extend beyond 96 blocks, and a chapter may span multiple locations. The builder must run each audit at the intended local cluster and review the results against the actual layout; passing a marker audit cannot prove dialogue scripts or native RCT battles work. Existing server world, builds and quests remain untouched.
