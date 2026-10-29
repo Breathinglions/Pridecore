@@ -59,7 +59,8 @@ public final class StoryModule {
                         throw new IllegalStateException("Story finale is disabled");
                     String marker = markers.getFirst();
                     if (marker.equals("pride_finale_core")) {
-                        finale.stabilize(sp.getUuid());
+                        if (finale.snapshot(sp.getUuid()).phase() == ResonanceFinaleController.Phase.STABILIZE)
+                            finale.stabilize(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
                     } else if (marker.startsWith("pride_finale_conduit_")) {
                         String direction = marker.substring("pride_finale_conduit_".length());
