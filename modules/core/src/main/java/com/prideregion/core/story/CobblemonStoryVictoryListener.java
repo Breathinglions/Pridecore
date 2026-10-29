@@ -107,7 +107,7 @@ public final class CobblemonStoryVictoryListener {
             faintObservable = events.getField("BATTLE_FAINTED").get(null);
             faintSubscription = faintObservable.getClass()
                 .getMethod("subscribe", Consumer.class).invoke(faintObservable, faintConsumer);
-        } catch (ReflectiveOperationException | RuntimeException optionalError) {
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError optionalError) {
             System.err.println("[PrideCore] Optional knockout cinematics disabled: "
                 + optionalError);
         }
