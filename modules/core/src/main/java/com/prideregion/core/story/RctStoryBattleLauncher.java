@@ -65,8 +65,15 @@ public final class RctStoryBattleLauncher {
                 && ctor.getParameterCount() == 5
                 && ctor.getParameterTypes()[4].isInstance(livingTrainer))
             .findFirst().orElseThrow(() -> new IllegalArgumentException("Not a living trainer"));
+        // RCT 0.16.0 exposes a public no-arg RCTBattleAI constructor.
+        // A null AI would leave battle-turn selection undefined.
+        Class<?> rctAiType = Class.forName(
+            "com.gitlab.srcmc.rctapi.api.ai.RCTBattleAI", true, loader);
+        Object ai = rctAiType.getConstructor().newInstance();
+        if (!battleAiType.isInstance(ai))
+            throw new IllegalStateException("RCT trainer AI incompatible with Cobblemon");
         Object opponent = npcCtor.newInstance(
-            "pride_story:" + encounterId, team, bag, null, livingTrainer);
+            "pride_story:" + encounterId, team, bag, ai, livingTrainer);
         Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", true, loader);
         @SuppressWarnings({"unchecked", "rawtypes"})
