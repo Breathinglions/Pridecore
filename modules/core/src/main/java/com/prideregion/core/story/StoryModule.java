@@ -59,6 +59,7 @@ public final class StoryModule {
                     if (finale == null || liveServer != sp.getServer())
                         throw new IllegalStateException("Story finale is disabled");
                     restoreFinale(sp.getUuid());
+                    reconcileFinaleShields(sp.getUuid());
                     String marker = markers.getFirst();
                     // A normal eligible player can initiate the operation by
                     // using its first conduit. Operator rehearsal is optional.
@@ -514,21 +515,36 @@ public final class StoryModule {
             throw new IOException("Finale resume prerequisites missing");
         try {
             finale.restore(saved.get());
-            // The authenticated battle win is persisted before its finale
-            // checkpoint. Recover after a crash between those two writes.
-            if (finale.snapshot(player).phase() == ResonanceFinaleController.Phase.SHIELDS) {
-                for (String shield : List.of("alpha", "beta", "gamma")) {
-                    if (facts.contains("pride:shield_" + shield + "_won")
-                            && finale.snapshot(player).phase()
-                                == ResonanceFinaleController.Phase.SHIELDS)
-                        finale.shieldVictory(player, shield);
-                }
-                persistFinale(player);
-            }
+            reconcileFinaleShields(player);
         }
         catch (IllegalArgumentException ex) {
             throw new IOException("Finale checkpoint invalid", ex);
         }
+    }
+
+    /**
+     * Reconcile authenticated shield wins even if the live controller already
+     * exists. This covers a failed checkpoint write without requiring relog.
+     * The victory fact is the authority; a world click cannot forge it.
+     */
+    private static void reconcileFinaleShields(UUID player) throws IOException {
+        if (finale == null || finaleStore == null || liveServer == null) return;
+        if (finale.snapshot(player).phase() != ResonanceFinaleController.Phase.SHIELDS)
+            return;
+        var progression = PrideCoreMod.progression(liveServer)
+            .orElseThrow(() -> new IOException("Progression unavailable"));
+        var facts = progression.get(player).facts();
+        if (!facts.contains("pride:cael_battle_won") ||
+                !facts.contains("pride:clue_engine")) return;
+        var checkpoint = finale.checkpoint(player).orElseThrow();
+        for (String shield : List.of("alpha", "beta", "gamma")) {
+            if (facts.contains("pride:shield_" + shield + "_won") &&
+                    !checkpoint.shields().contains(shield) &&
+                    finale.snapshot(player).phase() == ResonanceFinaleController.Phase.SHIELDS)
+                finale.shieldVictory(player, shield);
+        }
+        if (!checkpoint.equals(finale.checkpoint(player).orElseThrow()))
+            persistFinale(player);
     }
 
     private static Path configDir() {
