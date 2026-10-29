@@ -102,7 +102,7 @@ public final class StoryModule {
                         var state = finale.conduit(sp.getUuid(), direction);
                         persistFinale(sp.getUuid());
                         if (sp.getWorld() instanceof ServerWorld fxWorld) {
-                            StoryEffects.emit(fxWorld, "battle.electric", ParticleTypes.ELECTRIC_SPARK,
+                            StoryEffects.emit(fxWorld, "finale.conduit", ParticleTypes.ELECTRIC_SPARK,
                                 entity.getX(), entity.getY() + 0.6D, entity.getZ(),
                                 36, 0.65D, 0.8D, 0.65D, 0.055D);
                             StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
@@ -556,7 +556,7 @@ public final class StoryModule {
                 ServerPlayerEntity victor = server.getPlayerManager().getPlayer(winnerId);
                 if (victor != null) {
                     if (victor.getWorld() instanceof ServerWorld fxWorld) {
-                        StoryEffects.emit(fxWorld, "battle.electric", ParticleTypes.ELECTRIC_SPARK,
+                        StoryEffects.emit(fxWorld, "finale.shield", ParticleTypes.ELECTRIC_SPARK,
                             victor.getX(), victor.getY() + 1.0D, victor.getZ(),
                             52, 1.0D, 1.2D, 1.0D, 0.08D);
                         StoryEffects.emit(fxWorld, "finale.end_rod", ParticleTypes.END_ROD,
