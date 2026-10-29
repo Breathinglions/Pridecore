@@ -775,9 +775,11 @@ public final class StoryModule {
             if (!beat.player().equals(owner)) return;
             if (server.getPlayerManager().getPlayer(owner) == null) return;
             // Only scene overlays advance; no HP, status or trainer AI changes.
+            String scene = StoryCinematicTimeline.phaseScene(
+                beat.encounter(), beat.phase());
+            if (scene == null) return;
             CINEMATICS.cancel(owner);
-            CINEMATICS.begin(owner, beat.phase() == 1
-                ? "battle_phase_one" : "battle_phase_two");
+            CINEMATICS.begin(owner, scene);
         });
     }
 
