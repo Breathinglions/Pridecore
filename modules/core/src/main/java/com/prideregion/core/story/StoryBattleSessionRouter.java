@@ -45,10 +45,16 @@ public final class StoryBattleSessionRouter {
             && old.encounterId().equals(start.encounterId())
             && Objects.equals(TRUSTED_TRAINERS.get(old.encounterId()),
                 start.trainerIdentity());
-        StoryBattleProof.Ticket ticket = proof.arm(
-            start.playerId(), start.battleId(), start.encounterId());
-        byBattle.put(start.battleId(), ticket);
-        return true;
+        // Persisted one-time victories are a normal stale-event case, not a
+        // reason for the native event bus to throw and interrupt other mods.
+        try {
+            StoryBattleProof.Ticket ticket = proof.arm(
+                start.playerId(), start.battleId(), start.encounterId());
+            byBattle.put(start.battleId(), ticket);
+            return true;
+        } catch (IllegalStateException unavailable) {
+            return false;
+        }
     }
 
     /** Read-only lookup for trusted victory handlers before the ticket is cleared. */
