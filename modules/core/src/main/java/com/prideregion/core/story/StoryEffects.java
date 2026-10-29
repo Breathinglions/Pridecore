@@ -56,6 +56,18 @@ public final class StoryEffects {
                 if (type instanceof SimpleParticleType candidate) effect = candidate;
             }
         }
-        world.spawnParticles(effect, x, y, z, count, spreadX, spreadY, spreadZ, speed);
+        try {
+            world.spawnParticles(effect, x, y, z, count, spreadX, spreadY, spreadZ, speed);
+        } catch (RuntimeException presentationFailure) {
+            // Particles must never roll back or interrupt a verified story action.
+            if (effect != fallback) {
+                try {
+                    world.spawnParticles(fallback, x, y, z, count,
+                        spreadX, spreadY, spreadZ, speed);
+                } catch (RuntimeException ignored) {
+                    // The story transition has already been committed.
+                }
+            }
+        }
     }
 }
