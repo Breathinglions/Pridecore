@@ -454,6 +454,7 @@ public final class StoryModule {
         liveServer = server;
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
+        StoryBattleRosters.clearConfig();
         PRIVATE_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         BATTLE_PHASES.clear();
@@ -516,8 +517,10 @@ public final class StoryModule {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
-            // Fail closed if the runtime cannot load all approved trainer teams.
-            StoryBattleRosters.bundled();
+            // External teams/text are loaded at startup; authenticated RCT
+            // launch and immutable badge/identity gates stay in Java.
+            StoryBattleRosters.loadConfig(directory);
+            StoryBattleRosters.active();
             StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
             if (!StoryBattleRuntimePreflight.supportsFaintEvents(
                     StoryModule.class.getClassLoader()))
@@ -695,7 +698,7 @@ public final class StoryModule {
         ServerPlayerEntity contender = server.getPlayerManager().getPlayer(player);
         if (contender == null || !STORY_WORLDS.permits(
                 contender.getWorld().getRegistryKey().getValue().toString())) return false;
-        var roster = StoryBattleRosters.bundled().find(encounterId)
+        var roster = StoryBattleRosters.active().find(encounterId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
         if (!StoryLeagueBadgeGate.allows(roster.minBadges(), contender.getCommandTags()))
             return false;
@@ -767,7 +770,7 @@ public final class StoryModule {
                 throw confirmationFailure;
             }
             try {
-                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
                 BATTLE_PHASES.register(battleId, player.getUuid(), encounterId,
                     roster.team().size());
             } catch (IOException | RuntimeException phaseSetupFailure) {
@@ -793,7 +796,7 @@ public final class StoryModule {
                             35, 0.9D, 1.0D, 0.9D, 0.06D);
                     }
                 }
-                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
                 player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
                     .formatted(Formatting.GOLD), false);
             } catch (IOException | RuntimeException presentationFailure) {
@@ -897,7 +900,7 @@ public final class StoryModule {
                 String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
-                        victoryLine = StoryBattleRosters.bundled()
+                        victoryLine = StoryBattleRosters.active()
                             .find(resolvedEncounter).map(StoryBattleRosters.Roster::win)
                             .orElse(victoryLine);
                 } catch (IOException | RuntimeException presentationError) {
@@ -968,7 +971,7 @@ public final class StoryModule {
                 (launchLedger.pending(player.getUuid()) || launchLedger.active(player.getUuid()));
             int won = 0;
             int badges = StoryLeagueBadgeGate.count(player.getCommandTags());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             for (var encounter : StoryEncounterAvailability.ordered()) {
                 int minBadges = rosters.find(encounter.id()).orElseThrow().minBadges();
                 var state = StoryEncounterAvailability.status(encounter, facts,
@@ -1187,7 +1190,7 @@ public final class StoryModule {
     private static int adminRuntimePreflight(ServerCommandSource source) {
         try {
             StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             int expected = StoryBattleSessionRouter.acceptedTrainers().size();
             if (rosters.all().size() != expected)
                 throw new IllegalStateException("Story battle roster count mismatch");
@@ -1220,7 +1223,7 @@ public final class StoryModule {
             boolean battleOccupied = launchLedger != null &&
                 (launchLedger.pending(target.getUuid()) || launchLedger.active(target.getUuid()));
             int badges = StoryLeagueBadgeGate.count(target.getCommandTags());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             for (var entry : StoryEncounterAvailability.ordered()) {
                 int minBadges = rosters.find(entry.id()).orElseThrow().minBadges();
                 var status = StoryEncounterAvailability.status(entry, profile.facts(),
