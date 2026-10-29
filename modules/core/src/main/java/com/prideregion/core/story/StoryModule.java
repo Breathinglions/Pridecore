@@ -497,7 +497,10 @@ public final class StoryModule {
             // battle launch: after ownership confirmation the battle is live.
             try {
                 if (player.getWorld() instanceof ServerWorld fxWorld) {
-                    StoryEffects.emit(fxWorld, "battle.enchant", ParticleTypes.ENCHANT,
+                    StoryEffects.emit(fxWorld, encounterId.startsWith("rin_") ? "battle.rin" :
+                        encounterId.equals("sable") ? "battle.sable" :
+                        encounterId.equals("director_cael") ? "battle.cael" :
+                        "battle.enchant", ParticleTypes.ENCHANT,
                         trainer.getX(), trainer.getY() + 1.15D, trainer.getZ(),
                         28, 0.7D, 1.0D, 0.7D, 0.04D);
                     if (encounterId.equals("director_cael") ||
