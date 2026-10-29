@@ -4,6 +4,7 @@ The following commands are available only to server operators at permission leve
 
 | Command | Purpose |
 | --- | --- |
+| `/pridecore story admin encounters <player>` | Read-only list of scripted encounters showing LOCKED, ELIGIBLE (not launched), or WON; no battle is started. |
 | `/pridecore story admin inspect <player>` | Show player stage, revision, current finale phase and temporary checkpoint counts. |
 | `/pridecore story admin reset-session <player>` | Clear active dialogue, in-flight scripted battle, and unfinished finale sessions; **preserves all saved story progress**, badges, and economy. |
 | `/pridecore story admin finale-start <player>` | Rehearse the engine phase controller **only after** authentic Cael victory and engine clue facts exist. |
