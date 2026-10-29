@@ -45,7 +45,9 @@ public final class CobblemonStoryVictoryListener {
                     UUID actorId = (UUID) actor.getClass().getMethod("getUuid").invoke(actor);
                     if (playerIds.contains(actorId)) playerWinners.add(actorId);
                 }
-                if (playerWinners.size() == 1)
+                // Story fights are always one player versus NPC. A multi-player
+                // battle must never mint single-player campaign progression.
+                if (playerIds.size() == 1 && playerWinners.size() == 1)
                     sink.victory(battleId, playerWinners.iterator().next());
                 else sink.cancelled(battleId);
             } catch (ReflectiveOperationException | RuntimeException error) {
