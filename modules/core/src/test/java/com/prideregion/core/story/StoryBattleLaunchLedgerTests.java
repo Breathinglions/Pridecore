@@ -59,6 +59,21 @@ public final class StoryBattleLaunchLedgerTests {
         ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(bob,"shield_gamma",npc)));
         ledger.clear();
         ok(ledger.launched(bob,npc,UUID.randomUUID()).isEmpty());
+        UUID trainerAfterDisconnect = UUID.randomUUID();
+        UUID activeBattle = UUID.randomUUID();
+        ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,
+            "rin_canyon", trainerAfterDisconnect)));
+        ok(ledger.launched(alice, trainerAfterDisconnect, activeBattle).isPresent());
+        ok(ledger.trainerBusy(trainerAfterDisconnect));
+        ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(bob,
+            "sable", trainerAfterDisconnect)));
+        ledger.cancelPlayer(alice);
+        ok(!ledger.trainerBusy(trainerAfterDisconnect));
+        ok(!ledger.owns(activeBattle, alice));
+        ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(bob,
+            "sable", trainerAfterDisconnect)));
+        ledger.clear();
+        ok(!ledger.trainerBusy(trainerAfterDisconnect));
         System.out.println("PASS: "+checks+" RCT launch isolation assertions");
     }
 }
