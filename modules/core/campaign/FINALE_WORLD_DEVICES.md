@@ -19,3 +19,7 @@ Shield battle roster definitions are now authored in `story_battles.json`: Alpha
 Crash-recovery safeguard: after restoring a checkpoint in the SHIELDS phase, the server reconciles each previously persisted authenticated shield-win fact before allowing further progress. This covers a crash occurring after the player wins but before the separate finale checkpoint save; it does not invent victories or auto-launch a battle.
 
 Live recovery: clicking any tagged finale device now reconciles previously verified shield wins even when the player has not disconnected. This prevents an interrupted checkpoint save from requiring relog. The physical trainer launches and Cobblemon 1.8.1 callback signatures still require verified runtime integration.
+
+## In-world visual effects
+
+Activating a physical conduit now emits server-side electric sparks and end-rod particles from its tagged interaction entity. Successfully stabilizing the core emits a larger end-rod/totem burst at the core marker. This is an initial native visual-effects pass (no additional client particle mod required), **not** the requested fully cinematic multi-phase boss sequence. Particle counts are bounded and only emit after eligible interaction transitions.
