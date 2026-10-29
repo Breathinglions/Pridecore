@@ -687,13 +687,16 @@ public final class StoryModule {
                 .orElseThrow(() -> new IOException("Progression unavailable"))
                 .get(player.getUuid()).facts();
             source.sendFeedback(() -> Text.literal("Resonance Crisis story battles:"), false);
+            restoreFinale(player.getUuid());
+            boolean shieldPhase = finale != null && finale.snapshot(player.getUuid()).phase()
+                == ResonanceFinaleController.Phase.SHIELDS;
+            boolean battleOccupied = launchLedger != null &&
+                (launchLedger.pending(player.getUuid()) || launchLedger.active(player.getUuid()));
             int won = 0;
-            for (var encounter : StoryBattleProof.definitions()) {
-                boolean complete = facts.contains(encounter.earnedFact());
-                if (complete) won++;
-                boolean eligible = facts.contains(encounter.requiredFact());
-                String state = complete ? "COMPLETE"
-                    : eligible ? "READY" : "LOCKED";
+            for (var encounter : StoryEncounterAvailability.ordered()) {
+                var state = StoryEncounterAvailability.status(encounter, facts,
+                    shieldPhase, battleOccupied);
+                if (state == StoryEncounterAvailability.Status.COMPLETE) won++;
                 source.sendFeedback(() -> Text.literal(" - " + encounter.id()
                     + ": " + state), false);
             }
@@ -855,10 +858,14 @@ public final class StoryModule {
                 .get(target.getUuid());
             source.sendFeedback(() -> Text.literal(
                 "Module 02 scripted encounters for " + target.getName().getString() + ":"), false);
-            for (var entry : StoryBattleProof.definitions()) {
-                boolean unlocked = profile.facts().contains(entry.requiredFact());
-                boolean won = profile.facts().contains(entry.earnedFact());
-                String status = won ? "WON" : unlocked ? "ELIGIBLE (not launched)" : "LOCKED";
+            restoreFinale(target.getUuid());
+            boolean shieldPhase = finale != null && finale.snapshot(target.getUuid()).phase()
+                == ResonanceFinaleController.Phase.SHIELDS;
+            boolean battleOccupied = launchLedger != null &&
+                (launchLedger.pending(target.getUuid()) || launchLedger.active(target.getUuid()));
+            for (var entry : StoryEncounterAvailability.ordered()) {
+                var status = StoryEncounterAvailability.status(entry, profile.facts(),
+                    shieldPhase, battleOccupied);
                 source.sendFeedback(() -> Text.literal(" - " + entry.id() + ": " + status +
                     " [requires " + entry.requiredFact() + "]"), false);
             }
