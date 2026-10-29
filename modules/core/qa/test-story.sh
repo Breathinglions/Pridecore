@@ -50,6 +50,7 @@ assert "pride:finale_completed" in league["requires"], "Victory Road cannot skip
 ranger=next(n for n in d["npcs"] if n["id"]=="ranger")
 assert "pride:rin_route1_won" in ranger["requires"], "Route 1 rival cannot be skipped"
 for npc_id, required_battle in {
+ "eclipse_operative": "pride:eclipse_lieutenant_won",
  "heat_technician": "pride:rin_canyon_won",
  "ghost_medium": "pride:rin_summit_won",
  "director_cael": "pride:sable_battle_won",
