@@ -42,4 +42,10 @@ tasks.register('verifyCobblemonSoloVictories', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.prideregion.core.story.CobblemonStoryVictoryListenerTests'
 }
-tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters', 'verifyNativeRosterBoundary', 'verifyCobblemonSoloVictories' }
+tasks.register('verifyNativeBattlePreflight', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryBattleRuntimePreflightTests'
+}
+tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters', 'verifyNativeRosterBoundary', 'verifyCobblemonSoloVictories', 'verifyNativeBattlePreflight' }
