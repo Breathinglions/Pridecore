@@ -40,6 +40,9 @@ print("PASS: optional staging world props are bounded, unique and removable")
 # Nine hand-placed evidence markers share an exact allowlisted identifier,
 # same-dimension local duplication check and a bounded cleanup selector.
 clues = {"forest","mine","foundry","river","grid","ward","ice","echo","engine"}
+java_clues = (ROOT / "src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java").read_text()
+declared = set(re.findall(r'new Clue\("([a-z0-9_]+)"', java_clues))
+assert clues == declared, "Staging clue functions must match exactly the authored evidence IDs"
 for clue in clues:
     function = (base / f"place_clue_{clue}.mcfunction").read_text()
     marker = f"pride_clue_{clue}"
