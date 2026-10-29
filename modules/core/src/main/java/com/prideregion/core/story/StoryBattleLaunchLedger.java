@@ -48,6 +48,15 @@ public final class StoryBattleLaunchLedger {
         return battles.values().stream().anyMatch(start -> start.playerId().equals(player));
     }
 
+    /** Exact live native battle UUIDs belonging to one authorized player. */
+    public synchronized Set<UUID> activeBattles(UUID player) {
+        if (player == null) return Set.of();
+        Set<UUID> result = new HashSet<>();
+        for (var entry : battles.entrySet())
+            if (player.equals(entry.getValue().playerId())) result.add(entry.getKey());
+        return Set.copyOf(result);
+    }
+
     public synchronized void cancelPlayer(UUID player) {
         pending.remove(player);
         Set<UUID> retired = new HashSet<>();
