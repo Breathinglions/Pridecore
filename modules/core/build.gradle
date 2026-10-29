@@ -30,4 +30,10 @@ tasks.register('verifyStoryBattleRosters', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.prideregion.core.story.StoryBattleRostersTests'
 }
-tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters' }
+tasks.register('verifyNativeRosterBoundary', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.CobblemonRosterFactoryTests'
+}
+tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters', 'verifyNativeRosterBoundary' }
