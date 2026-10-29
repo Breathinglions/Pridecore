@@ -105,6 +105,22 @@ public final class StoryPrivateSceneDirector {
     }
 
     /**
+     * Future native integration entry point. Prevents starting an unearned
+     * scene using a forged player request or a stale chapter checkpoint.
+     * The caller must obtain these facts from server-owned ProfileStore and
+     * original verified onboarding tags, and must independently verify the
+     * physical native NPC interaction and exact world/GUI entitlement.
+     */
+    public synchronized Start beginVerified(UUID player, String dimension, SceneId scene,
+                                             Set<String> storedFacts,
+                                             Set<String> verifiedLegacy) {
+        if (StoryPrivateSceneEligibility.evaluate(scene, storedFacts, verifiedLegacy)
+                != StoryPrivateSceneEligibility.Availability.READY)
+            return new Start(false, null);
+        return begin(player, dimension, scene);
+    }
+
+    /**
      * Exactly one tick per server tick. Events contain an explicit owner and
      * session token; the renderer must never broadcast them to nearby players.
      */
