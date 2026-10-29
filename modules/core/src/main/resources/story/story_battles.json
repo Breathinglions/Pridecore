@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "mode": "STAGING_ONLY",
+  "authority": "Cobblemon battle callback + authenticated Pride Core StoryBattleProof",
+  "encounters": [
+    {
+      "id": "rin_route1",
+      "actor": "rin",
+      "chapter": "Route 1",
+      "minBadges": 0,
+      "team": [
+        {
+          "species": "sprigatito",
+          "level": 8
+        },
+        {
+          "species": "shinx",
+          "level": 7
+        }
+      ],
+      "intro": "First partners, first challenge! Show me what you've learned.",
+      "win": "You got me this time. I'll be ready for our next meeting."
+    },
+    {
+      "id": "rin_canyon",
+      "actor": "rin",
+      "chapter": "Act I",
+      "minBadges": 2,
+      "team": [
+        {
+          "species": "floragato",
+          "level": 24
+        },
+        {
+          "species": "luxio",
+          "level": 22
+        },
+        {
+          "species": "rockruff",
+          "level": 22
+        }
+      ],
+      "intro": "We've both changed since Route 1. Let's see how much.",
+      "win": "Okay, you win! But the bigger mystery is still ahead."
+    },
+    {
+      "id": "rin_summit",
+      "actor": "rin",
+      "chapter": "Act III",
+      "minBadges": 7,
+      "team": [
+        {
+          "species": "meowscarada",
+          "level": 52
+        },
+        {
+          "species": "luxray",
+          "level": 50
+        },
+        {
+          "species": "lycanroc",
+          "level": 50
+        },
+        {
+          "species": "altaria",
+          "level": 49
+        },
+        {
+          "species": "lucario",
+          "level": 51
+        }
+      ],
+      "intro": "Before we face Meridian, I want to know we're ready.",
+      "win": "I believe in you. Now let's save this region together."
+    },
+    {
+      "id": "eclipse_lieutenant",
+      "actor": "eclipse_operative",
+      "chapter": "Act IV",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "mightyena",
+          "level": 54
+        },
+        {
+          "species": "golbat",
+          "level": 54
+        },
+        {
+          "species": "bisharp",
+          "level": 55
+        },
+        {
+          "species": "houndoom",
+          "level": 56
+        }
+      ],
+      "intro": "No one interferes with Eclipse's final operation!",
+      "win": "Our leader needs to know the truth. Go."
+    },
+    {
+      "id": "sable",
+      "actor": "sable",
+      "chapter": "Act IV",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "weavile",
+          "level": 58
+        },
+        {
+          "species": "crobat",
+          "level": 58
+        },
+        {
+          "species": "zoroark",
+          "level": 59
+        },
+        {
+          "species": "absol",
+          "level": 59
+        },
+        {
+          "species": "hydreigon",
+          "level": 61
+        }
+      ],
+      "intro": "If you want to stop my people, earn the right to be heard.",
+      "win": "Then show me there's another way."
+    },
+    {
+      "id": "director_cael",
+      "actor": "director_cael",
+      "chapter": "Act IV",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "magnezone",
+          "level": 60
+        },
+        {
+          "species": "metagross",
+          "level": 61
+        },
+        {
+          "species": "porygon2",
+          "level": 60
+        },
+        {
+          "species": "rotom",
+          "level": 60
+        },
+        {
+          "species": "gardevoir",
+          "level": 61
+        },
+        {
+          "species": "alakazam",
+          "level": 62
+        }
+      ],
+      "intro": "You stand between our research and the future. Prove your conviction.",
+      "win": "The experiment ends. Help me stabilize the machine."
+    },
+    {
+      "id": "shield_alpha",
+      "actor": "resonance_shield_alpha",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "bronzong",
+          "level": 61
+        },
+        {
+          "species": "scizor",
+          "level": 62
+        }
+      ],
+      "intro": "The Steel-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The alpha shield disengages. The engine is becoming stable."
+    },
+    {
+      "id": "shield_beta",
+      "actor": "resonance_shield_beta",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "electivire",
+          "level": 62
+        },
+        {
+          "species": "magnezone",
+          "level": 63
+        }
+      ],
+      "intro": "The Electric-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The beta shield disengages. The engine is becoming stable."
+    },
+    {
+      "id": "shield_gamma",
+      "actor": "resonance_shield_gamma",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "espeon",
+          "level": 63
+        },
+        {
+          "species": "metagross",
+          "level": 64
+        }
+      ],
+      "intro": "The Psychic-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The gamma shield disengages. The engine is becoming stable."
+    }
+  ]
+}
