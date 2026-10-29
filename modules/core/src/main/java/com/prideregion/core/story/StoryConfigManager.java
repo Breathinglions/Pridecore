@@ -79,6 +79,7 @@ public final class StoryConfigManager {
             // replace custom dialogue or remove existing prerequisites.
             String requiredFact = switch (npcId) {
                 case "ranger" -> "pride:met_rin";
+                case "league_guide" -> "pride:finale_completed";
                 case "miner_lyra" -> "pride:clue_forest";
                 case "eclipse_scout" -> "pride:clue_mine";
                 case "meridian_scientist" -> "pride:clue_foundry";
