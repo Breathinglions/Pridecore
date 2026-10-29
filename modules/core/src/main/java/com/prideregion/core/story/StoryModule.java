@@ -945,6 +945,52 @@ public final class StoryModule {
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
     }
 
+    /** Stage-builder audit of nearby loaded Hearthleaf/Eclipse/finale props. */
+    private static int auditStoryZone(ServerCommandSource source, String area) {
+        try {
+            Set<String> expected = StoryZoneReadiness.required(area);
+            ServerPlayerEntity actor = source.getPlayer();
+            if (actor == null) return message(source, "Run zone audits in-game as an operator.");
+            var found = actor.getWorld().getOtherEntities(actor,
+                actor.getBoundingBox().expand(96.0D),
+                e -> e.getCommandTags().stream().anyMatch(expected::contains));
+            List<Set<String>> markers = new ArrayList<>();
+            List<String> wrongTypes = new ArrayList<>();
+            for (Entity entity : found) {
+                markers.add(entity.getCommandTags());
+                boolean living = entity instanceof net.minecraft.entity.LivingEntity
+                    && !(entity instanceof net.minecraft.entity.player.PlayerEntity);
+                boolean cobbleNpc = "cobblemon:npc".equals(
+                    Registries.ENTITY_TYPE.getId(entity.getType()).toString());
+                for (String tag : entity.getCommandTags()) {
+                    if (expected.contains(tag) &&
+                            !StoryWorldMarkerCatalog.validOnEntity(tag, living, cobbleNpc,
+                                entity.getType() == EntityType.INTERACTION))
+                        wrongTypes.add(tag + " on " + entity.getUuid());
+                }
+            }
+            var report = StoryZoneReadiness.inspect(area, markers);
+            if (!report.missing().isEmpty())
+                source.sendFeedback(() -> Text.literal(
+                    "MISSING markers: " + new TreeSet<>(report.missing())), false);
+            if (!report.duplicates().isEmpty())
+                source.sendFeedback(() -> Text.literal(
+                    "DUPLICATE markers: " + new TreeSet<>(report.duplicates())), false);
+            if (report.conflictingEntities() > 0 || !wrongTypes.isEmpty())
+                source.sendFeedback(() -> Text.literal(
+                    "INVALID physical actors: mixed=" + report.conflictingEntities()
+                        + ", wrong-type=" + wrongTypes), false);
+            boolean ready = report.markersReady() && wrongTypes.isEmpty();
+            return message(source, "Loaded " + area + " marker audit (96 blocks): "
+                + report.present().size() + "/" + expected.size()
+                + (ready ? " present and valid" : " incomplete")
+                + ". Only nearby loaded entities were inspected.");
+        } catch (IllegalArgumentException ex) {
+            source.sendError(Text.literal("Unknown story audit area. Choose hearthleaf, eclipse or finale."));
+            return 0;
+        }
+    }
+
     /** Staging-only local arena inspection; it never generates any entities. */
     private static int auditFinaleArena(ServerCommandSource source) {
         ServerPlayerEntity actor = source.getPlayer();
@@ -1282,7 +1328,11 @@ public final class StoryModule {
             .then(CommandManager.literal("audit-markers")
                 .executes(ctx -> auditWorldMarkers(ctx.getSource())))
             .then(CommandManager.literal("audit-finale")
-                .executes(ctx -> auditFinaleArena(ctx.getSource()))));
+                .executes(ctx -> auditFinaleArena(ctx.getSource())))
+            .then(CommandManager.literal("audit-zone")
+                .then(CommandManager.argument("area", StringArgumentType.word())
+                    .executes(ctx -> auditStoryZone(ctx.getSource(),
+                        StringArgumentType.getString(ctx, "area"))))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
             .then(CommandManager.literal("talk")
