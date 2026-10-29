@@ -89,13 +89,19 @@ public final class StorySceneAnchorConfig {
         return new Point(Double.parseDouble(parts[0].trim()),
             Double.parseDouble(parts[1].trim()), Double.parseDouble(parts[2].trim()));
     }
+    /** Dimension-only lookup is used exclusively to remove an existing projection. */
+    public Optional<Layout> forDimension(StoryPrivateSceneDirector.SceneId scene,
+                                        String worldDimension) {
+        Layout layout = layouts.get(scene);
+        return layout != null && layout.dimension().equals(worldDimension)
+            ? Optional.of(layout) : Optional.empty();
+    }
+
     public Optional<Layout> forScene(StoryPrivateSceneDirector.SceneId scene,
                                      String worldDimension, Point viewer) {
-        Layout layout = layouts.get(scene);
-        if (layout == null || !layout.dimension().equals(worldDimension)
-                || viewer.distanceSquared(layout.entry()) > 96.0D * 96.0D)
-            return Optional.empty();
-        return Optional.of(layout);
+        Objects.requireNonNull(viewer);
+        return forDimension(scene, worldDimension).filter(layout ->
+            viewer.distanceSquared(layout.entry()) <= 96.0D * 96.0D);
     }
     public int count() { return layouts.size(); }
 }

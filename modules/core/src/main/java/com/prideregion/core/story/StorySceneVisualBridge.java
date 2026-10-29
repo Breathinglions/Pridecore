@@ -45,8 +45,10 @@ public final class StorySceneVisualBridge {
         if (action == null) return false;
         String world = viewer.getWorld().getRegistryKey().getValue().toString();
         var config = anchors;
-        var layout = config.forScene(cue.scene(), world,
-            new StorySceneAnchorConfig.Point(viewer.getX(), viewer.getY(), viewer.getZ()));
+        var layout = action == StorySceneVisualPayload.Action.REMOVE
+            ? config.forDimension(cue.scene(), world)
+            : config.forScene(cue.scene(), world,
+                new StorySceneAnchorConfig.Point(viewer.getX(), viewer.getY(), viewer.getZ()));
         if (layout.isEmpty()) return false;
         var point = switch (action) {
             case ENTER -> layout.get().entry();

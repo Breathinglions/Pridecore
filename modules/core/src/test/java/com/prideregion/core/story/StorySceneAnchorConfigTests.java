@@ -28,6 +28,10 @@ public final class StorySceneAnchorConfigTests {
             new StorySceneAnchorConfig.Point(10,75,-10)).isEmpty());
         ok(config.forScene(scene, "pride:test",
             new StorySceneAnchorConfig.Point(500,75,-10)).isEmpty());
+        // A cleanup packet must remain eligible after walking away from the
+        // original staging anchor, so no actor persists until the TTL.
+        ok(config.forDimension(scene, "pride:test").isPresent());
+        ok(config.forDimension(scene, "pride:wrong").isEmpty());
         p.setProperty("visual_preview_enabled", "false");
         ok(StorySceneAnchorConfig.parse(p).count() == 0);
         p.setProperty("visual_preview_enabled", "true");
