@@ -814,6 +814,33 @@ public final class StoryModule {
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
     }
 
+    /**
+     * Non-mutating RCT/Cobblemon compatibility check. Confirms binary
+     * signatures and authored rosters, NOT battle behavior in Minecraft.
+     */
+    private static int adminRuntimePreflight(ServerCommandSource source) {
+        try {
+            StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
+            var rosters = StoryBattleRosters.bundled();
+            int expected = StoryBattleSessionRouter.acceptedTrainers().size();
+            if (rosters.all().size() != expected)
+                throw new IllegalStateException("Story battle roster count mismatch");
+            for (String id : StoryBattleSessionRouter.acceptedTrainers().keySet()) {
+                if (rosters.find(id).isEmpty())
+                    throw new IllegalStateException("Missing story battle roster: " + id);
+            }
+            return message(source, "Module 02 class/API preflight passed: " + expected
+                + " authored battle rosters; " + StoryEvidenceEngine.definitions().size()
+                + " evidence markers; " + StoryWorldMarkerCatalog.finaleIds().size()
+                + " finale devices. This does NOT verify an actual RCT battle.");
+        } catch (IOException | ReflectiveOperationException | LinkageError | RuntimeException ex) {
+            LOGGER.error("Module 02 operator RCT runtime preflight failed", ex);
+            source.sendError(Text.literal("Module 02 runtime preflight FAILED: "
+                + safe(ex.getMessage()) + " (see server log)"));
+            return 0;
+        }
+    }
+
     private static int adminEncounters(ServerCommandSource source, ServerPlayerEntity target) {
         try {
             var profile = PrideCoreMod.progression(source.getServer())
@@ -1036,6 +1063,10 @@ public final class StoryModule {
         story.then(CommandManager.literal("validate")
             .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> validate(ctx.getSource())));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("runtime-preflight")
+                .executes(ctx -> adminRuntimePreflight(ctx.getSource()))));
         story.then(CommandManager.literal("native")
             .then(CommandManager.argument("npc", StringArgumentType.word())
                 .then(CommandManager.argument("choice", StringArgumentType.word())
