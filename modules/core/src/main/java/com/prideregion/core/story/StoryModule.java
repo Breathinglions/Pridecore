@@ -47,6 +47,7 @@ public final class StoryModule {
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
     private static final StoryCinematicTimeline CINEMATICS = new StoryCinematicTimeline();
+    private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
 
     private StoryModule() {}
 
@@ -285,6 +286,7 @@ public final class StoryModule {
     public static void start(MinecraftServer server) {
         liveServer = server;
         CINEMATICS.clear();
+        BATTLE_PHASES.clear();
         engine = null;
         battleProof = null;
         battleRouter = null;
@@ -359,6 +361,9 @@ public final class StoryModule {
                     public void cancelled(UUID battleId) {
                         server.execute(() -> nativeStoryBattleCancelled(server, battleId));
                     }
+                    public void fainted(UUID battleId, UUID pokemonId) {
+                        server.execute(() -> nativeStoryOpponentFainted(server, battleId, pokemonId));
+                    }
                 });
             engine = loaded;
             health = "active";
@@ -380,6 +385,7 @@ public final class StoryModule {
             finale = null;
             finaleStore = null;
             CINEMATICS.clear();
+            BATTLE_PHASES.clear();
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -389,6 +395,7 @@ public final class StoryModule {
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
             CINEMATICS.clear();
+            BATTLE_PHASES.clear();
             if (victoryListener != null) {
                 try { victoryListener.uninstall(); }
                 catch (ReflectiveOperationException ex) {
@@ -549,6 +556,14 @@ public final class StoryModule {
                 }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
+            try {
+                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                BATTLE_PHASES.register(battleId, player.getUuid(), encounterId,
+                    roster.team().size());
+            } catch (IOException | RuntimeException phaseSetupFailure) {
+                LOGGER.warn("Optional faint-based boss phase setup failed for {}",
+                    battleId, phaseSetupFailure);
+            }
             CINEMATICS.begin(player.getUuid(), encounterId);
             // Optional cinematic presentation must never unwind a confirmed
             // battle launch: after ownership confirmation the battle is live.
@@ -603,6 +618,7 @@ public final class StoryModule {
             launchLedger.owner(battleId).orElse(null);
         String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
         boolean result = battleRouter.ended(battleId, winnerId);
+        BATTLE_PHASES.finish(battleId);
         // Once the authoritative Cobblemon result arrives, stop any pending
         // battle-intro cues. Never overlay an ended battle with stale prompts.
         if (battleOwner != null) CINEMATICS.cancel(battleOwner);
@@ -666,12 +682,30 @@ public final class StoryModule {
         return result;
     }
 
+    /** Only the authoritative Cobblemon BATTLE_FAINTED adapter invokes this. */
+    private static void nativeStoryOpponentFainted(MinecraftServer server, UUID battleId,
+                                                   UUID pokemonId) {
+        if (liveServer != server || engine == null || launchLedger == null ||
+                !server.isOnThread()) return;
+        UUID owner = launchLedger.owner(battleId).orElse(null);
+        if (owner == null) return;
+        BATTLE_PHASES.opponentFainted(battleId, pokemonId).ifPresent(beat -> {
+            if (!beat.player().equals(owner)) return;
+            if (server.getPlayerManager().getPlayer(owner) == null) return;
+            // Only scene overlays advance; no HP, status or trainer AI changes.
+            CINEMATICS.cancel(owner);
+            CINEMATICS.begin(owner, beat.phase() == 1
+                ? "battle_phase_one" : "battle_phase_two");
+        });
+    }
+
     public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         if (launchLedger != null)
             launchLedger.owner(battleId).ifPresent(CINEMATICS::cancel);
         battleRouter.cancel(battleId);
+        BATTLE_PHASES.finish(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
     }
 
