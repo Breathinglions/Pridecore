@@ -1,6 +1,7 @@
 package com.prideregion.core.story;
 
 import java.util.Set;
+import java.util.Collection;
 
 /**
  * The only world tags an operator may bind through Module 02 setup commands.
@@ -53,6 +54,15 @@ public final class StoryWorldMarkerCatalog {
         if (existing == null || marker == null || !isStoryTag(marker)) return false;
         for (String tag : existing)
             if (isStoryTag(tag) && !tag.equals(marker)) return false;
+        return true;
+    }
+
+    /** One authored story role per physical entity prevents click-path collisions. */
+    public static boolean exclusiveStoryMarker(Collection<String> tags) {
+        if (tags == null) return false;
+        int count = 0;
+        for (String tag : tags)
+            if (isStoryTag(tag) && ++count > 1) return false;
         return true;
     }
 
