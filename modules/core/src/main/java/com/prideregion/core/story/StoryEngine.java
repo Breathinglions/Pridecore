@@ -37,6 +37,15 @@ public final class StoryEngine {
             externalFacts.apply(player), "Player markers unavailable"));
     }
 
+    /** Opens the right story chapter for a tagged, physical Cobblemon NPC. */
+    public synchronized Optional<Reply> beginBoundNpc(UUID playerId, String marker)
+            throws IOException {
+        Set<String> facts = progression.get(playerId).facts();
+        var chosen = StoryNpcDialogueResolver.resolve(story, marker, facts);
+        if (chosen.isEmpty()) return Optional.empty();
+        return Optional.of(begin(playerId, chosen.get()));
+    }
+
     public synchronized Reply begin(UUID playerId, String npcId) throws IOException {
         var npc = story.npcs().get(npcId);
         if (npc == null) throw new IllegalArgumentException("Unknown NPC: " + npcId);
