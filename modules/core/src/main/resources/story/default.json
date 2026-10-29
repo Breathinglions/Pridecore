@@ -468,7 +468,8 @@
       "id": "heat_technician",
       "name": "Technician Sol",
       "requires": [
-        "pride:rival_theory"
+        "pride:rival_theory",
+        "pride:rin_canyon_won"
       ],
       "completedFact": "pride:heat_anomaly",
       "start": "main",
@@ -911,7 +912,8 @@
       "id": "ghost_medium",
       "name": "Medium Ori",
       "requires": [
-        "pride:rival_ally"
+        "pride:rival_ally",
+        "pride:rin_summit_won"
       ],
       "completedFact": "pride:memory_truth",
       "start": "main",
@@ -1056,7 +1058,8 @@
       "id": "director_cael",
       "name": "Director Cael",
       "requires": [
-        "pride:sable_warning"
+        "pride:sable_warning",
+        "pride:sable_battle_won"
       ],
       "completedFact": "pride:cael_confronted",
       "start": "main",
@@ -1104,7 +1107,8 @@
       "name": "Captain Rowan",
       "requires": [
         "pride:cael_confronted",
-        "pride:clue_engine"
+        "pride:clue_engine",
+        "pride:cael_battle_won"
       ],
       "completedFact": "pride:crisis_intel_complete",
       "start": "main",
