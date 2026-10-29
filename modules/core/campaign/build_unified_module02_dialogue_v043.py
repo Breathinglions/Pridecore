@@ -233,8 +233,8 @@ def wire_configurable_onboarding(league: dict[str, bytes]) -> list[str]:
         "execute if entity @s[tag=trainer_guide_received] run ftbquests change_progress @s complete 38E1E086CB6ECE25",
         ""
     ]
-    league[theo_path] = ("\\n".join(theo)).encode("utf-8")
-    league[avery_path] = ("\\n".join(avery)).encode("utf-8")
+    league[theo_path] = ("\n".join(theo)).encode("utf-8")
+    league[avery_path] = ("\n".join(avery)).encode("utf-8")
     return [theo_path, avery_path]
 
 
