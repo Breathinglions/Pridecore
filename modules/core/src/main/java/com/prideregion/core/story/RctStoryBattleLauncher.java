@@ -109,6 +109,18 @@ public final class RctStoryBattleLauncher {
             Object cobbleBattle = state.getClass().getMethod("getBattle").invoke(state);
             UUID cobbleId = (UUID) cobbleBattle.getClass()
                 .getMethod("getBattleId").invoke(cobbleBattle);
+            UUID expectedPlayer = (UUID) serverPlayer.getClass()
+                .getMethod("getUuid").invoke(serverPlayer);
+            Object nativePlayers = cobbleBattle.getClass()
+                .getMethod("getPlayerUUIDs").invoke(cobbleBattle);
+            Set<UUID> actualPlayers = new HashSet<>();
+            for (Object nativeId : (Iterable<?>) nativePlayers) {
+                if (!(nativeId instanceof UUID playerId))
+                    throw new IllegalStateException("Invalid Cobblemon battle player UUID");
+                actualPlayers.add(playerId);
+            }
+            if (!actualPlayers.equals(Set.of(expectedPlayer)))
+                throw new IllegalStateException("Cobblemon battle contains unexpected players");
             if (!id.equals(cobbleId))
                 throw new IllegalStateException("RCT/Cobblemon battle ID mismatch");
             verified = true;
