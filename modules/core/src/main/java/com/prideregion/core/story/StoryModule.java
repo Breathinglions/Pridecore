@@ -36,6 +36,7 @@ public final class StoryModule {
     private static volatile StoryBattleProof battleProof;
     private static volatile StoryBattleSessionRouter battleRouter;
     private static volatile ResonanceFinaleController finale;
+    private static volatile ResonanceCheckpointStore finaleStore;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
 
@@ -57,14 +58,18 @@ public final class StoryModule {
                 try {
                     if (finale == null || liveServer != sp.getServer())
                         throw new IllegalStateException("Story finale is disabled");
+                    restoreFinale(sp.getUuid());
                     String marker = markers.getFirst();
                     if (marker.equals("pride_finale_core")) {
                         if (finale.snapshot(sp.getUuid()).phase() == ResonanceFinaleController.Phase.STABILIZE)
                             finale.stabilize(sp.getUuid());
+                        persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
+                        if (finaleStore != null) finaleStore.delete(sp.getUuid());
                     } else if (marker.startsWith("pride_finale_conduit_")) {
                         String direction = marker.substring("pride_finale_conduit_".length());
                         var state = finale.conduit(sp.getUuid(), direction);
+                        persistFinale(sp.getUuid());
                         sp.sendMessage(Text.literal("[Pride Region] Resonance conduits " +
                             state.conduits() + "/4; phase " + state.phase())
                             .formatted(Formatting.AQUA), false);
@@ -160,6 +165,7 @@ public final class StoryModule {
         battleProof = null;
         battleRouter = null;
         finale = null;
+        finaleStore = null;
         health = "disabled";
         configStatus = "unchecked";
         try {
@@ -197,6 +203,7 @@ public final class StoryModule {
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
             finale = new ResonanceFinaleController();
+            finaleStore = new ResonanceCheckpointStore(directory.resolve("finale_checkpoints"));
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
@@ -205,6 +212,7 @@ public final class StoryModule {
             battleProof = null;
             battleRouter = null;
             finale = null;
+            finaleStore = null;
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -215,6 +223,7 @@ public final class StoryModule {
         if (liveServer == server) {
             if (finale != null) finale.clear();
             finale = null;
+            finaleStore = null;
             if (battleRouter != null) battleRouter.clear();
             battleRouter = null;
             if (battleProof != null) battleProof.clear();
@@ -364,6 +373,7 @@ public final class StoryModule {
             if (engine != null) engine.cancel(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
             if (finale != null) finale.disconnect(target.getUuid());
+            if (finaleStore != null) finaleStore.delete(target.getUuid());
             LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
                 source.getName(), target.getUuid());
             return message(source, "Module 02 campaign reset for " +
@@ -417,11 +427,13 @@ public final class StoryModule {
             var profile = PrideCoreMod.progression(source.getServer())
                 .orElseThrow(() -> new IOException("Progression unavailable"))
                 .get(target.getUuid());
+            restoreFinale(target.getUuid());
             var state = finale.start(target.getUuid(),
                 profile.facts().contains("pride:cael_battle_won"),
                 profile.facts().contains("pride:clue_engine"));
             if (state.phase() == ResonanceFinaleController.Phase.LOCKED)
                 throw new IllegalStateException("Requires actual Cael victory and engine evidence");
+            persistFinale(target.getUuid());
             LOGGER.info("Operator {} started finale rehearsal for {}", source.getName(), target.getUuid());
             return message(source, "Finale phase for " + target.getName().getString() +
                 ": " + state.phase() + " (no story facts or rewards granted).");
@@ -451,6 +463,30 @@ public final class StoryModule {
                 .formatted(Formatting.GREEN), false);
         }
         return changed;
+    }
+
+    private static void persistFinale(UUID player) throws IOException {
+        if (finaleStore == null || finale == null)
+            throw new IOException("Finale checkpoint storage unavailable");
+        var checkpoint = finale.checkpoint(player);
+        if (checkpoint.isPresent()) finaleStore.save(checkpoint.get());
+    }
+
+    private static void restoreFinale(UUID player) throws IOException {
+        if (finaleStore == null || finale == null) return;
+        if (finale.checkpoint(player).isPresent()) return;
+        var saved = finaleStore.load(player);
+        if (saved.isEmpty()) return;
+        var progression = PrideCoreMod.progression(liveServer)
+            .orElseThrow(() -> new IOException("Progression unavailable"));
+        var facts = progression.get(player).facts();
+        if (!facts.contains("pride:cael_battle_won") ||
+                !facts.contains("pride:clue_engine"))
+            throw new IOException("Finale resume prerequisites missing");
+        try { finale.restore(saved.get()); }
+        catch (IllegalArgumentException ex) {
+            throw new IOException("Finale checkpoint invalid", ex);
+        }
     }
 
     private static Path configDir() {
