@@ -61,7 +61,6 @@ public final class StoryCampaignEndToEndTests {
         }
         service.grant(player, "pride:clue_engine");
         var controller = new ResonanceFinaleController();
-        var completion = new ResonanceFinaleCompletion(service, controller);
         check(controller.start(player, true, true).phase()
             == ResonanceFinaleController.Phase.CONDUITS);
         for (String cardinal : List.of("north","south","east","west")) {
@@ -90,6 +89,7 @@ public final class StoryCampaignEndToEndTests {
         }
         check(controller.snapshot(player).phase()
             == ResonanceFinaleController.Phase.STABILIZE);
+        var completion = new ResonanceFinaleCompletion(service, controller);
         check(!completion.completed(player));
         controller.stabilize(player);
         finaleStore.save(controller.checkpoint(player).orElseThrow());
