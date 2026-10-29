@@ -733,9 +733,12 @@ public final class StoryModule {
             boolean battleOccupied = launchLedger != null &&
                 (launchLedger.pending(player.getUuid()) || launchLedger.active(player.getUuid()));
             int won = 0;
+            int badges = StoryLeagueBadgeGate.count(player.getCommandTags());
+            var rosters = StoryBattleRosters.bundled();
             for (var encounter : StoryEncounterAvailability.ordered()) {
+                int minBadges = rosters.find(encounter.id()).orElseThrow().minBadges();
                 var state = StoryEncounterAvailability.status(encounter, facts,
-                    shieldPhase, battleOccupied);
+                    shieldPhase, battleOccupied, badges, minBadges);
                 if (state == StoryEncounterAvailability.Status.COMPLETE) won++;
                 source.sendFeedback(() -> Text.literal(" - " + encounter.id()
                     + ": " + state), false);
@@ -938,11 +941,15 @@ public final class StoryModule {
                 == ResonanceFinaleController.Phase.SHIELDS;
             boolean battleOccupied = launchLedger != null &&
                 (launchLedger.pending(target.getUuid()) || launchLedger.active(target.getUuid()));
+            int badges = StoryLeagueBadgeGate.count(target.getCommandTags());
+            var rosters = StoryBattleRosters.bundled();
             for (var entry : StoryEncounterAvailability.ordered()) {
+                int minBadges = rosters.find(entry.id()).orElseThrow().minBadges();
                 var status = StoryEncounterAvailability.status(entry, profile.facts(),
-                    shieldPhase, battleOccupied);
+                    shieldPhase, battleOccupied, badges, minBadges);
                 source.sendFeedback(() -> Text.literal(" - " + entry.id() + ": " + status +
-                    " [requires " + entry.requiredFact() + "]"), false);
+                    " [requires " + entry.requiredFact() + "; badges " + badges +
+                    "/" + minBadges + "]"), false);
             }
             return 1;
         } catch (IOException | RuntimeException ex) {
