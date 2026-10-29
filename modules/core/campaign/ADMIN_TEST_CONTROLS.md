@@ -17,3 +17,6 @@ Safeguards: no cheat win command is supplied; arbitrary player fact grants and s
 
 The finale controller is an internal, nonpersistent stage machine awaiting actual world-marker and defender hooks. Inspect/rehearsal is provided to assist operator testing during development and does not constitute a playable boss instance or proof of runtime validation. Use only a staging copy with `story_enabled=true` and a tested build.
 \n**Important for full onboarding replay:** This reset does not erase your existing Cobblemon starter, League badges, external Minecraft command tags, FTB quest data, or inventory. Reconciliation may recognize previously earned external milestones. For a genuine first-player experience, use an isolated staging player/profile with a backup; do not clear external production data.\n
+## Player-facing encounter checklist
+
+Players can run `/pridecore story encounters` to see all nine authenticated story battles marked `LOCKED`, `READY`, or `COMPLETE`, with their completion count. It only reads persisted story facts; it does not attempt to start an RCT match or modify badges, money, quests, Pokémon, or rewards. Players can also run `/pridecore story finale` for the Resonance Engine phase and next objective.
