@@ -34,7 +34,7 @@ public final class RctStoryBattleLauncher {
         Objects.requireNonNull(expectedPlayerId);
         Objects.requireNonNull(livingTrainer);
         Objects.requireNonNull(loader);
-        var roster = StoryBattleRosters.bundled().find(encounterId)
+        var roster = StoryBattleRosters.active().find(encounterId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
         // Minecraft class names are remapped in production; find constructor
         // parameter types from the installed RCT bytecode instead of guessing.

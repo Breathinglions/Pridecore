@@ -24,6 +24,16 @@ jobs:
         run: bash modules/core/qa/test-story.sh
       - name: Module 02 FTB chapter and localization regression tests
         run: python3 modules/core/qa/test_ftb_story_overlay.py
+      - name: Validate original RCT League balance override safety
+        run: python3 modules/core/qa/test_league_balance_overlay.py
+      - name: Validate native Cobblemon text-only override generator
+        run: python3 modules/core/qa/test_native_dialogue_text_overlay.py
+      - name: Check configurable native Theo/Avery reward migration
+        run: python3 modules/core/qa/test_configurable_onboarding.py
+      - name: Verify unified Hearthleaf native dialogue safety
+        run: python3 modules/core/qa/test_unified_onboarding_dialogue.py
+      - name: Verify optional private-scene wire contract
+        run: python3 modules/core/qa/test_private_scene_wire.py
       - name: Validate authored Module 02 encounter rosters
         run: python3 modules/core/qa/test_story_battle_rosters.py
       - name: Compile, test config upgrades and remap Fabric mod
@@ -51,6 +61,10 @@ jobs:
             modules/core/build/libs/pride-core-0.4.3-rc1.jar
             modules/core/build/PrideStoryNative_0.3.5-rc1.zip
             modules/core/campaign/build_native_overlay.py
+            modules/core/campaign/build_unified_module02_dialogue_v043.py
+            modules/core/campaign/build_native_dialogue_text_overlay.py
+            modules/core/campaign/build_league_balance_overlay.py
+            modules/core/campaign/config_examples/onboarding_rewards.example.json
             modules/core/campaign/acts.json
             modules/core/build/PrideStoryFTB_0.3.5-rc1.zip
             modules/core/campaign/build_ftb_story_chapters.py

@@ -56,6 +56,9 @@ public final class StoryModule {
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
     private static final StoryBattleResultRetryQueue BATTLE_RETRIES = new StoryBattleResultRetryQueue();
     private static final StoryDialogueAnchorLedger DIALOGUE_ANCHORS = new StoryDialogueAnchorLedger();
+    // Disabled by default. Only OP4 staging previews may initiate a scene until
+    // the verified native Cobblemon NPC + owner-only renderer adapter exists.
+    private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
 
     private StoryModule() {}
 
@@ -244,9 +247,13 @@ public final class StoryModule {
                     return ActionResult.SUCCESS;
                 }
             }
-            // Real story-only Cobblemon NPCs open our chapter-appropriate
-            // dialogue. Existing native starter/registration/kit/Gym NPCs
-            // retain their own Cobblemon GUIs and original reward services.
+            // Story-only real Cobblemon NPCs already own a full native
+            // pride_story:<npc> dialogue resource inside the unified JAR.
+            // Never consume these clicks or print a second chat transcript:
+            // Cobblemon must show its overlay and invoke the protected
+            // /pridecore story native <npc> <choice> action from that GUI.
+            // The Java nativeChoice handler independently validates physical
+            // NPC proximity, world permissions, story facts and prerequisites.
             if ("cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(entity.getType()).toString())) {
                 StoryEngine running = liveServer == sp.getServer() ? engine : null;
                 if (running == null) return ActionResult.PASS;
@@ -258,28 +265,11 @@ public final class StoryModule {
                 if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
-                try {
-                    var opened = running.beginBoundNpc(sp.getUuid(), nativeTags.getFirst());
-                    if (opened.isEmpty()) {
-                        running.cancel(sp.getUuid());
-                        DIALOGUE_ANCHORS.clear(sp.getUuid());
-                        sp.sendMessage(Text.literal(
-                            "[Pride Region] There is more to discover before this story unfolds.")
-                            .formatted(Formatting.GRAY), false);
-                        return ActionResult.SUCCESS;
-                    }
-                    DIALOGUE_ANCHORS.bind(sp.getUuid(), entity.getUuid(), nativeTags.getFirst(),
-                        sp.getWorld().getRegistryKey().getValue().toString());
-                    show(sp, opened.get());
-                } catch (IOException | RuntimeException storyError) {
-                    running.cancel(sp.getUuid());
-                    DIALOGUE_ANCHORS.clear(sp.getUuid());
-                    LOGGER.warn("Could not open bound story NPC for {}", sp.getUuid(), storyError);
-                    sp.sendMessage(Text.literal(
-                        "[Pride Region] This conversation cannot begin right now.")
-                        .formatted(Formatting.YELLOW), false);
-                }
-                return ActionResult.SUCCESS;
+                // Clear stale prototype chat sessions without changing facts;
+                // the native overlay owns the actual dialogue state.
+                running.cancel(sp.getUuid());
+                DIALOGUE_ANCHORS.clear(sp.getUuid());
+                return ActionResult.PASS;
             }
             if (entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
@@ -362,12 +352,14 @@ public final class StoryModule {
                     if (viewer.getWorld() instanceof ServerWorld fxWorld) {
                         // Short vanilla audio sting on each authenticated scene
                         // entrance. No client-only sound mod is required.
-                        if (scene.cue().tick() == 0)
+                        var presentation = StoryPresentationConfig.current();
+                        if (scene.cue().tick() == 0 && presentation.enabled() && presentation.sounds())
                             fxWorld.playSound(null, viewer.getBlockPos(),
                                 scene.encounter().startsWith("finale_")
                                     ? SoundEvents.BLOCK_BEACON_ACTIVATE
                                     : SoundEvents.BLOCK_BEACON_DEACTIVATE,
-                                SoundCategory.PLAYERS, 0.55F, 0.85F);
+                                SoundCategory.PLAYERS, presentation.soundVolume(),
+                                presentation.soundPitch());
                         var fallback = scene.cue().effectKey().equals("battle.electric")
                             || scene.cue().effectKey().equals("finale.shield")
                             ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.ENCHANT;
@@ -380,9 +372,62 @@ public final class StoryModule {
                         scene.player(), visualError);
                 }
             }
+            // Development rehearsal only: an OP4 operator starts each preview.
+            // Cues are delivered to the exact owner, never to nearby players.
+            // The real native GUI continuation is deliberately NOT executed.
+            // Check every owner each tick, including silent portions of a
+            // cutscene; no ghost projection may survive a world switch/logout.
+            PRIVATE_SCENES.reapInvalid(owner -> {
+                ServerPlayerEntity participant = server.getPlayerManager().getPlayer(owner);
+                return participant == null ? null
+                    : participant.getWorld().getRegistryKey().getValue().toString();
+            });
+            for (var cue : PRIVATE_SCENES.tick()) {
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(cue.owner());
+                if (viewer == null || !STORY_WORLDS.permits(
+                        viewer.getWorld().getRegistryKey().getValue().toString())) {
+                    PRIVATE_SCENES.cancel(cue.owner());
+                    continue;
+                }
+                if (PRIVATE_SCENES.active(cue.owner()).isEmpty()
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.ACTOR_REMOVE
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE)
+                    continue;
+                boolean hasVisualClient = false;
+                try {
+                    hasVisualClient = StorySceneVisualBridge.emit(viewer, cue);
+                } catch (RuntimeException packetError) {
+                    LOGGER.warn("Private scene visual cue failed for {}: {}",
+                        cue.owner(), packetError.toString());
+                }
+                final boolean renderedVisual = hasVisualClient;
+                switch (cue.kind()) {
+                    case DIALOGUE -> viewer.sendMessage(
+                        Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
+                            .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
+                    case ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE -> {
+                        if (!renderedVisual)
+                            viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
+                                + " at " + cue.anchor()).formatted(Formatting.GRAY), true);
+                    }
+                    case ACTOR_REMOVE ->
+                        viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
+                            .formatted(Formatting.GRAY), true);
+                    case OPEN_NATIVE_STARTER ->
+                        viewer.sendMessage(Text.literal(
+                            "[Scene preview] Original starter GUI would resume (not invoked).")
+                            .formatted(Formatting.GRAY), false);
+                    case RESUME_STORY_DIALOGUE ->
+                        viewer.sendMessage(Text.literal(
+                            "[Scene preview] Original NPC dialogue would resume (not invoked).")
+                            .formatted(Formatting.GRAY), false);
+                }
+            }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
+            PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             DIALOGUE_ANCHORS.clear(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
@@ -400,6 +445,9 @@ public final class StoryModule {
         liveServer = server;
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
+        StoryBattleRosters.clearConfig();
+        StoryPresentationConfig.reset();
+        PRIVATE_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
@@ -414,6 +462,15 @@ public final class StoryModule {
         try {
             Path directory = configDir();
             Files.createDirectories(directory);
+            try {
+                StorySceneVisualBridge.configure(directory.resolve("rin_scene_anchors.properties"));
+                if (StorySceneVisualBridge.enabledLayouts() > 0)
+                    LOGGER.info("Private Rin staging visual layouts: {}",
+                        StorySceneVisualBridge.enabledLayouts());
+            } catch (IOException visualProblem) {
+                StorySceneVisualBridge.disable();
+                LOGGER.warn("Rin scene visuals disabled; unsafe/unconfigured anchors", visualProblem);
+            }
             Path settings = directory.resolve("story.properties");
             if (Files.notExists(settings)) {
                 try {
@@ -426,6 +483,7 @@ public final class StoryModule {
             try (var input = Files.newInputStream(settings)) { props.load(input); }
             STORY_WORLDS = StoryDimensionGate.parse(
                 props.getProperty("story_allowed_dimensions", ""));
+            StoryPresentationConfig.load(directory);
             StoryEffects.reset();
             for (String key : StoryEffects.keys()) {
                 String configuredParticle = props.getProperty("effects." + key, "").trim();
@@ -452,8 +510,10 @@ public final class StoryModule {
                 ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
-            // Fail closed if the runtime cannot load all approved trainer teams.
-            StoryBattleRosters.bundled();
+            // External teams/text are loaded at startup; authenticated RCT
+            // launch and immutable badge/identity gates stay in Java.
+            StoryBattleRosters.loadConfig(directory);
+            StoryBattleRosters.active();
             StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
             if (!StoryBattleRuntimePreflight.supportsFaintEvents(
                     StoryModule.class.getClassLoader()))
@@ -506,6 +566,7 @@ public final class StoryModule {
             finale = null;
             finaleStore = null;
             CINEMATICS.clear();
+        PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
@@ -520,6 +581,7 @@ public final class StoryModule {
         if (liveServer == server) {
             STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
+        PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
@@ -541,6 +603,7 @@ public final class StoryModule {
             battleProof = null;
             engine = null;
             liveServer = null;
+            StorySceneVisualBridge.disable();
             health = "disabled";
             configStatus = "unchecked";
         }
@@ -628,7 +691,7 @@ public final class StoryModule {
         ServerPlayerEntity contender = server.getPlayerManager().getPlayer(player);
         if (contender == null || !STORY_WORLDS.permits(
                 contender.getWorld().getRegistryKey().getValue().toString())) return false;
-        var roster = StoryBattleRosters.bundled().find(encounterId)
+        var roster = StoryBattleRosters.active().find(encounterId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
         if (!StoryLeagueBadgeGate.allows(roster.minBadges(), contender.getCommandTags()))
             return false;
@@ -700,7 +763,7 @@ public final class StoryModule {
                 throw confirmationFailure;
             }
             try {
-                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
                 BATTLE_PHASES.register(battleId, player.getUuid(), encounterId,
                     roster.team().size());
             } catch (IOException | RuntimeException phaseSetupFailure) {
@@ -726,7 +789,7 @@ public final class StoryModule {
                             35, 0.9D, 1.0D, 0.9D, 0.06D);
                     }
                 }
-                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
                 player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
                     .formatted(Formatting.GOLD), false);
             } catch (IOException | RuntimeException presentationFailure) {
@@ -830,7 +893,7 @@ public final class StoryModule {
                 String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
-                        victoryLine = StoryBattleRosters.bundled()
+                        victoryLine = StoryBattleRosters.active()
                             .find(resolvedEncounter).map(StoryBattleRosters.Roster::win)
                             .orElse(victoryLine);
                 } catch (IOException | RuntimeException presentationError) {
@@ -901,7 +964,7 @@ public final class StoryModule {
                 (launchLedger.pending(player.getUuid()) || launchLedger.active(player.getUuid()));
             int won = 0;
             int badges = StoryLeagueBadgeGate.count(player.getCommandTags());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             for (var encounter : StoryEncounterAvailability.ordered()) {
                 int minBadges = rosters.find(encounter.id()).orElseThrow().minBadges();
                 var state = StoryEncounterAvailability.status(encounter, facts,
@@ -1120,7 +1183,7 @@ public final class StoryModule {
     private static int adminRuntimePreflight(ServerCommandSource source) {
         try {
             StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             int expected = StoryBattleSessionRouter.acceptedTrainers().size();
             if (rosters.all().size() != expected)
                 throw new IllegalStateException("Story battle roster count mismatch");
@@ -1153,7 +1216,7 @@ public final class StoryModule {
             boolean battleOccupied = launchLedger != null &&
                 (launchLedger.pending(target.getUuid()) || launchLedger.active(target.getUuid()));
             int badges = StoryLeagueBadgeGate.count(target.getCommandTags());
-            var rosters = StoryBattleRosters.bundled();
+            var rosters = StoryBattleRosters.active();
             for (var entry : StoryEncounterAvailability.ordered()) {
                 int minBadges = rosters.find(entry.id()).orElseThrow().minBadges();
                 var status = StoryEncounterAvailability.status(entry, profile.facts(),
@@ -1225,6 +1288,7 @@ public final class StoryModule {
             BATTLE_PHASES.cancelPlayer(target.getUuid());
             BATTLE_RETRIES.cancelPlayer(target.getUuid());
             CINEMATICS.cancel(target.getUuid());
+            PRIVATE_SCENES.cancel(target.getUuid());
             if (finale != null) finale.disconnect(target.getUuid());
             if (finaleStore != null) finaleStore.delete(target.getUuid());
             LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
@@ -1478,6 +1542,18 @@ public final class StoryModule {
             .then(CommandManager.literal("finale-start")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .executes(ctx -> adminFinaleStart(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player"))))));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("preview-rin")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .then(CommandManager.argument("scene", StringArgumentType.word())
+                        .executes(ctx -> previewRinScene(ctx.getSource(),
+                            EntityArgumentType.getPlayer(ctx, "player"),
+                            StringArgumentType.getString(ctx, "scene"))))))
+            .then(CommandManager.literal("cancel-rin-preview")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> cancelRinPreview(ctx.getSource(),
                         EntityArgumentType.getPlayer(ctx, "player"))))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
@@ -1767,6 +1843,52 @@ public final class StoryModule {
                 + safe(ex.getMessage())));
             return 0;
         }
+    }
+
+    /**
+     * OP4-only script rehearsal, isolated from native Sequoia and RCT NPCs.
+     * The actual starter/dialogue continuation is NEVER invoked in preview.
+     */
+    private static int previewRinScene(ServerCommandSource source,
+                                       ServerPlayerEntity target, String requested) {
+        try {
+            ready(source.getServer());
+            if (!source.getServer().isOnThread())
+                throw new IllegalStateException("Scene previews must run on server thread");
+            String dimension = target.getWorld().getRegistryKey().getValue().toString();
+            if (!STORY_WORLDS.permits(dimension))
+                throw new IllegalStateException("Scene preview forbidden outside staging world");
+            StoryPrivateSceneDirector.SceneId scene = switch (requested) {
+                case "lab" -> StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+                case "canyon" -> StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION;
+                case "summit" -> StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION;
+                default -> throw new IllegalArgumentException("Choose lab, canyon or summit");
+            };
+            var result = PRIVATE_SCENES.begin(target.getUuid(), dimension, scene);
+            if (!result.started()) return message(source,
+                "No new Rin preview started (session already active or preview capacity reached).");
+            return message(source, "Previewing " + requested + " Rin scene for "
+                + target.getName().getString() + ". No NPC, starter or story facts changed.");
+        } catch (RuntimeException ex) {
+            source.sendError(Text.literal("Rin preview refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    private static int cancelRinPreview(ServerCommandSource source,
+                                        ServerPlayerEntity target) {
+        var removed = PRIVATE_SCENES.cancel(target.getUuid());
+        removed.ifPresent(cue -> {
+            try { StorySceneVisualBridge.emit(target, cue); }
+            catch (RuntimeException packetError) {
+                LOGGER.warn("Could not send private scene removal for {}: {}",
+                    target.getUuid(), packetError.toString());
+            }
+        });
+        boolean cancelled = removed.isPresent();
+        return message(source, cancelled
+            ? "Rin preview stopped for " + target.getName().getString()
+            : "No Rin preview active for " + target.getName().getString());
     }
 
     /** Explicit operator test harness; no remote unprivileged NPC interaction. */

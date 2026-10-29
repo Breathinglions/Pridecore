@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "theo_registration": {
+    "items": [
+      {
+        "id": "rctmod:trainer_card",
+        "count": 1
+      },
+      {
+        "id": "knowlogy:knowlogy_book",
+        "count": 1
+      }
+    ]
+  },
+  "avery_field_kit": {
+    "items": [
+      {
+        "id": "cobblemon:poke_ball",
+        "count": 10
+      },
+      {
+        "id": "minecraft:bread",
+        "count": 8
+      }
+    ]
+  }
+}

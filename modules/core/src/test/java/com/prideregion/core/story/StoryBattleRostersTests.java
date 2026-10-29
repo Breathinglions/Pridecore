@@ -36,6 +36,33 @@ public final class StoryBattleRostersTests {
         rejected(authored.replace("\"chapter\"", "\"mobWave\": true, \"chapter\""));
         rejected(authored.replace("\"species\"", "\"meleeAttack\": 10, \"species\""));
         rejected(authored.replace("\"team\"", "\"minecraftBossPhase\": true, \"team\""));
+
+        // Config edits may change battle content, never the original badge gates.
+        java.nio.file.Path staging = java.nio.file.Files.createTempDirectory("pride-rosters");
+        try {
+            StoryBattleRosters.loadConfig(staging);
+            check(StoryBattleRosters.active().all().size() == 9);
+            java.nio.file.Path rosterFile = staging.resolve("story_battles.json");
+            String adjusted = java.nio.file.Files.readString(rosterFile)
+                .replace("\"level\": 7", "\"level\": 8");
+            // A harmless unchanged/default config always parses.
+            java.nio.file.Files.writeString(rosterFile, authored);
+            StoryBattleRosters.loadConfig(staging);
+            check(StoryBattleRosters.active().all().size() == 9);
+            java.nio.file.Files.writeString(rosterFile,
+                authored.replace("\"minBadges\": 2", "\"minBadges\": 0"));
+            try {
+                StoryBattleRosters.loadConfig(staging);
+                throw new AssertionError("Badge gate downgrade was accepted");
+            } catch (java.io.IOException expected) {
+                try { StoryBattleRosters.active(); throw new AssertionError("Invalid roster remained active"); }
+                catch (java.io.IOException correct) { /* fail closed */ }
+            }
+        } finally {
+            StoryBattleRosters.clearConfig();
+            java.nio.file.Files.deleteIfExists(staging.resolve("story_battles.json"));
+            java.nio.file.Files.deleteIfExists(staging);
+        }
         System.out.println("PASS: story battle roster loading and schema checks");
     }
 }

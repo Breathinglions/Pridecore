@@ -1,0 +1,36 @@
+name: Build Pride Scenes Client Staging Preview
+on:
+  push:
+    branches: ['feature/pridecore-module02-private-rin-scenes']
+    paths: ['modules/client/**', '.github/workflows/build-pride-scenes-client.yml']
+  pull_request:
+    paths: ['modules/client/**', '.github/workflows/build-pride-scenes-client.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.12.1' }
+      - name: Verify optional private-scene wire contract
+        run: python3 modules/core/qa/test_private_scene_wire.py
+      - name: Compile optional Fabric client preview JAR
+        working-directory: modules/client
+        run: gradle --no-daemon clean build
+      - name: Validate client entrypoint and protocol class
+        run: |
+          test -s modules/client/build/libs/pride-scenes-client-0.1.0-preview1.jar
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview1.jar | grep -Fx fabric.mod.json
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview1.jar | grep -Fx com/prideregion/scenes/client/RinPreviewProjection.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview1.jar | grep -Fx com/prideregion/scenes/client/ClientSceneVisualPayload.class
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pride-Scenes-Client-Staging-Fabric-1.21.1
+          path: modules/client/build/libs/pride-scenes-client-0.1.0-preview1.jar
+          if-no-files-found: error
