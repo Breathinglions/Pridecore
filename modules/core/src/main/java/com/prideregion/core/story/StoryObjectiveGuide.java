@@ -11,40 +11,40 @@ public final class StoryObjectiveGuide {
     private StoryObjectiveGuide() {}
 
     private static final Map<String, String> NEXT = Map.ofEntries(
-        Map.entry("pride:unstarted", "Speak with Mom at home in Hearthleaf to begin your journey."),
-        Map.entry("pride:visit_sequoia", "Visit Professor Sequoia at the Hearthleaf Pokémon Lab. Choose a starter if you have not already."),
-        Map.entry("pride:trainer_registration", "Register with Technician Theo at the Pokémon Lab to receive your Trainer Card and Poképedia."),
-        Map.entry("pride:field_orientation", "Talk to Avery at the Pokémon Lab and collect your one-time field kit."),
-        Map.entry("pride:route1_orientation", "Explore Route 1, catch a wild Pokémon and defeat Rin in the scripted rival battle. Then report to Ranger Mira."),
-        Map.entry("pride:verdant_approach", "Head toward Verdant Gym. Speak with Thorn and prepare for the Grass-type challenge."),
-        Map.entry("pride:verdant_gym_intro", "Defeat Thorn in the official Verdant Gym battle to earn the Verdant Badge. Then see Warden Elowen."),
-        Map.entry("pride:verdant_victory", "Verdant Gym cleared! Speak with Warden Elowen in Verdant Forest and investigate the unusual Resonance disturbances."),
-        Map.entry("pride:rival_introduced", "Defeat Rin in the Route 1 rival battle before reporting to Ranger Mira and progressing to Verdant Gym."),
-        Map.entry("pride:forest_investigation", "Follow the forest disturbance with Warden Elowen. Then investigate the mine with Lyra after Rook's Gym."),
-        Map.entry("pride:rock_investigation", "Ask Miner Lyra about the missing survey records and the suspected Eclipse trail."),
-        Map.entry("pride:eclipse_detected", "Meet Rin at the canyon, discuss Team Eclipse, and defeat him in the scripted rematch before continuing."),
-        Map.entry("pride:rival_debate", "Win Rin's canyon battle, then investigate the foundry district after Ashen's Fire Gym."),
-        Map.entry("pride:fire_district", "Speak with Researcher Vela at Meridian Institute about the heat anomaly."),
-        Map.entry("pride:institute_introduction", "Visit Keeper Neris and follow the waterway evidence after Kai's Water Gym."),
-        Map.entry("pride:tidal_investigation", "Report the unusual waterway pulse to Captain Rowan of the Pride Rangers."),
-        Map.entry("pride:ranger_investigation", "Talk to Engineer Quill about the hidden power circuit after Vega's Electric Gym."),
-        Map.entry("pride:powergrid_reveal", "Meet Aide Iris and ask about Meridian's missing risk reports."),
-        Map.entry("pride:meridian_records", "Consult Historian Toren about the ancient Resonance seals after Draven's Dragon Gym."),
-        Map.entry("pride:dragon_lore", "Find Archivist Sera and review the frozen records after Freya's Ice Gym."),
-        Map.entry("pride:ice_research", "Meet Rin at the summit and defeat him in the scripted rival battle before investigating the Ghost memories."),
-        Map.entry("pride:rival_reunited", "Defeat Rin at the summit, then speak with Medium Ori after Nyx's Ghost Gym."),
-        Map.entry("pride:ghost_memories", "Find the Eclipse Lieutenant and win the scripted battle before confronting the Eclipse operative."),
-        Map.entry("pride:eclipse_infiltration", "Defeat the Eclipse Lieutenant, confront Sable, and win her scripted boss battle."),
-        Map.entry("pride:sable_confrontation", "Defeat Sable, confront Director Cael at Meridian Institute and win his scripted boss battle."),
-        Map.entry("pride:engine_confrontation", "Defeat Director Cael, examine the engine diagnostics and report to Captain Rowan."),
-        Map.entry("pride:crisis_briefed", "Activate all four engine conduits, defeat the three shield defenders and stabilize the Resonance core before visiting the League Guide."),
-        Map.entry("pride:victory_road_briefed", "Complete the official Pokémon League and defeat Champion Magnus, then visit the Hall of Fame Keeper."),
-        Map.entry("pride:champion_epilogue", "Your Championship chapter is complete. Check the Quest Book for postgame and Legendary Expeditions.")
+        Map.entry("pride:unstarted", "Mom is waiting at home in Hearthleaf. Today feels like the beginning of something important."),
+        Map.entry("pride:visit_sequoia", "Professor Sequoia has news for you at the Hearthleaf laboratory."),
+        Map.entry("pride:trainer_registration", "Technician Theo has prepared your Trainer Card and Poképedia at the laboratory."),
+        Map.entry("pride:field_orientation", "Avery is waiting at the laboratory with a few things for the road."),
+        Map.entry("pride:route1_orientation", "Rin is somewhere along Route 1. Ranger Mira has also noticed an eerie glow near the trees."),
+        Map.entry("pride:verdant_approach", "Beyond Route 1, Thorn awaits at Verdant Gym. Something is stirring in the nearby forest."),
+        Map.entry("pride:verdant_gym_intro", "Thorn is waiting at Verdant Gym. Warden Elowen needs help beyond the forest gates."),
+        Map.entry("pride:verdant_victory", "Warden Elowen has discovered strange fragments in Verdant Forest."),
+        Map.entry("pride:rival_introduced", "Rin has been looking for you on Route 1. Ranger Mira waits farther along the trail."),
+        Map.entry("pride:forest_investigation", "Warden Elowen has more to show you in the forest. Miner Lyra is gathering reports near Rook's mountain."),
+        Map.entry("pride:rock_investigation", "Miner Lyra has found something missing from the old mine surveys."),
+        Map.entry("pride:eclipse_detected", "Rin has followed the same rumors to the canyon. Neither of you has the whole story yet."),
+        Map.entry("pride:rival_debate", "The canyon meeting has raised more questions. The foundry district may hold the next clue."),
+        Map.entry("pride:fire_district", "Researcher Vela at Meridian Institute has heard troubling reports from the foundry."),
+        Map.entry("pride:institute_introduction", "Keeper Neris has found an unusual signal in the waterways near Kai's city."),
+        Map.entry("pride:tidal_investigation", "Captain Rowan of the Pride Rangers is waiting for news from the river."),
+        Map.entry("pride:ranger_investigation", "Engineer Quill is investigating a hidden circuit beneath Vega's power station."),
+        Map.entry("pride:powergrid_reveal", "Aide Iris knows more than she can say about Meridian's missing risk reports."),
+        Map.entry("pride:meridian_records", "Historian Toren has uncovered an old oath concerning the Resonance seals."),
+        Map.entry("pride:dragon_lore", "Archivist Sera may know why the earliest warning was hidden beneath the ice."),
+        Map.entry("pride:ice_research", "Rin is waiting at the summit. The road ahead feels different this time."),
+        Map.entry("pride:rival_reunited", "The summit has changed everything. Medium Ori has heard echoes near Nyx's old sanctuary."),
+        Map.entry("pride:ghost_memories", "An Eclipse Lieutenant stands between you and the truth about the operation."),
+        Map.entry("pride:eclipse_infiltration", "Sable is waiting beyond the Eclipse outpost. She knows why Meridian hid the reports."),
+        Map.entry("pride:sable_confrontation", "Sable's account points toward Director Cael at Meridian Institute."),
+        Map.entry("pride:engine_confrontation", "Director Cael has seen the evidence. Captain Rowan is gathering the Rangers for what comes next."),
+        Map.entry("pride:crisis_briefed", "The Resonance Engine is unstable. Four conduits and three ancient seals surround its restless core."),
+        Map.entry("pride:victory_road_briefed", "Victory Road leads toward Champion Magnus and the final chapter of your League journey."),
+        Map.entry("pride:champion_epilogue", "Your name is in the Hall of Fame. The region still holds stories no one has told.")
     );
 
     public static String forStage(String stage) {
         return NEXT.getOrDefault(stage,
-            "Open the FTB Quest Book and check your current main-story quest.");
+            "Your journey continues. Someone nearby may know what comes next.");
     }
 
     public static boolean hasStage(String stage) {
