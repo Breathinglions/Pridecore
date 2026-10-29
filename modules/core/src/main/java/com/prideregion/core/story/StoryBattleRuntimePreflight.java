@@ -34,6 +34,7 @@ public final class StoryBattleRuntimePreflight {
         Class<?> events = Class.forName(
             "com.cobblemon.mod.common.api.events.CobblemonEvents", false, loader);
         events.getField("BATTLE_VICTORY");
+        events.getField("BATTLE_FAINTED");
         // Verify the exact callback and resolved result shape, not just the
         // presence of an event constant.
         Class<?> victory = Class.forName(
@@ -49,6 +50,15 @@ public final class StoryBattleRuntimePreflight {
         battle.getMethod("getBattleId");
         battle.getMethod("getPlayerUUIDs");
         actor.getMethod("getUuid");
+        actor.getMethod("getPlayerUUIDs");
+        Class<?> faint = Class.forName(
+            "com.cobblemon.mod.common.api.events.battles.BattleFaintedEvent", false, loader);
+        Class<?> battlePokemon = Class.forName(
+            "com.cobblemon.mod.common.battles.pokemon.BattlePokemon", false, loader);
+        faint.getMethod("getBattle");
+        faint.getMethod("getKilled");
+        battlePokemon.getMethod("getActor");
+        battlePokemon.getMethod("getUuid");
         // Verified against Cobblemon 1.8.1: the player actor UUID is the
         // player UUID, not an arbitrary opponent or temporary battle ID.
         Class<?> playerActor = Class.forName(
