@@ -28,6 +28,8 @@ public final class StoryBattleSessionRouterTests {
             check(router.started(start));
             check(router.started(start));
             check(!router.started(new StoryBattleSessionRouter.NativeStart(
+                battleId, player, battle.id(), "pride_story:forged")));
+            check(!router.started(new StoryBattleSessionRouter.NativeStart(
                 battleId, other, battle.id(), trainer)));
             check(!router.ended(battleId, other));
             check(!service.get(player).facts().contains(battle.earnedFact()));
