@@ -26,9 +26,17 @@ An NPC binding requires a Cobblemon NPC of type `cobblemon:npc`. A battle bindin
 
 ```mcfunction
 /pridecore story admin audit-markers
+/pridecore story admin audit-finale
 /pridecore story admin unbind @e[sort=nearest,limit=1,type=minecraft:interaction,distance=..5]
 ```
 
 The audit checks loaded entities within a 32-block area of the operator, identifies invalid story marker combinations or wrong entity types, and prints a count. It is **local only** and does not imply that an entire multiworld has been audited. The unbind command strips only Module 02 story NPC/battle/clue/finale tags from the selected entity, leaving unrelated tags intact. Always select precisely one entity.
 
 These tools create authenticated *world marker identities*, not proof that the underlying RCT battle launcher works. The next milestone is in-game testing with the actual installed Cobblemon 1.8.1/RCT versions, once the module is ready for testing.
+
+
+## Finale arena placement audit
+
+Stand near the constructed Resonance Engine and run `/pridecore story admin audit-finale`. The command checks a **64-block local area** of loaded entities for all eight required unique physical markers: four cardinal conduits, the core, and the three Alpha/Beta/Gamma shield battle actors. It reports missing markers, duplicated devices, and markers attached to the wrong entity type. It never changes the world or player records.
+
+A "MARKER SET COMPLETE" message confirms only local prop setup—not RCT compatibility, NPC AI, battle launches, correct quest prerequisites, cinematic timing, or readiness for production. If the arena extends more than 64 blocks from the operator, reposition and audit from its center. The audit does not scan unloaded chunks or other dimensions.
