@@ -15,13 +15,16 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleProof.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleSessionRouter.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryObjectiveGuide.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java" \
- "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleProofTests.java"
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleProofTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleSessionRouterTests.java"
 java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleProofTests
+java -cp "$TMP" com.prideregion.core.story.StoryBattleSessionRouterTests
 python3 - "$ROOT/src/main/resources/story/default.json" <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
