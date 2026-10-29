@@ -432,6 +432,9 @@ public final class StoryEngineTests {
         check(!store.get(bossPlayer).facts().contains("pride:sable_warning"),
             "Dialogue cannot substitute for authenticated Sable victory");
         store.grant(bossPlayer, "pride:sable_battle_won");
+        rejected(() -> sableStory.choose(bossPlayer, "continue"));
+        check(sableStory.begin(bossPlayer, "sable").text().contains("Face me"),
+            "Verified battle requires a fresh NPC conversation");
         check(sableStory.choose(bossPlayer, "continue").options().isEmpty(),
             "Verified Sable victory unlocks the canonical story checkpoint");
         check(!store.get(bystander).facts().contains("pride:sable_warning"),
