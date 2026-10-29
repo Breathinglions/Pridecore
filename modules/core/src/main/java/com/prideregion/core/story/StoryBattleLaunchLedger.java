@@ -41,6 +41,8 @@ public final class StoryBattleLaunchLedger {
 
     public synchronized boolean pending(UUID player) { return pending.containsKey(player); }
 
+    public synchronized boolean active(UUID player) { return battles.containsValue(player); }
+
     public synchronized void cancelPlayer(UUID player) {
         pending.remove(player);
         battles.entrySet().removeIf(e -> e.getValue().equals(player));
