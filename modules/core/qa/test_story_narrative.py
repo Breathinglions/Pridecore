@@ -65,6 +65,20 @@ for location, text in texts:
         assert not regex.search(text), (
             f"In-world story sounds like combat instructions at {location}: {text}"
         )
+# Debug encounter states belong to operators; actual player-facing guidance
+# remains in the authored chapter and finale prose.
+module = (java / "StoryModule.java").read_text(encoding="utf-8")
+assert ('CommandManager.literal("encounters")\n'
+        '            .requires(source -> source.hasPermissionLevel(4))') in module, (
+            "Exposing raw combat gates to normal players breaks story-first presentation"
+        )
+for phrase in [
+    "Defeat Director Cael and investigate the engine first",
+    "Defeat the remaining shield defenders",
+    "Story battle victory recorded.",
+    "Disable all three shield defenders before stabilizing the core"
+]:
+    assert phrase not in module, f"Old explicit combat instruction returned: {phrase}"
 manager = (java / "StoryConfigManager.java").read_text(encoding="utf-8")
 assert "legacyStockDialogue()" in manager
 assert 'existing.get("text").equals(original.get("text"))' in manager
