@@ -78,9 +78,14 @@ public final class CobblemonStoryVictoryListener {
     }
 
     public void uninstall() throws ReflectiveOperationException {
-        Class<?> subscriptionType = Class.forName(
-            "com.cobblemon.mod.common.api.reactive.ObservableSubscription");
-        observable.getClass().getMethod("unsubscribe", subscriptionType)
-            .invoke(observable, subscription);
+        // Resolve the actual subscription interface from the observable, not
+        // the system class loader (Fabric may use a separate Knot loader).
+        Method unsubscribe = Arrays.stream(observable.getClass().getMethods())
+            .filter(m -> m.getName().equals("unsubscribe")
+                && m.getParameterCount() == 1
+                && m.getParameterTypes()[0].isInstance(subscription))
+            .findFirst().orElseThrow(() -> new NoSuchMethodException(
+                "Cobblemon subscription cannot be unregistered"));
+        unsubscribe.invoke(observable, subscription);
     }
 }
