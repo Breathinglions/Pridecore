@@ -59,6 +59,10 @@ public final class StoryModule {
                 return ActionResult.PASS;
             if (!STORY_WORLDS.permits(sp.getWorld().getRegistryKey().getValue().toString()))
                 return ActionResult.PASS;
+            // A manually double-tagged prop must not bypass dialogue, clue or
+            // boss progression by being routed to whichever handler runs first.
+            if (!StoryWorldMarkerCatalog.exclusiveStoryMarker(entity.getCommandTags()))
+                return ActionResult.FAIL;
             // Physical finale devices are explicitly tagged interaction entities.
             // No world coordinates are guessed; builders place each device.
             if (entity.getType() == EntityType.INTERACTION &&
@@ -1438,7 +1442,8 @@ public final class StoryModule {
             for (Entity candidate : player.getWorld().getOtherEntities(player,
                     player.getBoundingBox().expand(5.0),
                     e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
-                        && e.getCommandTags().contains(nativeTag))) {
+                        && e.getCommandTags().contains(nativeTag)
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))) {
                 if (candidate.squaredDistanceTo(player) <= 36.0D) {
                     nearby = true;
                     break;
