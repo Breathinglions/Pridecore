@@ -455,9 +455,16 @@ public final class StoryModule {
                 }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
-            var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
-            player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
-                .formatted(Formatting.GOLD), false);
+            // Presentation must never turn an already authenticated battle
+            // into a reported launch failure or leave its ticket orphaned.
+            try {
+                var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+                player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
+                    .formatted(Formatting.GOLD), false);
+            } catch (RuntimeException presentationFailure) {
+                LOGGER.warn("RCT battle {} launched but introduction could not display",
+                    battleId, presentationFailure);
+            }
             return Optional.of(battleId);
         } catch (IOException | ReflectiveOperationException | RuntimeException ex) {
             // Release failed reservations without discarding a previously
