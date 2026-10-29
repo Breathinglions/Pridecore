@@ -48,12 +48,6 @@ public final class StoryCinematicTimeline {
         new Cue(0, "RESONANCE ENGINE  |  STABILIZED", "finale.totem", 45),
         new Cue(28, "The crisis has been contained.", "finale.end_rod", 28),
         new Cue(65, "The path forward is yours.", "finale.totem", 18));
-    private static final List<Cue> BOSS_PHASE_ONE = List.of(
-        new Cue(0, "BOSS PHASE 2  |  PRESSURE RISING", "battle.electric", 30),
-        new Cue(24, "The opponent is changing tactics!", "battle.enchant", 18));
-    private static final List<Cue> BOSS_PHASE_TWO = List.of(
-        new Cue(0, "FINAL PHASE  |  ALL OR NOTHING", "battle.electric", 36),
-        new Cue(24, "Finish the battle!", "battle.enchant", 24));
     private static final List<Cue> LIEUTENANT = List.of(
         new Cue(0, "ECLIPSE  |  LIEUTENANT", "battle.electric", 26),
         new Cue(35, "The operation is compromised!", "battle.enchant", 14));
@@ -140,8 +134,6 @@ public final class StoryCinematicTimeline {
             case "finale_conduits_complete" -> CONDUITS_COMPLETE;
             case "finale_shields_complete" -> SHIELDS_COMPLETE;
             case "finale_stabilized" -> ENGINE_STABILIZED;
-            case "battle_phase_one" -> BOSS_PHASE_ONE;
-            case "battle_phase_two" -> BOSS_PHASE_TWO;
             default -> List.of();
         };
     }
