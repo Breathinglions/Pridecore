@@ -599,17 +599,16 @@ public final class StoryModule {
         try {
             UUID battleId = RctStoryBattleLauncher.launch(encounterId, player, trainer,
                 player.getUuid(), StoryModule.class.getClassLoader());
-            if (!confirmStoryBattleLaunch(server, player.getUuid(),
-                    trainer.getUuid(), battleId)) {
-                nativeStoryBattleCancelled(server, battleId);
-                try {
-                    if (!RctStoryBattleLauncher.abort(battleId,
-                            StoryModule.class.getClassLoader()))
-                        LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
-                } catch (ReflectiveOperationException abortError) {
-                    LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
-                }
-                throw new IOException("RCT battle launched without valid story ownership");
+            // Any post-launch handshake failure must abort the native match.
+            // Previously an IOException from arm()/profile read escaped while
+            // RCT kept fighting with no authenticated Pride Core ticket.
+            try {
+                if (!confirmStoryBattleLaunch(server, player.getUuid(),
+                        trainer.getUuid(), battleId))
+                    throw new IOException("RCT battle launched without valid story ownership");
+            } catch (IOException | RuntimeException confirmationFailure) {
+                abortUnconfirmedStoryBattle(server, battleId);
+                throw confirmationFailure;
             }
             try {
                 var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
@@ -654,6 +653,18 @@ public final class StoryModule {
                 cancelPendingStoryBattleLaunch(server, player.getUuid());
             if (ex instanceof IOException io) throw io;
             throw new IOException("RCT story battle launch failed", ex);
+        }
+    }
+
+    /** Failed ownership handshake must never leave an orphaned RCT fight. */
+    private static void abortUnconfirmedStoryBattle(MinecraftServer server, UUID battleId) {
+        nativeStoryBattleCancelled(server, battleId);
+        try {
+            if (!RctStoryBattleLauncher.abort(battleId,
+                    StoryModule.class.getClassLoader()))
+                LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
+        } catch (ReflectiveOperationException | RuntimeException abortError) {
+            LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
         }
     }
 
