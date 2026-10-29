@@ -14,6 +14,8 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
@@ -247,6 +249,14 @@ public final class StoryModule {
                     viewer.sendMessage(Text.literal(scene.cue().title())
                         .formatted(Formatting.GOLD), true);
                     if (viewer.getWorld() instanceof ServerWorld fxWorld) {
+                        // Short vanilla audio sting on each authenticated scene
+                        // entrance. No client-only sound mod is required.
+                        if (scene.cue().tick() == 0)
+                            fxWorld.playSound(null, viewer.getBlockPos(),
+                                scene.encounter().startsWith("finale_")
+                                    ? SoundEvents.BLOCK_BEACON_ACTIVATE
+                                    : SoundEvents.BLOCK_BEACON_DEACTIVATE,
+                                SoundCategory.PLAYERS, 0.55F, 0.85F);
                         var fallback = scene.cue().effectKey().equals("battle.electric")
                             || scene.cue().effectKey().equals("finale.shield")
                             ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.ENCHANT;
