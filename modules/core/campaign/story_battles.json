@@ -217,5 +217,7 @@
       "intro": "The Psychic-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
       "win": "The gamma shield disengages. The engine is becoming stable."
     }
-  ]
+  ],
+  "combatMode": "POKEMON_ONLY",
+  "battleFormat": "GEN_9_SINGLES"
 }
