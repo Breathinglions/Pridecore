@@ -25,6 +25,8 @@ timeline = (source / "StoryCinematicTimeline.java").read_text()
 # The sole storyline damage hook CANCELS physical damage to authenticated
 # story trainer actors. It must not damage players, Pokémon or unrelated mobs.
 assert "ServerLivingEntityEvents.ALLOW_DAMAGE.register" in module
+assert "AttackEntityCallback.EVENT.register" in module
+assert "ActionResult.FAIL : ActionResult.PASS" in module
 assert "StoryCombatPolicy.protectTrainer(" in module
 assert "return !protectedTrainer;" in module
 assert "StoryCombatPolicy.requiredMode" not in module or "Mode.HYBRID" not in module
