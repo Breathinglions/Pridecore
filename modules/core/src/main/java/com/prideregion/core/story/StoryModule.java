@@ -12,6 +12,8 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.particle.ParticleTypes;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
@@ -84,11 +86,27 @@ public final class StoryModule {
                             finale.stabilize(sp.getUuid());
                         persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
+                        if (sp.getWorld() instanceof ServerWorld fxWorld) {
+                            fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                                entity.getX(), entity.getY() + 1.0D, entity.getZ(),
+                                140, 1.5D, 1.5D, 1.5D, 0.09D);
+                            fxWorld.spawnParticles(ParticleTypes.TOTEM_OF_UNDYING,
+                                entity.getX(), entity.getY() + 1.0D, entity.getZ(),
+                                80, 1.2D, 1.3D, 1.2D, 0.05D);
+                        }
                         if (finaleStore != null) finaleStore.delete(sp.getUuid());
                     } else if (marker.startsWith("pride_finale_conduit_")) {
                         String direction = marker.substring("pride_finale_conduit_".length());
                         var state = finale.conduit(sp.getUuid(), direction);
                         persistFinale(sp.getUuid());
+                        if (sp.getWorld() instanceof ServerWorld fxWorld) {
+                            fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                                entity.getX(), entity.getY() + 0.6D, entity.getZ(),
+                                36, 0.65D, 0.8D, 0.65D, 0.055D);
+                            fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                                entity.getX(), entity.getY() + 0.6D, entity.getZ(),
+                                12, 0.45D, 0.6D, 0.45D, 0.02D);
+                        }
                         sp.sendMessage(Text.literal("[Pride Region] Resonance conduits " +
                             state.conduits() + "/4; phase " + state.phase())
                             .formatted(Formatting.AQUA), false);
