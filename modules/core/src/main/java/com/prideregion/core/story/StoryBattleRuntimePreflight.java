@@ -18,6 +18,7 @@ public final class StoryBattleRuntimePreflight {
         Class<?> api = Class.forName("com.gitlab.srcmc.rctapi.api.RCTApi", false, loader);
         api.getMethod("getInstance", String.class);
         api.getMethod("initInstance", String.class);
+        api.getMethod("getBattleManager");
         Class<?> manager = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleManager", false, loader);
         Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", false, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", false, loader);
@@ -48,6 +49,13 @@ public final class StoryBattleRuntimePreflight {
         battle.getMethod("getBattleId");
         battle.getMethod("getPlayerUUIDs");
         actor.getMethod("getUuid");
+        // Verified against Cobblemon 1.8.1: the player actor UUID is the
+        // player UUID, not an arbitrary opponent or temporary battle ID.
+        Class<?> playerActor = Class.forName(
+            "com.cobblemon.mod.common.battles.actor.PlayerBattleActor", false, loader);
+        if (!actor.isAssignableFrom(playerActor))
+            throw new NoSuchMethodException("PlayerBattleActor must extend BattleActor");
+        playerActor.getMethod("getPlayerUUIDs");
         Class<?> subscription = Class.forName(
             "com.cobblemon.mod.common.api.reactive.ObservableSubscription", false, loader);
         Class<?> observable = Class.forName(
@@ -55,15 +63,25 @@ public final class StoryBattleRuntimePreflight {
         observable.getMethod("subscribe", java.util.function.Consumer.class);
         observable.getMethod("unsubscribe", subscription);
         Class<?> npc = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerNPC", false, loader);
+        Class<?> trainerPlayer = Class.forName(
+            "com.gitlab.srcmc.rctapi.api.trainer.TrainerPlayer", false, loader);
+        if (Arrays.stream(trainerPlayer.getConstructors()).noneMatch(ctor ->
+                ctor.getParameterCount() == 1))
+            throw new NoSuchMethodException("RCT TrainerPlayer(server player) missing");
+        Class<?> battleAi = Class.forName(
+            "com.cobblemon.mod.common.api.battles.model.ai.BattleAI", false, loader);
         Class<?> bag = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerBag", false, loader);
         bag.getConstructor();
         Class<?> ai = Class.forName("com.gitlab.srcmc.rctapi.api.ai.RCTBattleAI", false, loader);
         ai.getConstructor();
+        if (!battleAi.isAssignableFrom(ai))
+            throw new NoSuchMethodException("RCTBattleAI must implement Cobblemon BattleAI");
         if (Arrays.stream(npc.getConstructors()).noneMatch(ctor ->
                 ctor.getParameterCount() == 5
                 && ctor.getParameterTypes()[0] == String.class
                 && ctor.getParameterTypes()[1] == Array.newInstance(pokemon, 0).getClass()
-                && ctor.getParameterTypes()[2] == bag))
+                && ctor.getParameterTypes()[2] == bag
+                && ctor.getParameterTypes()[3] == battleAi))
             throw new NoSuchMethodException("RCT TrainerNPC(String, Pokemon[], TrainerBag, BattleAI, LivingEntity)");
     }
 }
