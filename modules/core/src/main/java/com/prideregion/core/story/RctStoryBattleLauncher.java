@@ -1,6 +1,7 @@
 package com.prideregion.core.story;
 
 import java.lang.reflect.*;
+import java.io.IOException;
 import java.util.*;
 
 /**
@@ -13,7 +14,7 @@ public final class RctStoryBattleLauncher {
 
     public static UUID launch(String encounterId, Object serverPlayer,
                               Object livingTrainer, ClassLoader loader)
-            throws ReflectiveOperationException {
+            throws ReflectiveOperationException, IOException {
         Objects.requireNonNull(serverPlayer);
         Objects.requireNonNull(livingTrainer);
         Objects.requireNonNull(loader);
