@@ -39,14 +39,8 @@ public final class StoryBattleSessionRouterTests {
             check(!router.ended(battleId, player));
             UUID pending = UUID.randomUUID();
             // Once won, an authenticated encounter cannot be replayed.
-            boolean replayDenied = false;
-            try {
-                router.started(new StoryBattleSessionRouter.NativeStart(
-                    pending, player, battle.id(), trainer));
-            } catch (IllegalStateException expected) {
-                replayDenied = true;
-            }
-            check(replayDenied);
+            check(!router.started(new StoryBattleSessionRouter.NativeStart(
+                pending, player, battle.id(), trainer)));
             // Verify disconnect cleanup for a different, still-eligible player.
             service.grant(other, battle.requiredFact());
             check(router.started(new StoryBattleSessionRouter.NativeStart(
