@@ -46,21 +46,21 @@ public final class CobblemonStoryVictoryListener {
                     if (id instanceof UUID uuid) playerIds.add(uuid);
                 Object winners = event.getClass().getMethod("getWinners").invoke(event);
                 Object losers = event.getClass().getMethod("getLosers").invoke(event);
-                Set<UUID> playerWinners = new HashSet<>();
-                for (Object actor : (List<?>) winners) {
-                    UUID actorId = (UUID) actor.getClass().getMethod("getUuid").invoke(actor);
-                    if (playerIds.contains(actorId)) playerWinners.add(actorId);
-                }
-                // Reject ambiguous outcomes with missing or shared winner/loser actors.
-                if (!(losers instanceof List<?> losingActors) || losingActors.isEmpty()
-                        || ((List<?>) winners).isEmpty()) {
+                if (!(winners instanceof List<?> winningActors)
+                        || !(losers instanceof List<?> losingActors)) {
                     sink.cancelled(battleId);
                     return;
                 }
-                // Story fights are always one player versus NPC. A multi-player
-                // battle must never mint single-player campaign progression.
-                if (soloWinner(playerIds, playerWinners).isPresent())
-                    sink.victory(battleId, soloWinner(playerIds, playerWinners).orElseThrow());
+                Set<UUID> winningIds = new HashSet<>();
+                Set<UUID> losingIds = new HashSet<>();
+                for (Object actor : winningActors)
+                    winningIds.add((UUID) actor.getClass().getMethod("getUuid").invoke(actor));
+                for (Object actor : losingActors)
+                    losingIds.add((UUID) actor.getClass().getMethod("getUuid").invoke(actor));
+                // One real player on the winning side, one distinct NPC on the
+                // losing side. A player present in both sides is never eligible.
+                var credited = soloNpcVictory(playerIds, winningIds, losingIds);
+                if (credited.isPresent()) sink.victory(battleId, credited.get());
                 else sink.cancelled(battleId);
             } catch (ReflectiveOperationException | RuntimeException error) {
                 // Event subscribers must never crash the Cobblemon event bus.
@@ -122,6 +122,20 @@ public final class CobblemonStoryVictoryListener {
             return Optional.empty();
         UUID winner = winners.iterator().next();
         return participants.contains(winner) ? Optional.of(winner) : Optional.empty();
+    }
+
+    /** Strict pure-Java authorization for single-player RCT versus NPC. */
+    public static Optional<UUID> soloNpcVictory(Set<UUID> players,
+            Set<UUID> winningActors, Set<UUID> losingActors) {
+        if (players == null || winningActors == null || losingActors == null
+                || players.size() != 1 || winningActors.size() != 1
+                || losingActors.size() != 1) return Optional.empty();
+        UUID player = players.iterator().next();
+        UUID winner = winningActors.iterator().next();
+        UUID loser = losingActors.iterator().next();
+        return player != null && player.equals(winner)
+                && loser != null && !loser.equals(player)
+            ? Optional.of(player) : Optional.empty();
     }
 
     public void uninstall() throws ReflectiveOperationException {
