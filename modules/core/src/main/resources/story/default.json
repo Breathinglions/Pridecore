@@ -156,7 +156,8 @@
       "name": "Ranger Mira",
       "requires": [
         "pride:met_avery",
-        "pride:met_rin"
+        "pride:met_rin",
+        "pride:rin_route1_won"
       ],
       "completedFact": "pride:route1_briefed",
       "start": "hello",
