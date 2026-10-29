@@ -49,9 +49,9 @@ public final class CobblemonStoryVictoryListener {
                     sink.victory(battleId, playerWinners.iterator().next());
                 else sink.cancelled(battleId);
             } catch (ReflectiveOperationException | RuntimeException error) {
-                // Errors must never mint a story victory. The server adapter
-                // logs failures and expires unconfirmed battles at disconnect.
-                throw new IllegalStateException("Cobblemon story victory inspection failed", error);
+                // Event subscribers must never crash the Cobblemon event bus.
+                // Fail closed and let disconnect/cleanup revoke the ticket.
+                System.err.println("[PrideCore] Cobblemon victory inspection failed: " + error);
             }
         };
         Object subscription = observable.getClass().getMethod("subscribe", Consumer.class)
