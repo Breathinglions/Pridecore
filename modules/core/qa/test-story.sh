@@ -14,6 +14,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDefinition.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryCombatPolicy.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleProof.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleSessionRouter.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleLaunchLedger.java" \
@@ -35,6 +36,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryObjectiveGuide.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEngineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryCombatPolicyTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleProofTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleSessionRouterTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleLaunchLedgerTests.java" \
@@ -58,6 +60,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceCheckpointStoreTests.java"
 java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
+java -cp "$TMP" com.prideregion.core.story.StoryCombatPolicyTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleProofTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleSessionRouterTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleLaunchLedgerTests
