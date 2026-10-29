@@ -52,6 +52,8 @@ public final class StoryEffects {
     public static void emit(ServerWorld world, String key, ParticleEffect fallback,
                             double x, double y, double z, int count,
                             double spreadX, double spreadY, double spreadZ, double speed) {
+        count = StoryPresentationConfig.current().particles(count);
+        if (count <= 0) return; // Cosmetics never interfere with progression.
         ParticleEffect effect = fallback;
         String override = OVERRIDES.get(key);
         if (override != null && !FAILED_OVERRIDES.contains(key)) {
