@@ -106,6 +106,20 @@ public final class StoryConfigManager {
                 if (!contains(requirements, "pride:rin_route1_won"))
                     requirements.add("pride:rin_route1_won");
             }
+            // Existing servers retain custom dialogue but cannot skip
+            // verified native battles when upgrading older story templates.
+            String battleGate = switch (npcId) {
+                case "heat_technician" -> "pride:rin_canyon_won";
+                case "ghost_medium" -> "pride:rin_summit_won";
+                case "director_cael" -> "pride:sable_battle_won";
+                case "ranger_epilogue" -> "pride:cael_battle_won";
+                default -> null;
+            };
+            if (battleGate != null) {
+                JsonArray requirements = existingNpc.getAsJsonArray("requires");
+                if (!contains(requirements, battleGate))
+                    requirements.add(battleGate);
+            }
             JsonArray oldNodes = existingNpc.getAsJsonArray("nodes");
             for (JsonElement node : newerNpc.getAsJsonArray("nodes")) {
                 JsonObject proposed = node.getAsJsonObject();
