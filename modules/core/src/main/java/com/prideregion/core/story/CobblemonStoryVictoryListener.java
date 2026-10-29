@@ -33,10 +33,12 @@ public final class CobblemonStoryVictoryListener {
             "com.cobblemon.mod.common.api.events.CobblemonEvents", true, loader);
         Object observable = events.getField("BATTLE_VICTORY").get(null);
         Consumer<Object> consumer = event -> {
+            UUID registeredBattle = null;
             try {
                 Object battle = event.getClass().getMethod("getBattle").invoke(event);
                 UUID battleId = (UUID) battle.getClass().getMethod("getBattleId").invoke(battle);
                 if (!sink.isRegistered(battleId)) return;
+                registeredBattle = battleId;
                 if (Boolean.TRUE.equals(event.getClass().getMethod("getWasWildCapture").invoke(event))) {
                     sink.cancelled(battleId); return;
                 }
@@ -66,6 +68,15 @@ public final class CobblemonStoryVictoryListener {
                 // Event subscribers must never crash the Cobblemon event bus.
                 // Fail closed and let disconnect/cleanup revoke the ticket.
                 System.err.println("[PrideCore] Cobblemon victory inspection failed: " + error);
+                // A recognized RCT battle with malformed result metadata must
+                // not hold a story ticket forever waiting for another callback.
+                if (registeredBattle != null) {
+                    try { sink.cancelled(registeredBattle); }
+                    catch (RuntimeException cleanupError) {
+                        System.err.println("[PrideCore] Cannot retire invalid battle: "
+                            + cleanupError);
+                    }
+                }
             }
         };
         Object subscription = observable.getClass().getMethod("subscribe", Consumer.class)
