@@ -20,10 +20,9 @@ public final class RctStoryBattleLauncher {
         Objects.requireNonNull(loader);
         var roster = StoryBattleRosters.bundled().find(encounterId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
-        Class<?> playerType = Class.forName("net.minecraft.server.network.ServerPlayerEntity", true, loader);
-        Class<?> livingType = Class.forName("net.minecraft.entity.LivingEntity", true, loader);
-        if (!playerType.isInstance(serverPlayer) || !livingType.isInstance(livingTrainer))
-            throw new IllegalArgumentException("Invalid native player or trainer");
+        // Minecraft class names are remapped in production; find constructor
+        // parameter types from the installed RCT bytecode instead of guessing.
+
         Object[] team = CobblemonRosterFactory.create(roster, loader);
         Class<?> apiType = Class.forName("com.gitlab.srcmc.rctapi.api.RCTApi", true, loader);
         Object api = apiType.getMethod("getInstance", String.class).invoke(null, "pridecore");
@@ -36,11 +35,21 @@ public final class RctStoryBattleLauncher {
         Class<?> bagType = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerBag", true, loader);
         Class<?> pokemonType = Class.forName("com.cobblemon.mod.common.pokemon.Pokemon", true, loader);
         Class<?> battleAiType = Class.forName("com.cobblemon.mod.common.api.battles.model.ai.BattleAI", true, loader);
-        Object player = trainerPlayer.getConstructor(playerType).newInstance(serverPlayer);
+        Constructor<?> playerCtor = Arrays.stream(trainerPlayer.getConstructors())
+            .filter(ctor -> ctor.getParameterCount() == 1
+                && ctor.getParameterTypes()[0].isInstance(serverPlayer))
+            .findFirst().orElseThrow(() -> new IllegalArgumentException("Not a server player"));
+        Object player = playerCtor.newInstance(serverPlayer);
         Object bag = bagType.getConstructor().newInstance();
-        Object opponent = trainerNpc.getConstructor(String.class,
-            Array.newInstance(pokemonType, 0).getClass(), bagType, battleAiType, livingType)
-            .newInstance("pride_story:" + encounterId, team, bag, null, livingTrainer);
+        Class<?> teamType = Array.newInstance(pokemonType, 0).getClass();
+        Constructor<?> npcCtor = Arrays.stream(trainerNpc.getConstructors())
+            .filter(ctor -> Arrays.equals(Arrays.copyOf(ctor.getParameterTypes(), 4),
+                new Class<?>[] {String.class, teamType, bagType, battleAiType})
+                && ctor.getParameterCount() == 5
+                && ctor.getParameterTypes()[4].isInstance(livingTrainer))
+            .findFirst().orElseThrow(() -> new IllegalArgumentException("Not a living trainer"));
+        Object opponent = npcCtor.newInstance(
+            "pride_story:" + encounterId, team, bag, null, livingTrainer);
         Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", true, loader);
         @SuppressWarnings({"unchecked", "rawtypes"})
