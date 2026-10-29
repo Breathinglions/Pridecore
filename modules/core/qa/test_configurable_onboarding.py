@@ -41,6 +41,8 @@ class ConfigurableNativeServiceTests(unittest.TestCase):
             text=data[name].decode()
             self.assertIn("pridecore onboarding claim " + role,text)
             self.assertNotIn("run give @s",text)
+            self.assertNotIn(chr(92) + "n",text, "mcfunction must use real line breaks")
+            self.assertGreaterEqual(len(text.splitlines()), 4)
         self.assertIn("if entity @s[tag=trainer_card_received]",data[THEO].decode())
         self.assertIn("ftbquests change_progress @s complete 1C33DAB0F3691DAE",data[THEO].decode())
         avery=data[AVERY].decode()
