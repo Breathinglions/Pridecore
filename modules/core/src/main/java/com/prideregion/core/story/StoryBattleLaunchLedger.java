@@ -17,10 +17,10 @@ public final class StoryBattleLaunchLedger {
         }
     }
     private final Map<UUID, Launch> pending = new HashMap<>();
-    private final Map<UUID, UUID> battles = new HashMap<>();
+    private final Map<UUID, StoryBattleSessionRouter.NativeStart> battles = new HashMap<>();
 
     public synchronized boolean reserve(Launch launch) {
-        if (pending.containsKey(launch.player()) || battles.containsValue(launch.player()))
+        if (pending.containsKey(launch.player()) || active(launch.player()))
             return false;
         pending.put(launch.player(), launch);
         return true;
@@ -33,29 +33,39 @@ public final class StoryBattleLaunchLedger {
         Launch launch = pending.get(player);
         if (launch == null || !launch.trainerEntity().equals(trainerEntity)) return Optional.empty();
         pending.remove(player);
-        battles.put(nativeBattle, player);
-        return Optional.of(new StoryBattleSessionRouter.NativeStart(
+        var start = new StoryBattleSessionRouter.NativeStart(
             nativeBattle, player, launch.encounter(),
-            StoryBattleSessionRouter.acceptedTrainers().get(launch.encounter())));
+            StoryBattleSessionRouter.acceptedTrainers().get(launch.encounter()));
+        battles.put(nativeBattle, start);
+        return Optional.of(start);
     }
 
     public synchronized boolean pending(UUID player) { return pending.containsKey(player); }
 
-    public synchronized boolean active(UUID player) { return battles.containsValue(player); }
+    public synchronized boolean active(UUID player) {
+        return battles.values().stream().anyMatch(start -> start.playerId().equals(player));
+    }
 
     public synchronized void cancelPlayer(UUID player) {
         pending.remove(player);
-        battles.entrySet().removeIf(e -> e.getValue().equals(player));
+        battles.entrySet().removeIf(e -> e.getValue().playerId().equals(player));
     }
 
     /** Read-only authorization check for native battle event callbacks. */
     public synchronized boolean owns(UUID battle, UUID player) {
-        return player != null && player.equals(battles.get(battle));
+        var start = battles.get(battle);
+        return start != null && player != null && player.equals(start.playerId());
+    }
+
+    /** Exact identity, not just UUID ownership, is required at native arm. */
+    public synchronized boolean matches(StoryBattleSessionRouter.NativeStart start) {
+        return start != null && start.equals(battles.get(start.battleId()));
     }
 
     /** Return the authenticated owner before retiring a battle result. */
     public synchronized Optional<UUID> owner(UUID battle) {
-        return Optional.ofNullable(battles.get(battle));
+        return Optional.ofNullable(battles.get(battle))
+            .map(StoryBattleSessionRouter.NativeStart::playerId);
     }
 
     public synchronized void finished(UUID battle) { battles.remove(battle); }
