@@ -1,11 +1,11 @@
 # Module 02 — physical NPC dialogue integration (staging)
 
-The narrative now opens directly from **tagged Cobblemon NPCs**, not only
-temporary demonstration villagers. In staging, a builder must attach the
-corresponding authored `pride_npc_*` marker to the specific `cobblemon:npc`
-entity. Untagged NPCs are not intercepted. All 27 authored dialogue identities
-are available; story-only actors display clickable chat choices in the player's
-current language of the story rather than requiring typed commands.
+The narrative opens from the authored **native Cobblemon dialogue overlay** for each
+story NPC (e.g. `pride_story:mom`). Each character must have the matching
+Cobblemon NPC type (`pride_story:mom`, etc.) and its `pride_npc_*` marker.
+The original native Sequoia/Theo/Avery services and all RCT Gym/League NPCs keep
+their respective native interactions. The old clickable-chat prototype remains
+only for explicitly marked test villagers; it is not the intended player UI.
 
 ## Important native service boundaries
 
@@ -17,10 +17,13 @@ for those original gameplay services. Their native `cobblemon:npc` interactions
 are explicitly passed through, and player progression is reconciled from
 the existing, verified legacy tags.
 
-All other authored narrative-only actors can show the story conversation on
-physical right-click when Module 02 is enabled. Dialogue never awards a
-Pokémon, Gym badge, or Pokémon-battle victory. Every choice still passes
-server-owned stage, fact and existing legacy prerequisites.
+All other authored narrative-only Cobblemon NPC types contain an actual native
+`interaction: {type: dialogue, dialogue: pride_story:<id>}` resource in the unified
+server JAR. Right-click is passed to Cobblemon rather than consumed by a custom
+chat transcript. Their choices call `pridecore story native <id> <choice>`, which
+checks the physical matching NPC, allowed world and player progression before
+recording the next story checkpoint. Dialogue never awards a Pokémon, Gym badge,
+or Pokémon-battle victory.
 
 ## Recurring actors
 
@@ -34,17 +37,21 @@ server-owned stage, fact and existing legacy prerequisites.
 
 ## Security and interaction details
 
-The story conversation is associated with the **exact physical NPC UUID,
-marker and dimension**. Clicking a dialogue option is handled by the
-player-owned server command only while they remain within six blocks of that
-entity. A second NPC with the same tag cannot impersonate the first. Moving
-away, changing dimension or losing the entity ends the active conversation.
-Player disconnects, command cancellation, story reloads and operator session
-resets clear pending NPC anchors.
+Native Cobblemon NPC choices revalidate the **matching NPC tag, current world,
+player identity, six-block proximity and stage prerequisites** on the server.
+The separate old prototype *chat* path remains bound to an exact entity UUID
+for tagged test villagers; no prototype chat anchor is created for normal native
+Cobblemon characters. Player disconnects, story reloads and operator resets
+clear temporary sessions. Actual Cobblemon UI open/close behavior remains owned
+by Cobblemon.
 
-NPC text and choices are displayed in clickable chat lines; players do not
-need to type a command. Current dialogue UI uses vanilla chat and is not a
-custom GUI or client-only phone interface yet.
+**Expected UI:** native Cobblemon overlay (including Mom and story characters).
+If an NPC still opens chat, inspect whether it is an old test villager or a
+legacy/custom Cobblemon NPC that was given a `pride_npc_*` tag without the actual
+matching `pride_story:<id>` NPC definition. Merely tagging another type of NPC
+does not replace its underlying native dialogue configuration. Do not spawn
+a second copy next to the original; repair or replace only the confirmed test
+NPC in an isolated staging world after backup.
 
 ## Staging checks
 
@@ -52,7 +59,8 @@ custom GUI or client-only phone interface yet.
    `cobblemon:npc`, not a villager, then audit its marker using
    `/pridecore story admin audit-markers`.
 2. With Module 02 enabled **only** on the isolated staging world, confirm
-   right-click opens an eligible narrative-only character.
+   right-clicking `pride_story:mom` opens the native Cobblemon dialogue overlay,
+   not chat, and that the option advances `pride:visit_sequoia` once.
 3. Confirm that Sequoia, Theo, Avery and Thorn preserve native services.
 4. Confirm the next Rin/Rowan chapter appears only after prerequisite facts
    and that previously completed chapters remain safe to revisit.
