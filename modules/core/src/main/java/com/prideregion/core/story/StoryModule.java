@@ -490,9 +490,16 @@ public final class StoryModule {
         }
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
-            if (player != null)
-                player.sendMessage(Text.literal("[Pride Region] Story battle victory recorded.")
+            if (player != null) {
+                String victoryLine = resolvedEncounter == null
+                    ? "Story battle victory recorded."
+                    : StoryBattleRosters.bundled().find(resolvedEncounter)
+                        .map(StoryBattleRosters.Roster::win)
+                        .orElse("Story battle victory recorded.");
+                player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
                     .formatted(Formatting.GREEN), false);
+                if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+            }
         }
         return result;
     }
