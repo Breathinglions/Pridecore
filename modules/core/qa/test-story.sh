@@ -31,6 +31,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryFinaleObjectiveGuide.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryLeagueBadgeGate.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDimensionGate.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryPresentationConfig.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryCinematicTimeline.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEncounterAvailability.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattlePhaseTracker.java" \
@@ -59,6 +60,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryFinaleObjectiveGuideTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryLeagueBadgeGateTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryDimensionGateTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryPresentationConfigTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryCinematicTimelineTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEncounterAvailabilityTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattlePhaseTrackerTests.java" \
@@ -89,6 +91,7 @@ java -cp "$TMP" com.prideregion.core.story.StoryTrainerBindingGateTests
 java -cp "$TMP" com.prideregion.core.story.StoryFinaleObjectiveGuideTests
 java -cp "$TMP" com.prideregion.core.story.StoryLeagueBadgeGateTests
 java -cp "$TMP" com.prideregion.core.story.StoryDimensionGateTests
+java -cp "$TMP" com.prideregion.core.story.StoryPresentationConfigTests
 java -cp "$TMP" com.prideregion.core.story.StoryCinematicTimelineTests
 java -cp "$TMP" com.prideregion.core.story.StoryEncounterAvailabilityTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattlePhaseTrackerTests
