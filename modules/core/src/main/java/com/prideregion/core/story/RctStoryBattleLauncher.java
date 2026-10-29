@@ -42,7 +42,9 @@ public final class RctStoryBattleLauncher {
         Class<?> apiType = Class.forName("com.gitlab.srcmc.rctapi.api.RCTApi", true, loader);
         Object api = apiType.getMethod("getInstance", String.class).invoke(null, "pridecore");
         if (api == null)
-            throw new IllegalStateException("Pride Core RCT API instance not initialized");
+            api = apiType.getMethod("initInstance", String.class).invoke(null, "pridecore");
+        if (api == null)
+            throw new IllegalStateException("RCT API instance initialization failed");
         Object manager = apiType.getMethod("getBattleManager").invoke(api);
         Class<?> trainerType = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.Trainer", true, loader);
         Class<?> trainerPlayer = Class.forName("com.gitlab.srcmc.rctapi.api.trainer.TrainerPlayer", true, loader);
