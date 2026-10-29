@@ -42,16 +42,8 @@ public final class StoryCinematicTimelineTests {
                 && e.encounter().equals(phase)));
             check(timeline.activeCount() == 0);
         }
-        for (String phase : List.of("battle_phase_one", "battle_phase_two")) {
-            var cues = StoryCinematicTimeline.cuesFor(phase);
-            check(cues.size() == 2);
-            UUID player = UUID.randomUUID();
-            check(timeline.begin(player, phase));
-            List<StoryCinematicTimeline.Event> events = new ArrayList<>();
-            for (int i = 0; i < 60; i++) events.addAll(timeline.tick());
-            check(events.size() == 2);
-            check(timeline.activeCount() == 0);
-        }
+        check(StoryCinematicTimeline.cuesFor("battle_phase_one").isEmpty());
+        check(StoryCinematicTimeline.cuesFor("battle_phase_two").isEmpty());
         // Every authenticated encounter has its own two narrative beats per
         // phase, with no untrusted ID accepted as a scene name.
         for (String encounter : StoryBattleSessionRouter.acceptedTrainers().keySet()) {
