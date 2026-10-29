@@ -29,6 +29,19 @@ public final class StoryCinematicTimelineTests {
             }
             check(timeline.activeCount() == 0);
         }
+        for (String phase : List.of("finale_conduits_complete",
+                                   "finale_shields_complete", "finale_stabilized")) {
+            var cues = StoryCinematicTimeline.cuesFor(phase);
+            check(cues.size() == 3);
+            UUID player = UUID.randomUUID();
+            check(timeline.begin(player, phase));
+            List<StoryCinematicTimeline.Event> events = new ArrayList<>();
+            for (int i = 0; i < 90; i++) events.addAll(timeline.tick());
+            check(events.size() == 3);
+            check(events.stream().allMatch(e -> e.player().equals(player)
+                && e.encounter().equals(phase)));
+            check(timeline.activeCount() == 0);
+        }
         check(StoryCinematicTimeline.cuesFor("invalid").isEmpty());
         check(!timeline.begin(UUID.randomUUID(), "invalid"));
         UUID leaving = UUID.randomUUID();
