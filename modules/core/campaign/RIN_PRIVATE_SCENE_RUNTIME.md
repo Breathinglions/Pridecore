@@ -41,3 +41,11 @@ When `story_enabled=true` in the isolated staging dimension, OP4 can preview the
 Only the named player sees scene dialogue and temporary descriptive actionbar cues. The rehearsal explicitly labels visual entry/movement/face cues as `[Scene preview]`, and explicitly states that the original starter/dialogue UI **would** be resumed but **is not invoked**. This is an inspection of scripted narrative, not a visual preview of a walking Rin model. Scenes automatically retire when their player disconnects, switches dimensions, or the server stops. The operator can cancel an individual scene without affecting other viewers. Do not enable the story module in production to use these commands.
 
 For future real gameplay, integrate the projector with the native Sequoia service only after testing the original Cobblemon GUI and the per-player private entity/client renderer; delete the preview text path from that production-facing workflow, but keep it available to admins as an explicitly separate test mode.
+
+## Fail-closed native eligibility contract
+
+`StoryPrivateSceneEligibility` supplies a server-side prerequisite gate for an eventual real Cobblemon adapter. The Lab scene requires Mom's story checkpoint and the absence of the original `starter_chosen` evidence. The canyon scene requires `pride:eclipse_contact` and is suppressed after `pride:rival_theory`; the summit scene requires `pride:frozen_warning` plus the ice clue and is suppressed after `pride:rival_ally`. This does **not** replace native service validation or a genuine physical clicked-entity check.
+
+The eventual native integration should call `beginVerified(...)` with server-owned facts and verified legacy tags rather than unrestricted `begin(...)`. Before acting on `OPEN_NATIVE_STARTER`, the adapter must check `nativeStarterContinuationAllowed(...)`, revalidate the exact owner/session/world and **also** ask Cobblemon's actual original starter selector whether a selection is still allowed. The scene cannot mint starter eligibility or issue a starter by itself.
+
+The OP4 `preview-rin` command intentionally bypasses these storyline prerequisites solely to rehearse prose and timing; its continuation never performs a native action. The additional CI suite checks denied starts, missing facts, duplicate scenes, stale starter evidence and later-scene isolation.
