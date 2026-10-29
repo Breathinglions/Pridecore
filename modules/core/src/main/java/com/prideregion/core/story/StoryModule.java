@@ -251,6 +251,7 @@ public final class StoryModule {
             });
             // Fail closed if the runtime cannot load all approved trainer teams.
             StoryBattleRosters.bundled();
+            StoryBattleRuntimePreflight.verify(StoryModule.class.getClassLoader());
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
             launchLedger = new StoryBattleLaunchLedger();
@@ -279,7 +280,7 @@ public final class StoryModule {
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
-        } catch (IOException | ReflectiveOperationException | RuntimeException ex) {
+        } catch (IOException | ReflectiveOperationException | LinkageError | RuntimeException ex) {
             victoryListener = null;
             engine = null;
             battleProof = null;
