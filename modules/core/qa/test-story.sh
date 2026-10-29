@@ -49,6 +49,14 @@ league=next(n for n in d["npcs"] if n["id"]=="league_guide")
 assert "pride:finale_completed" in league["requires"], "Victory Road cannot skip the engine finale"
 ranger=next(n for n in d["npcs"] if n["id"]=="ranger")
 assert "pride:rin_route1_won" in ranger["requires"], "Route 1 rival cannot be skipped"
+for npc_id, required_battle in {
+ "heat_technician": "pride:rin_canyon_won",
+ "ghost_medium": "pride:rin_summit_won",
+ "director_cael": "pride:sable_battle_won",
+ "ranger_epilogue": "pride:cael_battle_won",
+}.items():
+ target=next(n for n in d["npcs"] if n["id"]==npc_id)
+ assert required_battle in target["requires"], f"{npc_id} bypasses {required_battle}"
 assert [n["id"] for n in d["npcs"][:6]] == ["mom","sequoia","theo","avery","ranger","thorn"]
 for npc in d["npcs"]:
  assert npc["completedFact"].startswith("pride:")
