@@ -41,18 +41,21 @@ public final class StoryBattleProofTests {
             check(progression.get(owner).facts().contains(definition.earnedFact()));
             check(!proofs.victory(ticket, battle, owner));
             UUID second = UUID.randomUUID();
-            var pending = proofs.arm(owner, second, definition.id());
-            proofs.cancel(owner, second);
-            check(!proofs.victory(pending, second, owner));
+            boolean replayDenied = false;
+            try { proofs.arm(owner, second, definition.id()); }
+            catch (IllegalStateException expected) { replayDenied = true; }
+            check(replayDenied);
             check(progression.get(owner).facts().contains(definition.earnedFact()));
             UUID disconnectBattle = UUID.randomUUID();
-            var dropped = proofs.arm(owner, disconnectBattle, definition.id());
-            proofs.cancelPlayer(owner);
-            check(!proofs.victory(dropped, disconnectBattle, owner));
-            var transferred = proofs.arm(other, disconnectBattle, definition.id());
-            check(transferred.player().equals(other));
+            var dropped = proofs.arm(other, disconnectBattle, definition.id());
+            proofs.cancelPlayer(other);
+            check(!proofs.victory(dropped, disconnectBattle, other));
+            UUID third = UUID.randomUUID();
+            progression.grant(third, definition.requiredFact());
+            var transferred = proofs.arm(third, disconnectBattle, definition.id());
+            check(transferred.player().equals(third));
             proofs.clear();
-            check(!proofs.victory(transferred, disconnectBattle, other));
+            check(!proofs.victory(transferred, disconnectBattle, third));
         }
         System.out.println("PASS: " + checks + " story battle proof assertions");
     }
