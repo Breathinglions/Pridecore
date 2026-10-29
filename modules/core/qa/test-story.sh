@@ -16,6 +16,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryDefinition.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEngine.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryEvidenceEngine.java" \
+ "$ROOT/src/main/java/com/prideregion/core/story/StoryClueNarration.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryCombatPolicy.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryPokemonOnlyParties.java" \
  "$ROOT/src/main/java/com/prideregion/core/story/StoryBattleProof.java" \
@@ -41,6 +42,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryNpcDialogueResolverTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryDialogueAnchorLedgerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryEvidenceEngineTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryClueNarrationTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryCombatPolicyTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryPokemonOnlyPartiesTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleProofTests.java" \
@@ -68,6 +70,7 @@ java -cp "$TMP" com.prideregion.core.story.StoryEngineTests
 java -cp "$TMP" com.prideregion.core.story.StoryNpcDialogueResolverTests
 java -cp "$TMP" com.prideregion.core.story.StoryDialogueAnchorLedgerTests
 java -cp "$TMP" com.prideregion.core.story.StoryEvidenceEngineTests
+java -cp "$TMP" com.prideregion.core.story.StoryClueNarrationTests
 java -cp "$TMP" com.prideregion.core.story.StoryCombatPolicyTests
 java -cp "$TMP" com.prideregion.core.story.StoryPokemonOnlyPartiesTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleProofTests
