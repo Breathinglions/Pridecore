@@ -1,0 +1,1257 @@
+{
+  "version": 1,
+  "npcs": [
+    {
+      "id": "mom",
+      "name": "Mom",
+      "requires": [],
+      "completedFact": "pride:met_mom",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Up already? Professor Sequoia sent word from the laboratory. He says the whole region may change when you meet your first partner. I packed a little something for your journey.",
+          "options": [
+            {
+              "id": "begin",
+              "text": "I'll go see the Professor.",
+              "stage": "pride:visit_sequoia",
+              "grant": [
+                "pride:met_mom"
+              ]
+            },
+            {
+              "id": "questions",
+              "text": "What did the Professor say?",
+              "next": "instructions"
+            }
+          ]
+        },
+        {
+          "id": "instructions",
+          "text": "Sequoia is expecting you near the village square. Theo and Avery will help you find your feet before you leave Hearthleaf.",
+          "options": [
+            {
+              "id": "ready",
+              "text": "I'll find the lab.",
+              "stage": "pride:visit_sequoia",
+              "grant": [
+                "pride:met_mom"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The house feels quiet without you. Come home whenever you need to remember where your journey began.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "sequoia",
+      "name": "Professor Sequoia",
+      "requires": [
+        "pride:met_mom"
+      ],
+      "completedFact": "pride:met_sequoia",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Welcome to my laboratory! Every great discovery begins with a question, and every journey is better shared. There's a Pokémon out there waiting to become your partner.",
+          "options": [
+            {
+              "id": "understood",
+              "text": "I think I've found my partner.",
+              "stage": "pride:trainer_registration",
+              "grant": [
+                "pride:met_sequoia"
+              ],
+              "requiresLegacy": [
+                "starter_chosen"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The road beyond Hearthleaf is full of mysteries. I hope you and your partner find something extraordinary.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "theo",
+      "name": "Technician Theo",
+      "requires": [
+        "pride:met_sequoia"
+      ],
+      "completedFact": "pride:met_theo",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "There you are! I kept your Trainer Card ready. One day you'll look at this old photograph and remember where everything began. Avery has something for you, too.",
+          "options": [
+            {
+              "id": "next",
+              "text": "I'll carry my card with pride.",
+              "stage": "pride:field_orientation",
+              "grant": [
+                "pride:met_theo"
+              ],
+              "requiresLegacy": [
+                "trainer_card_received"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Keep your card safe. There are places in the region where that little piece of paper opens big doors.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "avery",
+      "name": "Avery",
+      "requires": [
+        "pride:met_theo"
+      ],
+      "completedFact": "pride:met_avery",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "I heard you're leaving town! Here, these supplies should make the road a little easier. Don't forget to look up from the path now and then—the region is beautiful.",
+          "options": [
+            {
+              "id": "journey",
+              "text": "Let's head toward Route 1.",
+              "stage": "pride:route1_orientation",
+              "grant": [
+                "pride:met_avery"
+              ],
+              "requiresLegacy": [
+                "trainer_guide_received"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Route 1 is lovely this time of year. I wish I could see it through your eyes again.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ranger",
+      "name": "Ranger Mira",
+      "requires": [
+        "pride:met_avery",
+        "pride:met_rin",
+        "pride:rin_route1_won"
+      ],
+      "completedFact": "pride:route1_briefed",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "Something strange moved through the woods last night. The Pokémon are unsettled, and there's a pale glow between the trees. Rin was asking about it earlier.",
+          "options": [
+            {
+              "id": "explore",
+              "text": "I'll keep my eyes open.",
+              "stage": "pride:verdant_approach",
+              "grant": [
+                "pride:route1_briefed"
+              ],
+              "requiresLegacy": [
+                "first_catch",
+                "first_battle_win"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "That glow hasn't gone away. I don't like the silence beneath the trees.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "thorn",
+      "name": "Thorn",
+      "requires": [
+        "pride:route1_briefed"
+      ],
+      "completedFact": "pride:met_thorn",
+      "start": "hello",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "hello",
+          "text": "The forest remembers everyone who passes through it. The Pokémon have been restless since the last storm. When our paths cross again, I want to know what you've learned.",
+          "options": [
+            {
+              "id": "challenge",
+              "text": "I want to understand what's happening.",
+              "stage": "pride:verdant_gym_intro",
+              "grant": [
+                "pride:met_thorn"
+              ],
+              "requiresLegacy": [
+                "league_started"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Even the oldest trees bend when the wind changes. Listen to what the forest is trying to say.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "rin",
+      "name": "Rin",
+      "requires": [
+        "pride:met_avery"
+      ],
+      "completedFact": "pride:met_rin",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "There you are! Remember the day we met at Sequoia's lab? I thought the League was the only thing worth chasing. But last night the forest glowed like a second sunrise.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll see you on the road.",
+              "grant": [
+                "pride:met_rin"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Where did the light go?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "I followed the light toward the old road. Whatever it is, we might be the first to find out.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "If you hear anything about that light, come find me. I have a feeling this is only the beginning.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "forest_warden",
+      "name": "Warden Elowen",
+      "requires": [
+        "pride:met_thorn"
+      ],
+      "completedFact": "pride:forest_evidence",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Thorn sent me after the storm. The forest is covered in fragments that hum when the wind blows. I've lived here for years, and I've never seen anything like them.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll follow the trail.",
+              "stage": "pride:forest_investigation",
+              "grant": [
+                "pride:forest_evidence"
+              ],
+              "requiresLegacy": [
+                "league_grass"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What makes the fragments unusual?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "Meridian calls it mineral dust. If that's true, why do the wild Pokémon avoid the places where it falls?",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The fragments are still warm to the touch. There must be more to this than the Institute admits.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "miner_lyra",
+      "name": "Miner Lyra",
+      "requires": [
+        "pride:forest_evidence",
+        "pride:clue_forest"
+      ],
+      "completedFact": "pride:mine_records",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Someone took the oldest pages from our mine surveys. They left the fresh reports behind, as though they knew exactly what they wanted.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll look into the missing records.",
+              "stage": "pride:rock_investigation",
+              "grant": [
+                "pride:mine_records"
+              ],
+              "requiresLegacy": [
+                "league_rock"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Who was using that wagon?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "I found Eclipse markings near a freight wagon, but its equipment belongs to Meridian. Someone isn't telling us the truth.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The missing pages mention a chamber below the mountain. That's where the old maps suddenly end.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "eclipse_scout",
+      "name": "Eclipse Scout",
+      "requires": [
+        "pride:mine_records",
+        "pride:clue_mine"
+      ],
+      "completedFact": "pride:eclipse_contact",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "You think Eclipse came for gold? Meridian has been digging beneath protected habitats for years. Someone had to make them listen.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll hear what you have to say.",
+              "stage": "pride:eclipse_detected",
+              "grant": [
+                "pride:eclipse_contact"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What did Meridian leave behind?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "I'm not asking you to trust us. Look at the places they've abandoned. The Pokémon won't go near them anymore.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Our people are afraid, too. We just stopped believing Meridian would ever tell the truth.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "rin_canyon",
+      "name": "Rin",
+      "requires": [
+        "pride:eclipse_contact"
+      ],
+      "completedFact": "pride:rival_theory",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "I found the same Eclipse markings you did, but the tracks lead in two directions. Somebody wants us to blame the wrong people.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "We'll compare what we find.",
+              "stage": "pride:rival_debate",
+              "grant": [
+                "pride:rival_theory"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What did the tracks reveal?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "I'll follow the southern trail. Meet me again when you know who was carrying those old records.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The canyon is quiet now, but I don't think whoever passed through is far away.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "heat_technician",
+      "name": "Technician Sol",
+      "requires": [
+        "pride:rival_theory",
+        "pride:rin_canyon_won"
+      ],
+      "completedFact": "pride:heat_anomaly",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Ashen helped us stop the foundry from overheating, but the gauges haven't cooled. The heat is coming from somewhere we can't see.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll follow the source.",
+              "stage": "pride:fire_district",
+              "grant": [
+                "pride:heat_anomaly"
+              ],
+              "requiresLegacy": [
+                "league_fire"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Where does the current lead?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "Look at this reading. The power isn't rising out of the earth. Something is feeding it into our lines.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "We keep lowering the output, and the temperature keeps climbing. That shouldn't be possible.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "meridian_scientist",
+      "name": "Researcher Vela",
+      "requires": [
+        "pride:heat_anomaly",
+        "pride:clue_foundry"
+      ],
+      "completedFact": "pride:meridian_leads",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "I joined Meridian because Resonance could restore damaged habitats. Lately, more of our research has disappeared behind locked doors.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll find out what was hidden.",
+              "stage": "pride:institute_introduction",
+              "grant": [
+                "pride:meridian_leads"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Who sealed the reports?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The risk reports were sealed without explanation. I keep telling myself there must be a harmless reason.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "I still believe we can help the region. I'm no longer sure everyone here agrees on how.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "waterkeeper",
+      "name": "Keeper Neris",
+      "requires": [
+        "pride:meridian_leads"
+      ],
+      "completedFact": "pride:water_evidence",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "The river changed color before Eclipse arrived. I watched the first pulse move beneath the water like a shadow.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll bring this to the Rangers.",
+              "stage": "pride:tidal_investigation",
+              "grant": [
+                "pride:water_evidence"
+              ],
+              "requiresLegacy": [
+                "league_water"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Where did the pulse begin?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The timing matters. Whatever caused the first pulse began upstream, long before anyone saw an Eclipse ship.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The fish have started returning, but the stones along the bank still glow at night.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ranger_rowan",
+      "name": "Captain Rowan",
+      "requires": [
+        "pride:water_evidence",
+        "pride:clue_river"
+      ],
+      "completedFact": "pride:ranger_probe",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "You've brought us evidence from the forest, the mine and the river. None of it fits the story Meridian has been telling the region.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll keep searching for answers.",
+              "stage": "pride:ranger_investigation",
+              "grant": [
+                "pride:ranger_probe"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What have the Rangers learned?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "We'll investigate independently. I want the facts to reach people before anyone decides who's to blame.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The Rangers are gathering witnesses. Every account matters now.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "vega_engineer",
+      "name": "Engineer Quill",
+      "requires": [
+        "pride:ranger_probe"
+      ],
+      "completedFact": "pride:engine_plan",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "The city's grid stayed online through the storm. That's when I noticed a second circuit feeding power into a place that doesn't appear on any map.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll find out what's inside.",
+              "stage": "pride:powergrid_reveal",
+              "grant": [
+                "pride:engine_plan"
+              ],
+              "requiresLegacy": [
+                "league_electric"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Where do those cables lead?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "Every cable runs toward a sealed Meridian facility. Their files call it the Resonance Engine.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "There's too much power flowing into that facility for an ordinary research station.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "cael_aide",
+      "name": "Aide Iris",
+      "requires": [
+        "pride:engine_plan",
+        "pride:clue_grid"
+      ],
+      "completedFact": "pride:meridian_documents",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Director Cael once promised the Engine would heal the region. I believed him. Now the public risk reports have vanished, and no one will explain why.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll find the missing research.",
+              "stage": "pride:meridian_records",
+              "grant": [
+                "pride:meridian_documents"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What happened to the old records?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The oldest files were moved to the archive below the Institute. I still have the key to the corridor.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "I hope the records give you an answer. They only gave me more questions.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "draven_historian",
+      "name": "Historian Toren",
+      "requires": [
+        "pride:meridian_documents"
+      ],
+      "completedFact": "pride:ancient_ward",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Long before Meridian, our ancestors discovered Resonance beneath these mountains. They sealed it after a flood erased three villages.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll follow the ancient records.",
+              "stage": "pride:dragon_lore",
+              "grant": [
+                "pride:ancient_ward"
+              ],
+              "requiresLegacy": [
+                "league_dragon"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What happened after the flood?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The old oath says power is guarded, never owned. Someone wrote that warning for a reason.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "Ancient stories survive because someone needed the future to listen.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ice_archivist",
+      "name": "Archivist Sera",
+      "requires": [
+        "pride:ancient_ward",
+        "pride:clue_ward"
+      ],
+      "completedFact": "pride:frozen_warning",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "These records were hidden beneath the ice. Meridian knew the Engine could drive Pokémon from entire habitats, yet they approved the next experiment.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "The others need to hear this.",
+              "stage": "pride:ice_research",
+              "grant": [
+                "pride:frozen_warning"
+              ],
+              "requiresLegacy": [
+                "league_ice"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Who wrote the warnings?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "A researcher tried to stop the project. Her name was removed from the files, but her warnings remain.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The snow preserved what Meridian tried to erase. Now the truth can no longer stay buried.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "rin_summit",
+      "name": "Rin",
+      "requires": [
+        "pride:frozen_warning",
+        "pride:clue_ice"
+      ],
+      "completedFact": "pride:rival_ally",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "When we left Hearthleaf, I thought becoming Champion would be the greatest thing we'd ever do. Look at the region below us now. Everything feels different.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "We'll see this through together.",
+              "stage": "pride:rival_reunited",
+              "grant": [
+                "pride:rival_ally"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Do you remember that first day?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "Whatever waits at Meridian, you won't have to face it alone. I made you that promise when we were kids.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "I can still see Hearthleaf from here. It reminds me why we started.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ghost_medium",
+      "name": "Medium Ori",
+      "requires": [
+        "pride:rival_ally",
+        "pride:rin_summit_won"
+      ],
+      "completedFact": "pride:memory_truth",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Memories cling to this place. I can hear the echoes of Eclipse's raid, but beneath them is something far older: the sound of Meridian's first experiment.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll bring this warning to Eclipse.",
+              "stage": "pride:ghost_memories",
+              "grant": [
+                "pride:memory_truth"
+              ],
+              "requiresLegacy": [
+                "league_ghost"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What do the echoes show?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "Eclipse believes destroying the Engine will end the danger. The visions suggest a sudden silence could release everything it holds.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The echoes have grown louder. We are running out of time to understand them.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "eclipse_operative",
+      "name": "Eclipse Lieutenant",
+      "requires": [
+        "pride:memory_truth",
+        "pride:clue_echo",
+        "pride:eclipse_lieutenant_won"
+      ],
+      "completedFact": "pride:eclipse_assault",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Sable ordered us toward the Engine. We thought Meridian left us no other choice. But now I don't know what will happen when we reach it.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll speak with Sable.",
+              "stage": "pride:eclipse_infiltration",
+              "grant": [
+                "pride:eclipse_assault"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Why does Sable distrust Meridian?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "If the evidence you've found is real, Sable needs to see it before our people make a terrible mistake.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "We went looking for answers and found a catastrophe waiting to happen.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "sable",
+      "name": "Sable",
+      "requires": [
+        "pride:eclipse_assault"
+      ],
+      "completedFact": "pride:sable_warning",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "I founded Eclipse when Meridian buried our warnings. I was right about the danger, but I let fear convince me anything was justified.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "We'll find Cael.",
+              "stage": "pride:sable_confrontation",
+              "grant": [
+                "pride:sable_warning"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What did Meridian hide from you?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "I cannot undo what's happened. I can still help stop Cael from repeating our mistakes.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The truth belongs to everyone affected by the Engine, not to Meridian or Eclipse.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "director_cael",
+      "name": "Director Cael",
+      "requires": [
+        "pride:sable_warning",
+        "pride:sable_battle_won"
+      ],
+      "completedFact": "pride:cael_confronted",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Resonance could have healed the mountains, the rivers, everything we lost. I wanted to believe the cost would be small.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "We have to make this right.",
+              "stage": "pride:engine_confrontation",
+              "grant": [
+                "pride:cael_confronted"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "Can the Engine still be saved?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The evidence you carry changes everything. I cannot ignore it now. The Engine is unstable, and it remembers every pulse we've sent into it.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "I built that machine to save the region. I have to live with what it became.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "ranger_epilogue",
+      "name": "Captain Rowan",
+      "requires": [
+        "pride:cael_confronted",
+        "pride:clue_engine",
+        "pride:cael_battle_won"
+      ],
+      "completedFact": "pride:crisis_intel_complete",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "The Rangers and Meridian's remaining researchers are working together. Even Rin has offered to help. The Engine is still unstable, but this time no one faces it alone.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'll go to the Engine.",
+              "stage": "pride:crisis_briefed",
+              "grant": [
+                "pride:crisis_intel_complete"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What did the ancient seals protect?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The old seals surround its heart. They were built by people who understood what Resonance could do when left unchecked.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "We're holding the perimeter. Whatever happens inside, we're counting on you.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "league_guide",
+      "name": "League Guide",
+      "requires": [
+        "pride:crisis_intel_complete",
+        "pride:finale_completed"
+      ],
+      "completedFact": "pride:league_path",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Victory Road is just ahead. Magnus is waiting beyond it, but the person who left Hearthleaf is not the person standing here now.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "I'm ready for what comes next.",
+              "stage": "pride:victory_road_briefed",
+              "grant": [
+                "pride:league_path"
+              ],
+              "requiresLegacy": [
+                "league_ghost"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What lies beyond Victory Road?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "The League remembers victories. The region will remember the choices you made when nobody was watching.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "The road is open. Take your time and remember every place that brought you here.",
+          "options": []
+        }
+      ]
+    },
+    {
+      "id": "hall_of_fame_guide",
+      "name": "Hall of Fame Keeper",
+      "requires": [
+        "pride:league_path"
+      ],
+      "completedFact": "pride:champion_greeted",
+      "start": "main",
+      "repeat": "return",
+      "nodes": [
+        {
+          "id": "main",
+          "text": "Your name belongs among the great Trainers now. But the Hall of Fame records only a fraction of what you have done for this region.",
+          "options": [
+            {
+              "id": "continue",
+              "text": "There's still so much to discover.",
+              "stage": "pride:champion_epilogue",
+              "grant": [
+                "pride:champion_greeted"
+              ],
+              "requiresLegacy": [
+                "league_champion"
+              ]
+            },
+            {
+              "id": "learn_more",
+              "text": "What comes after the League?",
+              "next": "detail"
+            }
+          ]
+        },
+        {
+          "id": "detail",
+          "text": "New roads will open. New mysteries will surface. The people you've helped will tell stories long after these lights fade.",
+          "options": [
+            {
+              "id": "back",
+              "text": "I see. There's something else...",
+              "next": "main"
+            }
+          ]
+        },
+        {
+          "id": "return",
+          "text": "A chapter ended when you entered these halls. The adventure itself did not.",
+          "options": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+package com.prideregion.core.story;
+
+import java.util.Set;
+import java.util.Collection;
+
+/**
+ * The only world tags an operator may bind through Module 02 setup commands.
+ * No client-provided ID can be turned into an arbitrary scoreboard tag.
+ * Contains no Minecraft dependencies so validation can run in standalone CI.
+ */
+public final class StoryWorldMarkerCatalog {
+    private static final Set<String> FINALE_IDS =
+        Set.of("north", "south", "east", "west", "core");
+
+    private StoryWorldMarkerCatalog() {}
+
+    public static String marker(String kind, String id) {
+        if (kind == null || id == null) throw new IllegalArgumentException("Missing marker");
+        return switch (kind) {
+            case "npc" -> {
+                if (!NativeNpcIdentity.isAllowed(id))
+                    throw new IllegalArgumentException("Unknown story NPC " + id);
+                yield NativeNpcIdentity.tagFor(id);
+            }
+            case "battle" -> {
+                if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(id))
+                    throw new IllegalArgumentException("Unknown story battle " + id);
+                yield "pride_battle_" + id;
+            }
+            case "clue" -> {
+                StoryEvidenceEngine.Clue clue = StoryEvidenceEngine.definition(id);
+                if (clue == null) throw new IllegalArgumentException("Unknown story clue " + id);
+                yield clue.markerTag();
+            }
+            case "finale" -> {
+                if (!FINALE_IDS.contains(id))
+                    throw new IllegalArgumentException("Unknown finale device " + id);
+                yield id.equals("core") ? "pride_finale_core"
+                    : "pride_finale_conduit_" + id;
+            }
+            default -> throw new IllegalArgumentException("Unknown marker type " + kind);
+        };
+    }
+
+    /** Reject conflicting or unrecognized story tags, including stale typos. */
+    public static boolean isStoryTag(String tag) {
+        return tag != null && (tag.startsWith("pride_npc_")
+            || tag.startsWith("pride_battle_")
+            || tag.startsWith("pride_clue_")
+            || tag.startsWith("pride_finale_"));
+    }
+
+    public static boolean canBind(Set<String> existing, String marker) {
+        if (existing == null || marker == null || !isStoryTag(marker)) return false;
+        for (String tag : existing)
+            if (isStoryTag(tag) && !tag.equals(marker)) return false;
+        return true;
+    }
+
+    /** One authored story role per physical entity prevents click-path collisions. */
+    public static boolean exclusiveStoryMarker(Collection<String> tags) {
+        if (tags == null) return false;
+        int count = 0;
+        for (String tag : tags)
+            if (isStoryTag(tag) && ++count > 1) return false;
+        return true;
+    }
+
+    /** Verify the exact marker against a given physical entity category. */
+    public static boolean validOnEntity(String tag, boolean livingNonPlayer,
+                                        boolean cobblemonNpc, boolean interaction) {
+        if (tag == null) return false;
+        if (tag.startsWith("pride_npc_"))
+            return cobblemonNpc && NativeNpcIdentity.ALLOWED.stream()
+                .anyMatch(id -> NativeNpcIdentity.tagFor(id).equals(tag));
+        if (tag.startsWith("pride_battle_"))
+            return livingNonPlayer && StoryBattleSessionRouter.acceptedTrainers()
+                .containsKey(tag.substring("pride_battle_".length()));
+        if (tag.startsWith("pride_clue_"))
+            return interaction && StoryEvidenceEngine.definition(
+                tag.substring("pride_clue_".length())) != null;
+        if (tag.startsWith("pride_finale_"))
+            return interaction && FINALE_IDS.stream()
+                .anyMatch(id -> marker("finale", id).equals(tag));
+        return false;
+    }
+
+    public static Set<String> finaleIds() { return FINALE_IDS; }
+}

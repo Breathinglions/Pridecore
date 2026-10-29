@@ -1,6 +1,7 @@
 package com.prideregion.core;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.prideregion.core.story.StoryModule;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -21,8 +22,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Module 01: Profile, progression and legacy read-only diagnostic bridge.
- * Deliberately does NOT implement any NPC, economy, quiz or chat rendering.
+ * Module 01 progression gateway and Module 02 optional Story & NPC engine.
+ * Deliberately does NOT modify legacy NPCs, League, economy or chat rendering.
  */
 public final class PrideCoreMod implements ModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("PrideCore");
@@ -36,6 +37,7 @@ public final class PrideCoreMod implements ModInitializer {
     }
 
     @Override public void onInitialize() {
+        StoryModule.registerHooks();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
                 config = PrideCoreConfig.load(FabricLoader.getInstance().getConfigDir());
@@ -43,8 +45,9 @@ public final class PrideCoreMod implements ModInitializer {
                     server.getSavePath(WorldSavePath.ROOT)
                           .resolve("data").resolve("pride_core").resolve("players")));
                 activeServer = server;
-                LOGGER.info("Pride Core Module 01 online. Admin writes enabled: {}",
+                LOGGER.info("Pride Core Module 01 service online. Admin writes enabled: {}",
                     config.allowAdminMutations());
+                StoryModule.start(server);
             } catch (IOException ex) {
                 activeServer = null;
                 activeProgression = null;
@@ -53,6 +56,7 @@ public final class PrideCoreMod implements ModInitializer {
             }
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            StoryModule.stop(server);
             if (activeServer == server) {
                 activeServer = null;
                 activeProgression = null;
@@ -67,7 +71,7 @@ public final class PrideCoreMod implements ModInitializer {
                 .then(CommandManager.literal("status")
                     .requires(source -> source.hasPermissionLevel(4))
                     .executes(ctx -> feedback(ctx.getSource(),
-                        "Pride Core Module 01 RC | active=" +
+                        "Pride Core Module 01 + 02 RC | active=" +
                         progression(ctx.getSource().getServer()).isPresent() +
                         " | admin writes=" + config.allowAdminMutations() +
                         " | legacy tags read-only")));
@@ -88,7 +92,7 @@ public final class PrideCoreMod implements ModInitializer {
             for (String action : List.of("grant", "revoke")) {
                 admin.then(CommandManager.literal(action)
                     .then(CommandManager.argument("player", EntityArgumentType.player())
-                        .then(CommandManager.argument("fact", StringArgumentType.word())
+                        .then(CommandManager.argument("fact", StringArgumentType.greedyString())
                             .executes(ctx -> fact(ctx.getSource(),
                                 EntityArgumentType.getPlayer(ctx, "player"),
                                 StringArgumentType.getString(ctx, "fact"),
@@ -96,11 +100,11 @@ public final class PrideCoreMod implements ModInitializer {
             }
             admin.then(CommandManager.literal("stage")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
-                    .then(CommandManager.argument("stage", StringArgumentType.word())
+                    .then(CommandManager.argument("stage", StringArgumentType.greedyString())
                         .executes(ctx -> stage(ctx.getSource(),
                             EntityArgumentType.getPlayer(ctx, "player"),
                             StringArgumentType.getString(ctx, "stage"))))));
-            dispatcher.register(root.then(admin));
+            dispatcher.register(root.then(admin).then(StoryModule.commands()));
         });
     }
 

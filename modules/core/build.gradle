@@ -15,3 +15,37 @@ processResources {
 }
 tasks.withType(JavaCompile).configureEach { options.release = 21 }
 java { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
+
+tasks.register('verifyStoryConfigMigration', JavaExec) {
+    group = 'verification'
+    description = 'Regression tests for automatic story JSON upgrade and backup'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryConfigMigrationTests'
+}
+tasks.register('verifyStoryBattleRosters', JavaExec) {
+    group = 'verification'
+    description = 'Validate all nine packaged RCT story battle rosters'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryBattleRostersTests'
+}
+tasks.register('verifyNativeRosterBoundary', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.CobblemonRosterFactoryTests'
+}
+tasks.register('verifyCobblemonSoloVictories', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.CobblemonStoryVictoryListenerTests'
+}
+tasks.register('verifyNativeBattlePreflight', JavaExec) {
+    group = 'verification'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.prideregion.core.story.StoryBattleRuntimePreflightTests'
+}
+tasks.named('check') { dependsOn 'verifyStoryConfigMigration', 'verifyStoryBattleRosters', 'verifyNativeRosterBoundary', 'verifyCobblemonSoloVictories', 'verifyNativeBattlePreflight' }
