@@ -55,6 +55,9 @@ public final class StoryModule {
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
     private static final StoryBattleResultRetryQueue BATTLE_RETRIES = new StoryBattleResultRetryQueue();
     private static final StoryDialogueAnchorLedger DIALOGUE_ANCHORS = new StoryDialogueAnchorLedger();
+    // Disabled by default. Only OP4 staging previews may initiate a scene until
+    // the verified native Cobblemon NPC + owner-only renderer adapter exists.
+    private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
 
     private StoryModule() {}
 
@@ -378,9 +381,47 @@ public final class StoryModule {
                         scene.player(), visualError);
                 }
             }
+            // Development rehearsal only: an OP4 operator starts each preview.
+            // Cues are delivered to the exact owner, never to nearby players.
+            // The real native GUI continuation is deliberately NOT executed.
+            for (var cue : PRIVATE_SCENES.tick()) {
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(cue.owner());
+                if (viewer == null || !STORY_WORLDS.permits(
+                        viewer.getWorld().getRegistryKey().getValue().toString())) {
+                    PRIVATE_SCENES.cancel(cue.owner());
+                    continue;
+                }
+                PRIVATE_SCENES.checkDimension(cue.owner(),
+                    viewer.getWorld().getRegistryKey().getValue().toString());
+                if (PRIVATE_SCENES.active(cue.owner()).isEmpty()
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.ACTOR_REMOVE
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER
+                        && cue.kind() != StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE)
+                    continue;
+                switch (cue.kind()) {
+                    case DIALOGUE -> viewer.sendMessage(
+                        Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
+                            .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
+                    case ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE ->
+                        viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
+                            + " at " + cue.anchor()).formatted(Formatting.GRAY), true);
+                    case ACTOR_REMOVE ->
+                        viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
+                            .formatted(Formatting.GRAY), true);
+                    case OPEN_NATIVE_STARTER ->
+                        viewer.sendMessage(Text.literal(
+                            "[Scene preview] Original starter GUI would resume (not invoked).")
+                            .formatted(Formatting.GRAY), false);
+                    case RESUME_STORY_DIALOGUE ->
+                        viewer.sendMessage(Text.literal(
+                            "[Scene preview] Original NPC dialogue would resume (not invoked).")
+                            .formatted(Formatting.GRAY), false);
+                }
+            }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
+            PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             DIALOGUE_ANCHORS.clear(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
@@ -398,6 +439,7 @@ public final class StoryModule {
         liveServer = server;
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
+        PRIVATE_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
@@ -504,6 +546,7 @@ public final class StoryModule {
             finale = null;
             finaleStore = null;
             CINEMATICS.clear();
+        PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
@@ -518,6 +561,7 @@ public final class StoryModule {
         if (liveServer == server) {
             STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
+        PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
@@ -1223,6 +1267,7 @@ public final class StoryModule {
             BATTLE_PHASES.cancelPlayer(target.getUuid());
             BATTLE_RETRIES.cancelPlayer(target.getUuid());
             CINEMATICS.cancel(target.getUuid());
+            PRIVATE_SCENES.cancel(target.getUuid());
             if (finale != null) finale.disconnect(target.getUuid());
             if (finaleStore != null) finaleStore.delete(target.getUuid());
             LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
@@ -1464,6 +1509,18 @@ public final class StoryModule {
             .then(CommandManager.literal("finale-start")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .executes(ctx -> adminFinaleStart(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player"))))));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("preview-rin")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .then(CommandManager.argument("scene", StringArgumentType.word())
+                        .executes(ctx -> previewRinScene(ctx.getSource(),
+                            EntityArgumentType.getPlayer(ctx, "player"),
+                            StringArgumentType.getString(ctx, "scene"))))))
+            .then(CommandManager.literal("cancel-rin-preview")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> cancelRinPreview(ctx.getSource(),
                         EntityArgumentType.getPlayer(ctx, "player"))))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
@@ -1734,6 +1791,44 @@ public final class StoryModule {
                 + safe(ex.getMessage())));
             return 0;
         }
+    }
+
+    /**
+     * OP4-only script rehearsal, isolated from native Sequoia and RCT NPCs.
+     * The actual starter/dialogue continuation is NEVER invoked in preview.
+     */
+    private static int previewRinScene(ServerCommandSource source,
+                                       ServerPlayerEntity target, String requested) {
+        try {
+            ready(source.getServer());
+            if (!source.getServer().isOnThread())
+                throw new IllegalStateException("Scene previews must run on server thread");
+            String dimension = target.getWorld().getRegistryKey().getValue().toString();
+            if (!STORY_WORLDS.permits(dimension))
+                throw new IllegalStateException("Scene preview forbidden outside staging world");
+            StoryPrivateSceneDirector.SceneId scene = switch (requested) {
+                case "lab" -> StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+                case "canyon" -> StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION;
+                case "summit" -> StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION;
+                default -> throw new IllegalArgumentException("Choose lab, canyon or summit");
+            };
+            var result = PRIVATE_SCENES.begin(target.getUuid(), dimension, scene);
+            if (!result.started()) return message(source,
+                "No new Rin preview started (session already active or preview capacity reached).");
+            return message(source, "Previewing " + requested + " Rin scene for "
+                + target.getName().getString() + ". No NPC, starter or story facts changed.");
+        } catch (RuntimeException ex) {
+            source.sendError(Text.literal("Rin preview refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    private static int cancelRinPreview(ServerCommandSource source,
+                                        ServerPlayerEntity target) {
+        boolean cancelled = PRIVATE_SCENES.cancel(target.getUuid()).isPresent();
+        return message(source, cancelled
+            ? "Rin preview stopped for " + target.getName().getString()
+            : "No Rin preview active for " + target.getName().getString());
     }
 
     /** Explicit operator test harness; no remote unprivileged NPC interaction. */
