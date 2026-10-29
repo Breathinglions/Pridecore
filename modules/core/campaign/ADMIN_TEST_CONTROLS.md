@@ -19,7 +19,7 @@ The finale controller has durable per-player checkpoint storage and server-side 
 \n**Important for full onboarding replay:** This reset does not erase your existing Cobblemon starter, League badges, external Minecraft command tags, FTB quest data, or inventory. Reconciliation may recognize previously earned external milestones. For a genuine first-player experience, use an isolated staging player/profile with a backup; do not clear external production data.\n
 ## Player-facing encounter checklist
 
-Players can run `/pridecore story encounters` to see all nine authenticated story battles marked `LOCKED`, `READY`, or `COMPLETE`, with their completion count. It only reads persisted story facts; it does not attempt to start an RCT match or modify badges, money, quests, Pokémon, or rewards. Players can also run `/pridecore story finale` for the Resonance Engine phase and next objective.
+Only operators can inspect `/pridecore story encounters`; it exposes internal battle IDs and eligibility flags for staging diagnostics, not the player's narrative. It only reads persisted story facts; it does not attempt to start an RCT match or modify badges, money, quests, Pokémon, or rewards. Players can run `/pridecore story objective` and `/pridecore story finale` for the Resonance Engine phase and next objective.
 
 ## Operator staging readiness checks
 
@@ -36,3 +36,5 @@ The encounter inspector and player checklist now reflect actual `minBadges` from
 The `story_allowed_dimensions` setting in `config/pride_core/story.properties` can confine Module 2 interactions, battles, synchronization and dialogue choices to your selected staging-world dimension IDs (see `STORY_WORLD_BINDING.md`). This does not modify the Multiworld configuration or affect unrelated mods. It loads at startup. Blank means all dimensions for backward compatibility; `story_enabled=false` remains the installation default.
 
 Knockout-driven boss effects are optional. If the Cobblemon faint-event API cannot be subscribed, verified battle-victory routing remains mandatory and the cinematic-only listener is skipped. This fallback is not an in-game test substitute.
+
+Player-facing storyline text is strictly narrative. Raw encounter IDs, unlocked/ready flags and Gym-badge eligibility counts now appear only in the operator-level `/pridecore story encounters` diagnostic. The original storyline encounter authentication, badge gates, and game rules are unaffected.
