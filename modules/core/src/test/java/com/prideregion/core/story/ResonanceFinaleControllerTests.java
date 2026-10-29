@@ -31,6 +31,18 @@ public final class ResonanceFinaleControllerTests {
         check(finale.snapshot(bob).phase() == ResonanceFinaleController.Phase.LOCKED);
         check(finale.stabilize(alice).phase() == ResonanceFinaleController.Phase.COMPLETE);
         denied(() -> finale.stabilize(alice));
+        var saved = finale.checkpoint(alice).orElseThrow();
+        finale.disconnect(alice);
+        check(finale.snapshot(alice).phase() == ResonanceFinaleController.Phase.LOCKED);
+        check(finale.restore(saved).phase() == ResonanceFinaleController.Phase.COMPLETE);
+        checks++;
+        try {
+            finale.restore(new ResonanceFinaleController.Checkpoint(
+                bob, ResonanceFinaleController.Phase.COMPLETE,
+                Set.of("north"), Set.of("alpha")));
+            throw new AssertionError("Invalid checkpoint accepted");
+        } catch (IllegalArgumentException expected) { }
+        check(finale.snapshot(bob).phase() == ResonanceFinaleController.Phase.LOCKED);
         finale.disconnect(alice);
         check(finale.snapshot(alice).phase() == ResonanceFinaleController.Phase.LOCKED);
         finale.start(bob, true, true);
