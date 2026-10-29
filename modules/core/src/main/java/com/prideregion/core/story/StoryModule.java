@@ -403,13 +403,23 @@ public final class StoryModule {
                         && cue.kind() != StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER
                         && cue.kind() != StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE)
                     continue;
+                boolean hasVisualClient = false;
+                try {
+                    hasVisualClient = StorySceneVisualBridge.emit(viewer, cue);
+                } catch (RuntimeException packetError) {
+                    LOGGER.warn("Private scene visual cue failed for {}: {}",
+                        cue.owner(), packetError.toString());
+                }
+                final boolean renderedVisual = hasVisualClient;
                 switch (cue.kind()) {
                     case DIALOGUE -> viewer.sendMessage(
                         Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
                             .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
-                    case ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE ->
-                        viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
-                            + " at " + cue.anchor()).formatted(Formatting.GRAY), true);
+                    case ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE -> {
+                        if (!renderedVisual)
+                            viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
+                                + " at " + cue.anchor()).formatted(Formatting.GRAY), true);
+                    }
                     case ACTOR_REMOVE ->
                         viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
                             .formatted(Formatting.GRAY), true);
@@ -459,6 +469,15 @@ public final class StoryModule {
         try {
             Path directory = configDir();
             Files.createDirectories(directory);
+            try {
+                StorySceneVisualBridge.configure(directory.resolve("rin_scene_anchors.properties"));
+                if (StorySceneVisualBridge.enabledLayouts() > 0)
+                    LOGGER.info("Private Rin staging visual layouts: {}",
+                        StorySceneVisualBridge.enabledLayouts());
+            } catch (IOException visualProblem) {
+                StorySceneVisualBridge.disable();
+                LOGGER.warn("Rin scene visuals disabled; unsafe/unconfigured anchors", visualProblem);
+            }
             Path settings = directory.resolve("story.properties");
             if (Files.notExists(settings)) {
                 try {
@@ -588,6 +607,7 @@ public final class StoryModule {
             battleProof = null;
             engine = null;
             liveServer = null;
+            StorySceneVisualBridge.disable();
             health = "disabled";
             configStatus = "unchecked";
         }
@@ -1830,7 +1850,15 @@ public final class StoryModule {
 
     private static int cancelRinPreview(ServerCommandSource source,
                                         ServerPlayerEntity target) {
-        boolean cancelled = PRIVATE_SCENES.cancel(target.getUuid()).isPresent();
+        var removed = PRIVATE_SCENES.cancel(target.getUuid());
+        removed.ifPresent(cue -> {
+            try { StorySceneVisualBridge.emit(target, cue); }
+            catch (RuntimeException packetError) {
+                LOGGER.warn("Could not send private scene removal for {}: {}",
+                    target.getUuid(), packetError.toString());
+            }
+        });
+        boolean cancelled = removed.isPresent();
         return message(source, cancelled
             ? "Rin preview stopped for " + target.getName().getString()
             : "No Rin preview active for " + target.getName().getString());

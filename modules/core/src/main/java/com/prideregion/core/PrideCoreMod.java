@@ -2,6 +2,7 @@ package com.prideregion.core;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.story.StoryModule;
+import com.prideregion.core.story.StorySceneVisualBridge;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -37,6 +38,7 @@ public final class PrideCoreMod implements ModInitializer {
     }
 
     @Override public void onInitialize() {
+        StorySceneVisualBridge.register();
         StoryModule.registerHooks();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
