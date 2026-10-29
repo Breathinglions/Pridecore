@@ -1193,14 +1193,36 @@ public final class StoryModule {
         }
     }
 
+    /** Staging cleanup never touches another player's RCT battle. */
+    private static void abortOwnedStoryBattles(MinecraftServer server, UUID player) {
+        if (launchLedger == null) return;
+        for (UUID battleId : launchLedger.activeBattles(player)) {
+            try {
+                if (!RctStoryBattleLauncher.abort(battleId,
+                        StoryModule.class.getClassLoader()))
+                    LOGGER.error("Could not abort RCT battle {} during story reset", battleId);
+            } catch (ReflectiveOperationException | RuntimeException error) {
+                LOGGER.error("Failed to abort RCT battle {} during story reset", battleId, error);
+            } finally {
+                nativeStoryBattleCancelled(server, battleId);
+            }
+        }
+    }
+
     private static int resetPlaythrough(ServerCommandSource source,
                                         ServerPlayerEntity target) {
         try {
             if (!source.getServer().isOnThread())
                 throw new IllegalStateException("Reset must run on server thread");
             var reset = resetService(source.getServer()).reset(target.getUuid());
+            abortOwnedStoryBattles(source.getServer(), target.getUuid());
             if (engine != null) engine.cancel(target.getUuid());
+            DIALOGUE_ANCHORS.clear(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
+            if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
+            BATTLE_PHASES.cancelPlayer(target.getUuid());
+            BATTLE_RETRIES.cancelPlayer(target.getUuid());
+            CINEMATICS.cancel(target.getUuid());
             if (finale != null) finale.disconnect(target.getUuid());
             if (finaleStore != null) finaleStore.delete(target.getUuid());
             LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
@@ -1240,6 +1262,9 @@ public final class StoryModule {
 
     /** Clears only temporary sessions; permanent story facts, badges and prizes remain intact. */
     private static int resetTestSession(ServerCommandSource source, ServerPlayerEntity target) {
+        if (!source.getServer().isOnThread())
+            throw new IllegalStateException("Session reset must run on server thread");
+        abortOwnedStoryBattles(source.getServer(), target.getUuid());
         if (engine != null) engine.cancel(target.getUuid());
         DIALOGUE_ANCHORS.clear(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
