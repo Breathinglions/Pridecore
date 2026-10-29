@@ -599,8 +599,13 @@ public final class StoryModule {
             nativeStoryBattleCancelled(server, battleId);
             return false;
         }
+        UUID battleOwner = launchLedger == null ? null :
+            launchLedger.owner(battleId).orElse(null);
         String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
         boolean result = battleRouter.ended(battleId, winnerId);
+        // Once the authoritative Cobblemon result arrives, stop any pending
+        // battle-intro cues. Never overlay an ended battle with stale prompts.
+        if (battleOwner != null) CINEMATICS.cancel(battleOwner);
         if (launchLedger != null) launchLedger.finished(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
@@ -664,6 +669,8 @@ public final class StoryModule {
     public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        if (launchLedger != null)
+            launchLedger.owner(battleId).ifPresent(CINEMATICS::cancel);
         battleRouter.cancel(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
     }
