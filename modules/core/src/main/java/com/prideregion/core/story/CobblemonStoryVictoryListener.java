@@ -13,12 +13,17 @@ public final class CobblemonStoryVictoryListener {
         boolean isRegistered(UUID battleId);
         void victory(UUID battleId, UUID player);
         void cancelled(UUID battleId);
+        default void fainted(UUID battleId, UUID pokemonId) {}
     }
     private final Object observable;
     private final Object subscription;
+    private final Object faintObservable;
+    private final Object faintSubscription;
 
-    private CobblemonStoryVictoryListener(Object observable, Object subscription) {
+    private CobblemonStoryVictoryListener(Object observable, Object subscription,
+                                          Object faintObservable, Object faintSubscription) {
         this.observable = observable; this.subscription = subscription;
+        this.faintObservable = faintObservable; this.faintSubscription = faintSubscription;
     }
 
     public static CobblemonStoryVictoryListener install(ClassLoader loader, Sink sink)
@@ -65,7 +70,48 @@ public final class CobblemonStoryVictoryListener {
         };
         Object subscription = observable.getClass().getMethod("subscribe", Consumer.class)
             .invoke(observable, consumer);
-        return new CobblemonStoryVictoryListener(observable, subscription);
+        // Use the exact 1.8.1 BATTLE_FAINTED event to drive presentation
+        // beats. The current battle ticket still supplies all authorization.
+        Object faintObservable = events.getField("BATTLE_FAINTED").get(null);
+        Consumer<Object> faintConsumer = event -> {
+            try {
+                Object battle = event.getClass().getMethod("getBattle").invoke(event);
+                UUID battleId = (UUID) battle.getClass().getMethod("getBattleId").invoke(battle);
+                if (!sink.isRegistered(battleId)) return;
+                Object players = battle.getClass().getMethod("getPlayerUUIDs").invoke(battle);
+                Set<UUID> playerIds = new HashSet<>();
+                for (Object id : (Iterable<?>) players) {
+                    if (!(id instanceof UUID uuid)) return;
+                    playerIds.add(uuid);
+                }
+                if (playerIds.size() != 1) return;
+                Object fainted = event.getClass().getMethod("getKilled").invoke(event);
+                Object actor = fainted.getClass().getMethod("getActor").invoke(fainted);
+                if (actor == null) return;
+                // Only a Pokémon belonging to an NPC-side BattleActor may
+                // trigger a boss phase. Never count the player's knocked-out Pokémon.
+                Object actorPlayers = actor.getClass().getMethod("getPlayerUUIDs").invoke(actor);
+                for (Object ignored : (Iterable<?>) actorPlayers) return;
+                UUID actorId = (UUID) actor.getClass().getMethod("getUuid").invoke(actor);
+                if (playerIds.contains(actorId)) return;
+                UUID pokemon = (UUID) fainted.getClass().getMethod("getUuid").invoke(fainted);
+                sink.fainted(battleId, pokemon);
+            } catch (ReflectiveOperationException | RuntimeException error) {
+                System.err.println("[PrideCore] Cobblemon faint event inspection failed: " + error);
+            }
+        };
+        try {
+            Object faintSubscription = faintObservable.getClass()
+                .getMethod("subscribe", Consumer.class).invoke(faintObservable, faintConsumer);
+            return new CobblemonStoryVictoryListener(
+                observable, subscription, faintObservable, faintSubscription);
+        } catch (ReflectiveOperationException | RuntimeException error) {
+            try { unsubscribe(observable, subscription); }
+            catch (ReflectiveOperationException cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
+        }
     }
 
     /** Deterministic eligibility rule, separately testable without Cobblemon. */
@@ -78,14 +124,23 @@ public final class CobblemonStoryVictoryListener {
     }
 
     public void uninstall() throws ReflectiveOperationException {
-        // Resolve the actual subscription interface from the observable, not
-        // the system class loader (Fabric may use a separate Knot loader).
-        Method unsubscribe = Arrays.stream(observable.getClass().getMethods())
+        try {
+            unsubscribe(faintObservable, faintSubscription);
+        } finally {
+            unsubscribe(observable, subscription);
+        }
+    }
+
+    private static void unsubscribe(Object source, Object subscription)
+            throws ReflectiveOperationException {
+        // Resolve the actual subscription interface from the event source,
+        // not from a separate Minecraft or system classloader.
+        Method action = Arrays.stream(source.getClass().getMethods())
             .filter(m -> m.getName().equals("unsubscribe")
                 && m.getParameterCount() == 1
                 && m.getParameterTypes()[0].isInstance(subscription))
             .findFirst().orElseThrow(() -> new NoSuchMethodException(
                 "Cobblemon subscription cannot be unregistered"));
-        unsubscribe.invoke(observable, subscription);
+        action.invoke(source, subscription);
     }
 }
