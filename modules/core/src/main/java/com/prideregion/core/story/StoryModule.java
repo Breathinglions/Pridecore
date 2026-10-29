@@ -674,6 +674,93 @@ public final class StoryModule {
         }
     }
 
+    /**
+     * Operator-only world binding. This edits exactly one explicitly selected
+     * entity and never creates players, badges, NPC battles or story facts.
+     */
+    private static int bindWorldMarker(ServerCommandSource source, String kind,
+                                        String id, Entity entity) {
+        try {
+            String tag = StoryWorldMarkerCatalog.marker(kind, id);
+            if (!source.getWorld().getRegistryKey().equals(entity.getWorld().getRegistryKey()))
+                throw new IllegalStateException("The selected entity must be in your dimension");
+            ServerPlayerEntity actor = source.getPlayer();
+            if (actor != null && actor.squaredDistanceTo(entity) > 1024.0D)
+                throw new IllegalStateException("Move within 32 blocks of the entity");
+            if ("battle".equals(kind)) {
+                if (!(entity instanceof net.minecraft.entity.LivingEntity)
+                        || entity instanceof net.minecraft.entity.player.PlayerEntity)
+                    throw new IllegalArgumentException("Battle marker requires a living non-player trainer");
+            } else if (entity.getType() != EntityType.INTERACTION) {
+                throw new IllegalArgumentException(
+                    "Clue and finale markers require a minecraft:interaction entity");
+            }
+            if (!StoryWorldMarkerCatalog.canBind(entity.getCommandTags(), tag))
+                throw new IllegalStateException(
+                    "Remove the conflicting story tag with admin unbind first");
+            if (entity.getCommandTags().contains(tag))
+                return message(source, "Already bound " + tag + " to " + entity.getUuid());
+            if (!entity.addCommandTag(tag))
+                throw new IllegalStateException("Entity rejected the story marker");
+            return message(source, "Bound " + tag + " to entity " + entity.getUuid()
+                + " in " + entity.getWorld().getRegistryKey().getValue());
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            source.sendError(Text.literal("World binding refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    /** Explicit operator cleanup removes only Module 02 world markers. */
+    private static int unbindWorldMarker(ServerCommandSource source, Entity entity) {
+        if (!source.getWorld().getRegistryKey().equals(entity.getWorld().getRegistryKey())) {
+            source.sendError(Text.literal("Selected entity must be in your dimension"));
+            return 0;
+        }
+        ServerPlayerEntity actor = source.getPlayer();
+        if (actor != null && actor.squaredDistanceTo(entity) > 1024.0D) {
+            source.sendError(Text.literal("Move within 32 blocks of the entity"));
+            return 0;
+        }
+        List<String> previous = entity.getCommandTags().stream()
+            .filter(StoryWorldMarkerCatalog::isStoryTag).toList();
+        for (String tag : previous) entity.removeCommandTag(tag);
+        return message(source, "Cleared " + previous.size() +
+            " story world marker(s) on entity " + entity.getUuid());
+    }
+
+    /** Local staging audit: detect malformed and conflicting physical props. */
+    private static int auditWorldMarkers(ServerCommandSource source) {
+        ServerPlayerEntity actor = source.getPlayer();
+        if (actor == null) return message(source, "Run marker audit in-game as an operator.");
+        var tagged = actor.getWorld().getOtherEntities(actor,
+            actor.getBoundingBox().expand(32.0D),
+            e -> e.getCommandTags().stream().anyMatch(StoryWorldMarkerCatalog::isStoryTag));
+        int healthy = 0, invalid = 0;
+        for (Entity entity : tagged) {
+            List<String> tags = entity.getCommandTags().stream()
+                .filter(StoryWorldMarkerCatalog::isStoryTag).toList();
+            boolean valid = tags.size() == 1 && (
+                tags.getFirst().startsWith("pride_battle_")
+                    ? entity instanceof net.minecraft.entity.LivingEntity
+                        && !(entity instanceof net.minecraft.entity.player.PlayerEntity)
+                        && StoryBattleSessionRouter.acceptedTrainers().containsKey(
+                            tags.getFirst().substring("pride_battle_".length()))
+                    : entity.getType() == EntityType.INTERACTION &&
+                        (tags.getFirst().startsWith("pride_clue_")
+                            ? StoryEvidenceEngine.definition(
+                                tags.getFirst().substring("pride_clue_".length())) != null
+                            : StoryWorldMarkerCatalog.finaleIds().stream().anyMatch(
+                                id -> StoryWorldMarkerCatalog.marker("finale", id)
+                                    .equals(tags.getFirst()))));
+            if (valid) healthy++; else invalid++;
+            if (!valid)
+                source.sendFeedback(() -> Text.literal(
+                    "INVALID story marker on " + entity.getUuid() + ": " + tags), false);
+        }
+        return message(source, "Story marker audit (32 blocks): " +
+            healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
+    }
+
     private static int adminEncounters(ServerCommandSource source, ServerPlayerEntity target) {
         try {
             var profile = PrideCoreMod.progression(source.getServer())
@@ -910,6 +997,24 @@ public final class StoryModule {
         story.then(CommandManager.literal("reload")
             .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> reload(ctx.getSource())));
+        // Staging world setup: bind only known authored markers to actual
+        // entities. No general-purpose entity-tag injection command is exposed.
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("bind")
+                .then(CommandManager.argument("kind", StringArgumentType.word())
+                    .then(CommandManager.argument("id", StringArgumentType.word())
+                        .then(CommandManager.argument("entity", EntityArgumentType.entity())
+                            .executes(ctx -> bindWorldMarker(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "kind"),
+                                StringArgumentType.getString(ctx, "id"),
+                                EntityArgumentType.getEntity(ctx, "entity")))))))
+            .then(CommandManager.literal("unbind")
+                .then(CommandManager.argument("entity", EntityArgumentType.entity())
+                    .executes(ctx -> unbindWorldMarker(ctx.getSource(),
+                        EntityArgumentType.getEntity(ctx, "entity")))))
+            .then(CommandManager.literal("audit-markers")
+                .executes(ctx -> auditWorldMarkers(ctx.getSource()))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
             .then(CommandManager.literal("talk")
