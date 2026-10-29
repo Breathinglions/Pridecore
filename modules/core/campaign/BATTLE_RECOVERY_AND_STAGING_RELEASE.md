@@ -32,3 +32,17 @@ GitHub CI compiles Java 21 and the Fabric module. It **does not** start Minecraf
 Before production use, the team must verify an isolated Minecraft 1.21.1 Fabric/Cobblemon 1.8.1/RCT 0.19.0-beta staging environment with real physical trainer entities. The test plan must cover wins and losses, disconnects, world switching, duplicates, one-time rewards, mixed-mod compatibility, all eight original badge gates, finale checkpoint recovery, and at least two simultaneous players. The cinematic KO phases currently change presentation, **not opponent Pokémon mechanics**.
 
 Do not install the optional staging datapack or enable `story_enabled` on the production server until these checks are completed.
+
+## Multiplayer authorization and physically bound trainers
+
+The RCT launch ledger now retains the **entire authenticated native start** (battle UUID, player UUID, authored encounter ID and trusted trainer identity), not just a player ownership bit. The only native start accepted by the story router must exactly match that ledger record. This prevents a server-side event for another encounter from borrowing the battle UUID even when it names the correct player.
+
+Physical story launches now require a real tagged living trainer, in the player's same dimension, within six blocks, with only one valid story marker. That validation happens **inside the trusted launch method** as well as the NPC interaction callback. The launch ledger additionally serializes each trainer entity: two players cannot reserve or fight the same *physical* trainer at once. The lock is released on battle completion, cancellation, disconnect and session reset. Different physical trainers can serve players concurrently. A player gets a specific busy message rather than a generic progression denial.
+
+CI now simulates two simultaneous players fighting separate physical trainers, verifies incorrect cross-player victory results cannot award progression, then verifies the trainer lock releases and a legitimate retry can be credited. It also checks independent conduit and finale completion states for two players. These are server-state tests, not a substitute for multiplayer testing inside Minecraft.
+
+## Authored boss-specific presentation
+
+Knockout-driven visual phases now identify the actual boss: Rin, Eclipse Lieutenant, Sable, Director Cael or Alpha/Beta/Gamma defender. Each includes distinctive two-step actionbar cues and configured particle aliases. This remains **presentation only**; no AI decisions, damage, boosts or Pokémon moves are rewritten by the story mod.
+
+Duplicate conduit clicks are idempotent. The server no longer rewrites finale checkpoints or emits duplicate effect bursts for a conduit already charged. The staging-world commands `/pridecore story admin audit-zone hearthleaf`, `audit-zone eclipse`, and `audit-zone finale` validate localized expected marker groups within 96 blocks (loaded entities only). This helps builders but cannot prove the entire region has been fully populated.
