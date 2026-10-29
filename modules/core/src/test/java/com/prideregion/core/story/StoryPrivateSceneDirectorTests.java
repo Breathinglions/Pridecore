@@ -113,6 +113,53 @@ public final class StoryPrivateSceneDirectorTests {
         ok(director.skip(alice, live.session()).isEmpty());
         ok(director.reapInvalid(ignored -> null).size() == 1);
         ok(director.size() == 0);
+        // Native continuation tickets must be single-use, world-bound and
+        // expired promptly. Text preview does not invoke them.
+        var token = director.begin(alice, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
+        var emitted = director.skip(alice, token.session());
+        var handoff = emitted.stream().filter(e -> e.kind() ==
+            StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER).findFirst().orElseThrow();
+        ok(director.unclaimedContinuations() == 1);
+        ok(!director.claimContinuation(handoff, "minecraft:overworld"));
+        ok(director.claimContinuation(handoff, "pride:staging"));
+        ok(!director.claimContinuation(handoff, "pride:staging"));
+        ok(director.unclaimedContinuations() == 0);
+        var another = director.begin(bob, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION);
+        var secondHandoff = director.skip(bob, another.session()).stream()
+            .filter(e -> e.kind() == StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE)
+            .findFirst().orElseThrow();
+        var spoof = new StoryPrivateSceneDirector.Event(alice, secondHandoff.session(),
+            secondHandoff.scene(), secondHandoff.kind(),
+            secondHandoff.speaker(), secondHandoff.text(), secondHandoff.anchor());
+        ok(!director.claimContinuation(spoof, "pride:staging"));
+        ok(!director.claimContinuation(handoff, "pride:staging"));
+        ok(director.claimContinuation(secondHandoff, "pride:staging"));
+        var exp = director.begin(alice, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
+        var expiring = director.skip(alice, exp.session()).stream()
+            .filter(e -> e.kind() == StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER)
+            .findFirst().orElseThrow();
+        for (int i = 0; i < 122; i++) director.tick();
+        ok(!director.claimContinuation(expiring, "pride:staging"));
+        ok(director.unclaimedContinuations() == 0);
+        var gone = director.begin(bob, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION);
+        var invalidated = director.skip(bob, gone.session()).stream()
+            .filter(e -> e.kind() == StoryPrivateSceneDirector.Kind.RESUME_STORY_DIALOGUE)
+            .findFirst().orElseThrow();
+        director.reapInvalid(owner -> "minecraft:overworld");
+        ok(!director.claimContinuation(invalidated, "pride:staging"));
+        ok(director.unclaimedContinuations() == 0);
+        var canceled = director.begin(alice, "pride:staging",
+            StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
+        var canceledHandoff = director.skip(alice, canceled.session()).stream()
+            .filter(e -> e.kind() == StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER)
+            .findFirst().orElseThrow();
+        director.cancel(alice);
+        ok(!director.claimContinuation(canceledHandoff, "pride:staging"));
+        ok(director.unclaimedContinuations() == 0);
         System.out.println("PASS: " + assertions + " per-player Rin scene state assertions");
     }
 }
