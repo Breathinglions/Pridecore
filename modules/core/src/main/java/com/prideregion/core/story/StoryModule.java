@@ -646,7 +646,23 @@ public final class StoryModule {
         UUID battleOwner = launchLedger == null ? null :
             launchLedger.owner(battleId).orElse(null);
         String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
-        boolean result = battleRouter.ended(battleId, winnerId);
+        boolean result;
+        try {
+            result = battleRouter.ended(battleId, winnerId);
+        } catch (IOException persistenceFailure) {
+            // A verified winner may have been reported just once by Cobblemon.
+            // Keep that trusted ticket alive and retry the durable write.
+            // No client data can enter this queue.
+            if (battleOwner != null && battleOwner.equals(winnerId)
+                    && BATTLE_RETRIES.schedule(battleId, winnerId)) {
+                LOGGER.warn("Verified story victory {} could not persist; queued bounded retry",
+                    battleId, persistenceFailure);
+                return false;
+            }
+            nativeStoryBattleCancelled(server, battleId);
+            throw persistenceFailure;
+        }
+        BATTLE_RETRIES.forget(battleId);
         BATTLE_PHASES.finish(battleId);
         // Once the authoritative Cobblemon result arrives, stop any pending
         // battle-intro cues. Never overlay an ended battle with stale prompts.
@@ -734,6 +750,7 @@ public final class StoryModule {
         if (launchLedger != null)
             launchLedger.owner(battleId).ifPresent(CINEMATICS::cancel);
         battleRouter.cancel(battleId);
+        BATTLE_RETRIES.forget(battleId);
         BATTLE_PHASES.finish(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
     }
@@ -1059,6 +1076,10 @@ public final class StoryModule {
     private static int resetTestSession(ServerCommandSource source, ServerPlayerEntity target) {
         if (engine != null) engine.cancel(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
+        if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
+        BATTLE_PHASES.cancelPlayer(target.getUuid());
+        BATTLE_RETRIES.cancelPlayer(target.getUuid());
+        CINEMATICS.cancel(target.getUuid());
         if (finale != null) finale.disconnect(target.getUuid());
         LOGGER.info("Operator {} reset temporary Module 02 sessions for {}",
             source.getName(), target.getUuid());
