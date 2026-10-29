@@ -23,6 +23,10 @@ public final class StoryEffects {
 
     private StoryEffects() {}
 
+    public static void reset() { OVERRIDES.clear(); }
+
+    public static Set<String> keys() { return KEYS; }
+
     public static boolean configure(String key, String particleId) {
         if (!KEYS.contains(key)) return false;
         if (particleId == null || particleId.isBlank()) {
