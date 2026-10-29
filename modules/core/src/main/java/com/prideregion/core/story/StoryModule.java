@@ -273,6 +273,7 @@ public final class StoryModule {
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
+            BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
