@@ -52,6 +52,7 @@ public final class StoryModule {
     private static final StoryCinematicTimeline CINEMATICS = new StoryCinematicTimeline();
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
     private static final StoryBattleResultRetryQueue BATTLE_RETRIES = new StoryBattleResultRetryQueue();
+    private static final StoryDialogueAnchorLedger DIALOGUE_ANCHORS = new StoryDialogueAnchorLedger();
 
     private StoryModule() {}
 
@@ -239,6 +240,39 @@ public final class StoryModule {
                     return ActionResult.SUCCESS;
                 }
             }
+            // Real story-only Cobblemon NPCs open our chapter-appropriate
+            // dialogue. Existing native starter/registration/kit/Gym NPCs
+            // retain their own Cobblemon GUIs and original reward services.
+            if ("cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(entity.getType()).toString())) {
+                StoryEngine running = liveServer == sp.getServer() ? engine : null;
+                if (running == null) return ActionResult.PASS;
+                List<String> nativeTags = entity.getCommandTags().stream()
+                    .filter(t -> t.startsWith(PREFIX)).toList();
+                if (nativeTags.size() != 1
+                        || StoryNpcDialogueResolver.reservedNativeService(nativeTags.getFirst()))
+                    return ActionResult.PASS;
+                if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
+                        || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
+                    return ActionResult.FAIL;
+                try {
+                    var opened = running.beginBoundNpc(sp.getUuid(), nativeTags.getFirst());
+                    if (opened.isEmpty()) {
+                        sp.sendMessage(Text.literal(
+                            "[Pride Region] There is more to discover before this story unfolds.")
+                            .formatted(Formatting.GRAY), false);
+                        return ActionResult.SUCCESS;
+                    }
+                    DIALOGUE_ANCHORS.bind(sp.getUuid(), entity.getUuid(), nativeTags.getFirst(),
+                        sp.getWorld().getRegistryKey().getValue().toString());
+                    show(sp, opened.get());
+                } catch (IOException | RuntimeException storyError) {
+                    LOGGER.warn("Could not open bound story NPC for {}", sp.getUuid(), storyError);
+                    sp.sendMessage(Text.literal(
+                        "[Pride Region] This conversation cannot begin right now.")
+                        .formatted(Formatting.YELLOW), false);
+                }
+                return ActionResult.SUCCESS;
+            }
             if (entity.getType() != EntityType.VILLAGER)
                 return ActionResult.PASS;
             StoryEngine running = liveServer == sp.getServer() ? engine : null;
@@ -250,7 +284,9 @@ public final class StoryModule {
             if (matches.size() != 1) return ActionResult.PASS;
             String npc = matches.getFirst().substring(PREFIX.length());
             try {
-                show(sp, running.begin(sp.getUuid(), npc));
+                var reply = running.begin(sp.getUuid(), npc);
+                DIALOGUE_ANCHORS.clear(sp.getUuid());
+                show(sp, reply);
             } catch (IOException | RuntimeException ex) {
                 LOGGER.warn("Story conversation denied for player {} npc {}: {}",
                     sp.getUuid(), npc, ex.toString());
@@ -339,6 +375,7 @@ public final class StoryModule {
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
+            DIALOGUE_ANCHORS.clear(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
@@ -355,6 +392,7 @@ public final class StoryModule {
         liveServer = server;
         STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
+        DIALOGUE_ANCHORS.clearAll();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
         engine = null;
@@ -460,6 +498,7 @@ public final class StoryModule {
             finale = null;
             finaleStore = null;
             CINEMATICS.clear();
+            DIALOGUE_ANCHORS.clearAll();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
@@ -1588,8 +1627,28 @@ public final class StoryModule {
             if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
                 throw new IllegalStateException("Story dialogue is not enabled in this dimension");
             StoryEngine active = ready(source.getServer());
+            var bound = DIALOGUE_ANCHORS.get(player.getUuid());
+            if (bound.isPresent()) {
+                var anchor = bound.get();
+                var matches = player.getWorld().getOtherEntities(player,
+                    player.getBoundingBox().expand(6.0D),
+                    e -> e.getUuid().equals(anchor.entity())
+                        && e.getCommandTags().contains(anchor.marker()));
+                boolean nearby = matches.stream().anyMatch(e ->
+                    StoryDialogueAnchorLedger.permits(anchor, e.getUuid(), anchor.marker(),
+                        player.getWorld().getRegistryKey().getValue().toString(),
+                        player.squaredDistanceTo(e)));
+                if (!nearby) {
+                    DIALOGUE_ANCHORS.clear(player.getUuid());
+                    active.cancel(player.getUuid());
+                    throw new IllegalStateException(
+                        "The conversation has ended. Return to the character to continue.");
+                }
+            }
             String previousStage = active.currentStage(player.getUuid());
-            show(player, active.choose(player.getUuid(), id));
+            var response = active.choose(player.getUuid(), id);
+            if (response.options().isEmpty()) DIALOGUE_ANCHORS.clear(player.getUuid());
+            show(player, response);
             active.reconcileOnboarding(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String updatedStage = active.currentStage(player.getUuid());
@@ -1611,7 +1670,8 @@ public final class StoryModule {
         }
         try {
             ready(source.getServer()).cancel(player.getUuid());
-            return message(source, "Conversation cancelled");
+            DIALOGUE_ANCHORS.clear(player.getUuid());
+            return message(source, "Conversation ended.");
         } catch (RuntimeException ex) {
             source.sendError(Text.literal(safe(ex.getMessage())));
             return 0;
