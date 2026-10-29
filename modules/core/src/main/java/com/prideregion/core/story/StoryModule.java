@@ -388,6 +388,13 @@ public final class StoryModule {
             if (!confirmStoryBattleLaunch(server, player.getUuid(),
                     trainer.getUuid(), battleId)) {
                 nativeStoryBattleCancelled(server, battleId);
+                try {
+                    if (!RctStoryBattleLauncher.abort(battleId,
+                            StoryModule.class.getClassLoader()))
+                        LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
+                } catch (ReflectiveOperationException abortError) {
+                    LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
+                }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
             return Optional.of(battleId);
