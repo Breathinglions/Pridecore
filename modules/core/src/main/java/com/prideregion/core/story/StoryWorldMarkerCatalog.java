@@ -56,5 +56,24 @@ public final class StoryWorldMarkerCatalog {
         return true;
     }
 
+    /** Verify the exact marker against a given physical entity category. */
+    public static boolean validOnEntity(String tag, boolean livingNonPlayer,
+                                        boolean cobblemonNpc, boolean interaction) {
+        if (tag == null) return false;
+        if (tag.startsWith("pride_npc_"))
+            return cobblemonNpc && NativeNpcIdentity.ALLOWED.stream()
+                .anyMatch(id -> NativeNpcIdentity.tagFor(id).equals(tag));
+        if (tag.startsWith("pride_battle_"))
+            return livingNonPlayer && StoryBattleSessionRouter.acceptedTrainers()
+                .containsKey(tag.substring("pride_battle_".length()));
+        if (tag.startsWith("pride_clue_"))
+            return interaction && StoryEvidenceEngine.definition(
+                tag.substring("pride_clue_".length())) != null;
+        if (tag.startsWith("pride_finale_"))
+            return interaction && FINALE_IDS.stream()
+                .anyMatch(id -> marker("finale", id).equals(tag));
+        return false;
+    }
+
     public static Set<String> finaleIds() { return FINALE_IDS; }
 }
