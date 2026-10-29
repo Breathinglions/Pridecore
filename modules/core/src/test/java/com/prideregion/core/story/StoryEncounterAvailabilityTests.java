@@ -16,19 +16,23 @@ public final class StoryEncounterAvailabilityTests {
         ok(ordered.getLast().id().equals("shield_gamma"));
         for (var encounter : ordered) {
             Set<String> empty = Set.of();
-            ok(StoryEncounterAvailability.status(encounter, empty, true, false)
+            ok(StoryEncounterAvailability.status(encounter, empty, true, false, 8, 0)
                 == StoryEncounterAvailability.Status.LOCKED);
             Set<String> unlocked = Set.of(encounter.requiredFact());
             if (encounter.id().startsWith("shield_")) {
-                ok(StoryEncounterAvailability.status(encounter, unlocked, false, false)
+                ok(StoryEncounterAvailability.status(encounter, unlocked, false, false, 8, 0)
                     == StoryEncounterAvailability.Status.LOCKED);
             }
-            ok(StoryEncounterAvailability.status(encounter, unlocked, true, false)
+            ok(StoryEncounterAvailability.status(encounter, unlocked, true, false, 1, 2)
+                == StoryEncounterAvailability.Status.LOCKED);
+            ok(StoryEncounterAvailability.status(encounter, unlocked, true, false, 2, 2)
                 == StoryEncounterAvailability.Status.READY);
-            ok(StoryEncounterAvailability.status(encounter, unlocked, true, true)
+            ok(StoryEncounterAvailability.status(encounter, unlocked, true, false, 8, 0)
+                == StoryEncounterAvailability.Status.READY);
+            ok(StoryEncounterAvailability.status(encounter, unlocked, true, true, 8, 0)
                 == StoryEncounterAvailability.Status.BUSY);
             Set<String> won = Set.of(encounter.requiredFact(), encounter.earnedFact());
-            ok(StoryEncounterAvailability.status(encounter, won, false, true)
+            ok(StoryEncounterAvailability.status(encounter, won, false, true, 0, 8)
                 == StoryEncounterAvailability.Status.COMPLETE);
         }
         System.out.println("PASS: " + checks + " story encounter readiness checks");
