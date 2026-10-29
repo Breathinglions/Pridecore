@@ -20,3 +20,11 @@ The finale controller is an internal, nonpersistent stage machine awaiting actua
 ## Player-facing encounter checklist
 
 Players can run `/pridecore story encounters` to see all nine authenticated story battles marked `LOCKED`, `READY`, or `COMPLETE`, with their completion count. It only reads persisted story facts; it does not attempt to start an RCT match or modify badges, money, quests, Pokémon, or rewards. Players can also run `/pridecore story finale` for the Resonance Engine phase and next objective.
+
+## Operator staging readiness checks
+
+Run `/pridecore story admin runtime-preflight` to verify that the server exposes the expected RCT/Cobblemon classes and methods and that all nine authored battle rosters can be parsed. A PASS means only the **binary preflight and authored data** are present; it is not evidence of a functioning native Pokémon battle, correct visuals, or production readiness. A failure is logged with stack trace and the command fails closed.
+
+Run `/pridecore story admin audit-markers` while standing near your staged NPCs and props. The local 32-block scan reports invalid marker combinations and wrong entity types. See `STORY_WORLD_BINDING.md` for the safe bind/unbind commands.
+
+Both tools are read-only with respect to player progression. They are operator level 4; neither should be exposed to normal players.
