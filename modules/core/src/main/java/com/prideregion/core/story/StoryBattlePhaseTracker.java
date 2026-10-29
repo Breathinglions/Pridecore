@@ -46,6 +46,11 @@ public final class StoryBattlePhaseTracker {
             : Optional.of(new Beat(state.player, state.encounter, count, state.total, phase));
     }
 
+    public synchronized void cancelPlayer(UUID player) {
+        if (player != null)
+            battles.entrySet().removeIf(entry -> entry.getValue().player.equals(player));
+    }
+
     public synchronized void finish(UUID battle) { battles.remove(battle); }
     public synchronized void clear() { battles.clear(); }
     public synchronized int activeCount() { return battles.size(); }
