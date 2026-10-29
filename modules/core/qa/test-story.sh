@@ -140,3 +140,4 @@ PY
 # Optional staging prop template must never ship with unknown or broad kill selectors.
 python3 "$ROOT/qa/test_staging_world.py"
 python3 "$ROOT/qa/test_story_combat_boundary.py"
+python3 "$ROOT/qa/test_story_narrative.py"
