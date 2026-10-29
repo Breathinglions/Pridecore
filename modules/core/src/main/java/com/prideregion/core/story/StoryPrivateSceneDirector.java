@@ -15,10 +15,10 @@ public final class StoryPrivateSceneDirector {
     public static final int MAX_ACTIVE = 64;
     public static final int MAX_TICKS = 200;
 
-    public enum SceneId { RIN_LAB_INTRO }
+    public enum SceneId { RIN_LAB_INTRO, RIN_CANYON_REUNION, RIN_SUMMIT_REUNION }
     public enum Kind {
         DIALOGUE, ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE,
-        ACTOR_REMOVE, OPEN_NATIVE_STARTER
+        ACTOR_REMOVE, OPEN_NATIVE_STARTER, RESUME_STORY_DIALOGUE
     }
     public record Event(UUID owner, UUID session, SceneId scene, Kind kind,
                         String speaker, String text, String anchor) {
@@ -55,8 +55,39 @@ public final class StoryPrivateSceneDirector {
         new Cue(160, Kind.OPEN_NATIVE_STARTER, "Professor Sequoia", "", "")
     );
 
+    private static final List<Cue> CANYON = List.of(
+        new Cue(0, Kind.DIALOGUE, "Rin",
+            "Even the stones here seem to be keeping secrets.", ""),
+        new Cue(16, Kind.ACTOR_ENTER, "Rin", "", "canyon_ridge"),
+        new Cue(35, Kind.ACTOR_MOVE, "Rin", "", "canyon_overlook"),
+        new Cue(48, Kind.ACTOR_FACE, "Rin", "", "player"),
+        new Cue(52, Kind.DIALOGUE, "Rin",
+            "I followed the same rumors you did. Everywhere I turn, someone has covered the trail.", ""),
+        new Cue(90, Kind.DIALOGUE, "Rin",
+            "When we left Hearthleaf, I thought the League was the whole world. Maybe I was wrong.", ""),
+        new Cue(138, Kind.ACTOR_REMOVE, "Rin", "", ""),
+        new Cue(138, Kind.RESUME_STORY_DIALOGUE, "Rin", "", "")
+    );
+    private static final List<Cue> SUMMIT = List.of(
+        new Cue(0, Kind.DIALOGUE, "Rin",
+            "From up here, all the roads we walked look like they belong to the same story.", ""),
+        new Cue(16, Kind.ACTOR_ENTER, "Rin", "", "summit_trail"),
+        new Cue(34, Kind.ACTOR_MOVE, "Rin", "", "summit_overlook"),
+        new Cue(47, Kind.ACTOR_FACE, "Rin", "", "player"),
+        new Cue(54, Kind.DIALOGUE, "Rin",
+            "Do you remember what Professor Sequoia told us the day we began?", ""),
+        new Cue(96, Kind.DIALOGUE, "Rin",
+            "Whatever happens at Meridian, I won't forget where we started.", ""),
+        new Cue(140, Kind.ACTOR_REMOVE, "Rin", "", ""),
+        new Cue(140, Kind.RESUME_STORY_DIALOGUE, "Rin", "", "")
+    );
+
     private static List<Cue> cues(SceneId scene) {
-        return switch (scene) { case RIN_LAB_INTRO -> LAB; };
+        return switch (scene) {
+            case RIN_LAB_INTRO -> LAB;
+            case RIN_CANYON_REUNION -> CANYON;
+            case RIN_SUMMIT_REUNION -> SUMMIT;
+        };
     }
 
     /** Duplicate clicks cannot restart a scene or allocate a second actor. */
@@ -112,6 +143,7 @@ public final class StoryPrivateSceneDirector {
         List<Event> result = new ArrayList<>();
         for (Cue cue : cues(run.scene())) {
             if (cue.kind() == Kind.DIALOGUE || cue.kind() == Kind.OPEN_NATIVE_STARTER
+                    || cue.kind() == Kind.RESUME_STORY_DIALOGUE
                     || cue.kind() == Kind.ACTOR_REMOVE)
                 result.add(new Event(player, run.session(), run.scene(),
                     cue.kind(), cue.speaker(), cue.text(), cue.anchor()));
