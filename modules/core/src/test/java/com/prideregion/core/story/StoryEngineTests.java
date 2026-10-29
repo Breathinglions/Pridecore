@@ -120,6 +120,35 @@ public final class StoryEngineTests {
             "pride:ok","first","first",Map.of("first",
             new StoryDefinition.Node("first","text",List.of(new StoryDefinition.Option(
                 "x","Choice","nonexistent",null,Set.of(),Set.of(),Set.of()))))));
+        // A multi-screen conversation can advance without touching facts.
+        // The old button may never be replayed against the next dialogue node.
+        var storyteller = new StoryDefinition.Npc("storyteller", "Storyteller",
+            Set.of(), "pride:storyteller_seen", "hello", "return", Map.of(
+                "hello", new StoryDefinition.Node("hello", "I remember the old forest.",
+                    List.of(new StoryDefinition.Option("ask", "What happened?",
+                        "detail", null, Set.of(), Set.of(), Set.of()))),
+                "detail", new StoryDefinition.Node("detail", "The trees still remember.",
+                    List.of(new StoryDefinition.Option("thank", "Thank you.",
+                        null, null, Set.of("pride:storyteller_seen"), Set.of(), Set.of()))),
+                "return", new StoryDefinition.Node("return", "Until next time.", List.of())
+            ));
+        var chapters = new StoryEngine(new StoryDefinition(Map.of(
+            "storyteller", storyteller)), store);
+        UUID reader = UUID.randomUUID();
+        var firstScene = chapters.begin(reader, "storyteller");
+        var secondScene = chapters.chooseDisplayed(reader, firstScene.npcId(),
+            firstScene.nodeId(), firstScene.revision(), "ask");
+        check(secondScene.nodeId().equals("detail"),
+            "Read-only next node opens without modifying profile facts");
+        check(secondScene.revision() == firstScene.revision(),
+            "Nonmutating story choices keep the same persisted revision");
+        rejected(() -> chapters.chooseDisplayed(reader, firstScene.npcId(),
+            firstScene.nodeId(), firstScene.revision(), "ask"));
+        check(chapters.chooseDisplayed(reader, secondScene.npcId(),
+            secondScene.nodeId(), secondScene.revision(), "thank").options().isEmpty(),
+            "Only the currently displayed node may finish a story scene");
+        check(store.get(reader).facts().contains("pride:storyteller_seen"),
+            "Legitimate multi-screen dialogue still grants a story milestone");
         // Existing starter/registration milestones are read only from each player's tags.
         UUID fresh = UUID.randomUUID(), registered = UUID.randomUUID();
         Map<UUID, Set<String>> tagsByPlayer = new HashMap<>();
