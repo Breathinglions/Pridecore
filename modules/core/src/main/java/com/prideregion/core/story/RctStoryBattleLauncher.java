@@ -28,9 +28,10 @@ public final class RctStoryBattleLauncher {
     }
 
     public static UUID launch(String encounterId, Object serverPlayer,
-                              Object livingTrainer, ClassLoader loader)
+                              Object livingTrainer, UUID expectedPlayerId, ClassLoader loader)
             throws ReflectiveOperationException, IOException {
         Objects.requireNonNull(serverPlayer);
+        Objects.requireNonNull(expectedPlayerId);
         Objects.requireNonNull(livingTrainer);
         Objects.requireNonNull(loader);
         var roster = StoryBattleRosters.bundled().find(encounterId)
@@ -109,8 +110,6 @@ public final class RctStoryBattleLauncher {
             Object cobbleBattle = state.getClass().getMethod("getBattle").invoke(state);
             UUID cobbleId = (UUID) cobbleBattle.getClass()
                 .getMethod("getBattleId").invoke(cobbleBattle);
-            UUID expectedPlayer = (UUID) serverPlayer.getClass()
-                .getMethod("getUuid").invoke(serverPlayer);
             Object nativePlayers = cobbleBattle.getClass()
                 .getMethod("getPlayerUUIDs").invoke(cobbleBattle);
             Set<UUID> actualPlayers = new HashSet<>();
@@ -119,7 +118,7 @@ public final class RctStoryBattleLauncher {
                     throw new IllegalStateException("Invalid Cobblemon battle player UUID");
                 actualPlayers.add(playerId);
             }
-            if (!actualPlayers.equals(Set.of(expectedPlayer)))
+            if (!actualPlayers.equals(Set.of(expectedPlayerId)))
                 throw new IllegalStateException("Cobblemon battle contains unexpected players");
             if (!id.equals(cobbleId))
                 throw new IllegalStateException("RCT/Cobblemon battle ID mismatch");
