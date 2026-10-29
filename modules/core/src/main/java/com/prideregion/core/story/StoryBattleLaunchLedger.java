@@ -39,6 +39,8 @@ public final class StoryBattleLaunchLedger {
             StoryBattleSessionRouter.acceptedTrainers().get(launch.encounter())));
     }
 
+    public synchronized boolean pending(UUID player) { return pending.containsKey(player); }
+
     public synchronized void cancelPlayer(UUID player) {
         pending.remove(player);
         battles.entrySet().removeIf(e -> e.getValue().equals(player));
