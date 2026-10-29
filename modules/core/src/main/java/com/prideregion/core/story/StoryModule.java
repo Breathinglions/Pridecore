@@ -252,6 +252,13 @@ public final class StoryModule {
             }
             Properties props = new Properties();
             try (var input = Files.newInputStream(settings)) { props.load(input); }
+            StoryEffects.reset();
+            for (String key : StoryEffects.keys()) {
+                String configuredParticle = props.getProperty("effects." + key, "").trim();
+                if (!StoryEffects.configure(key, configuredParticle))
+                    LOGGER.warn("Unknown story particle override effects.{}={}, using vanilla fallback",
+                        key, configuredParticle);
+            }
             try (var bundled = StoryModule.class.getResourceAsStream("/story/default.json")) {
                 if (bundled == null) throw new IOException("Bundled default story missing");
                 var update = StoryConfigManager.upgrade(storyFile(), bundled);
