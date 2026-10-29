@@ -2,6 +2,7 @@ package com.prideregion.core.story;
 
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleType;
+import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
@@ -34,7 +35,8 @@ public final class StoryEffects {
             return true;
         }
         Identifier id = Identifier.tryParse(particleId);
-        if (id == null || !Registries.PARTICLE_TYPE.containsId(id))
+        if (id == null || !Registries.PARTICLE_TYPE.containsId(id)
+                || !(Registries.PARTICLE_TYPE.get(id) instanceof SimpleParticleType))
             return false;
         OVERRIDES.put(key, particleId);
         return true;
@@ -49,7 +51,7 @@ public final class StoryEffects {
             Identifier id = Identifier.tryParse(override);
             if (id != null) {
                 ParticleType<?> type = Registries.PARTICLE_TYPE.get(id);
-                if (type instanceof ParticleEffect candidate) effect = candidate;
+                if (type instanceof SimpleParticleType candidate) effect = candidate;
             }
         }
         world.spawnParticles(effect, x, y, z, count, spreadX, spreadY, spreadZ, speed);
