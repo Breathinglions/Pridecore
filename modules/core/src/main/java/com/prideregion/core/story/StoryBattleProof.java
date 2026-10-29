@@ -34,7 +34,10 @@ public final class StoryBattleProof {
         "rin_summit", new Encounter("rin_summit", "pride:frozen_warning", "pride:rin_summit_won"),
         "eclipse_lieutenant", new Encounter("eclipse_lieutenant", "pride:memory_truth", "pride:eclipse_lieutenant_won"),
         "sable", new Encounter("sable", "pride:eclipse_assault", "pride:sable_battle_won"),
-        "director_cael", new Encounter("director_cael", "pride:sable_battle_won", "pride:cael_battle_won")
+        "director_cael", new Encounter("director_cael", "pride:sable_battle_won", "pride:cael_battle_won"),
+        "shield_alpha", new Encounter("shield_alpha", "pride:cael_battle_won", "pride:shield_alpha_won"),
+        "shield_beta", new Encounter("shield_beta", "pride:cael_battle_won", "pride:shield_beta_won"),
+        "shield_gamma", new Encounter("shield_gamma", "pride:cael_battle_won", "pride:shield_gamma_won")
     );
 
     private final ProgressionService progression;
