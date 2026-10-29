@@ -47,8 +47,8 @@ public final class CobblemonStoryVictoryListener {
                 }
                 // Story fights are always one player versus NPC. A multi-player
                 // battle must never mint single-player campaign progression.
-                if (playerIds.size() == 1 && playerWinners.size() == 1)
-                    sink.victory(battleId, playerWinners.iterator().next());
+                if (soloWinner(playerIds, playerWinners).isPresent())
+                    sink.victory(battleId, soloWinner(playerIds, playerWinners).orElseThrow());
                 else sink.cancelled(battleId);
             } catch (ReflectiveOperationException | RuntimeException error) {
                 // Event subscribers must never crash the Cobblemon event bus.
@@ -59,6 +59,15 @@ public final class CobblemonStoryVictoryListener {
         Object subscription = observable.getClass().getMethod("subscribe", Consumer.class)
             .invoke(observable, consumer);
         return new CobblemonStoryVictoryListener(observable, subscription);
+    }
+
+    /** Deterministic eligibility rule, separately testable without Cobblemon. */
+    public static Optional<UUID> soloWinner(Set<UUID> participants, Set<UUID> winners) {
+        if (participants == null || winners == null ||
+                participants.size() != 1 || winners.size() != 1)
+            return Optional.empty();
+        UUID winner = winners.iterator().next();
+        return participants.contains(winner) ? Optional.of(winner) : Optional.empty();
     }
 
     public void uninstall() throws ReflectiveOperationException {
