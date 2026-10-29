@@ -31,3 +31,5 @@ After an authenticated shield-defender victory, the player now receives a bounde
 Players can run `/pridecore story finale` to read their saved current phase, conduit count, shield-defender count, and the next objective. The command does not unlock story chapters, spawn battles, award facts, or edit player inventory. Progress is reconciled against already verified shield wins before display. The finale must be enabled in the story configuration.
 
 Core activation now explicitly refuses players who have not reached STABILIZE or COMPLETE; touching the core before defeating all three shield defenders cannot complete the encounter. Already-complete players remain idempotent.
+
+The finale completion particle burst is emitted only on the first successful STABILIZE → COMPLETE core interaction. Reusing the core after completion does not replay the cinematic; the saved completion remains intact.
