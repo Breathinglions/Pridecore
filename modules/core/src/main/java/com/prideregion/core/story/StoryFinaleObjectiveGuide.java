@@ -16,13 +16,13 @@ public final class StoryFinaleObjectiveGuide {
         if (saved != null && !saved.player().equals(state.player()))
             throw new IllegalArgumentException("Finale checkpoint belongs to another player");
         return switch (state.phase()) {
-            case LOCKED -> "Defeat Director Cael and investigate the engine.";
-            case CONDUITS -> "Charge remaining conduits: "
+            case LOCKED -> "Director Cael is waiting at Meridian Institute. The engine cannot remain as it is.";
+            case CONDUITS -> "The old conduits still pulse at "
                 + pending(CONDUITS, saved == null ? Set.of() : saved.conduits()) + ".";
-            case SHIELDS -> "Defeat remaining defenders: "
-                + pending(SHIELDS, saved == null ? Set.of() : saved.shields()) + ".";
-            case STABILIZE -> "All shields down. Interact with the Resonance Engine core.";
-            case COMPLETE -> "The Resonance Engine has been stabilized.";
+            case SHIELDS -> "The engine is still guarded by the "
+                + pending(SHIELDS, saved == null ? Set.of() : saved.shields()) + " seals.";
+            case STABILIZE -> "The last seal is silent. Only the heart of the Resonance Engine remains.";
+            case COMPLETE -> "The Resonance Engine is quiet at last. The region can begin to heal.";
         };
     }
     private static String pending(Set<String> required, Set<String> done) {
