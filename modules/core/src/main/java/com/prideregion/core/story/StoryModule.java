@@ -95,6 +95,10 @@ public final class StoryModule {
                             finale.stabilize(sp.getUuid());
                         persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
+                        if (beforeCore.phase() == ResonanceFinaleController.Phase.STABILIZE) {
+                            CINEMATICS.cancel(sp.getUuid());
+                            CINEMATICS.begin(sp.getUuid(), "finale_stabilized");
+                        }
                         // Repeat core use is safe but should not replay the
                         // cinematic burst after completion.
                         if (beforeCore.phase() == ResonanceFinaleController.Phase.STABILIZE
@@ -109,8 +113,14 @@ public final class StoryModule {
                         if (finaleStore != null) finaleStore.delete(sp.getUuid());
                     } else if (marker.startsWith("pride_finale_conduit_")) {
                         String direction = marker.substring("pride_finale_conduit_".length());
+                        var priorConduits = finale.snapshot(sp.getUuid());
                         var state = finale.conduit(sp.getUuid(), direction);
                         persistFinale(sp.getUuid());
+                        if (priorConduits.phase() == ResonanceFinaleController.Phase.CONDUITS
+                                && state.phase() == ResonanceFinaleController.Phase.SHIELDS) {
+                            CINEMATICS.cancel(sp.getUuid());
+                            CINEMATICS.begin(sp.getUuid(), "finale_conduits_complete");
+                        }
                         if (sp.getWorld() instanceof ServerWorld fxWorld) {
                             StoryEffects.emit(fxWorld, "finale.conduit", ParticleTypes.ELECTRIC_SPARK,
                                 entity.getX(), entity.getY() + 0.6D, entity.getZ(),
@@ -590,6 +600,10 @@ public final class StoryModule {
                 restoreFinale(winnerId);
                 reconcileFinaleShields(winnerId);
                 var shieldState = finale.snapshot(winnerId);
+                if (shieldState.phase() == ResonanceFinaleController.Phase.STABILIZE) {
+                    CINEMATICS.cancel(winnerId);
+                    CINEMATICS.begin(winnerId, "finale_shields_complete");
+                }
                 ServerPlayerEntity victor = server.getPlayerManager().getPlayer(winnerId);
                 if (victor != null) {
                     if (victor.getWorld() instanceof ServerWorld fxWorld) {
