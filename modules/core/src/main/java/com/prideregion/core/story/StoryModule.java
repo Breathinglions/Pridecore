@@ -494,7 +494,12 @@ public final class StoryModule {
             String encounterId, UUID trainerEntity) throws IOException {
         if (liveServer != server || engine == null || launchLedger == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
-        if (server.getPlayerManager().getPlayer(player) == null) return false;
+        ServerPlayerEntity contender = server.getPlayerManager().getPlayer(player);
+        if (contender == null) return false;
+        var roster = StoryBattleRosters.bundled().find(encounterId)
+            .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
+        if (!StoryLeagueBadgeGate.allows(roster.minBadges(), contender.getCommandTags()))
+            return false;
         var profile = PrideCoreMod.progression(server)
             .orElseThrow(() -> new IOException("Progression unavailable")).get(player);
         var def = StoryBattleProof.definitions().stream()
