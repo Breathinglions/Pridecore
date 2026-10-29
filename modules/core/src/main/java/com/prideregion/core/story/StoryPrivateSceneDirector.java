@@ -167,6 +167,21 @@ public final class StoryPrivateSceneDirector {
         return cancel(player);
     }
 
+    /**
+     * Reap logout/death/world changes every server tick, even when a scene has
+     * no scheduled dialogue cue that tick. Caller reads server-trusted state.
+     */
+    public synchronized List<Event> reapInvalid(java.util.function.Function<UUID, String> actualDimension) {
+        Objects.requireNonNull(actualDimension);
+        List<Event> cleanup = new ArrayList<>();
+        for (UUID player : List.copyOf(active.keySet())) {
+            Running run = active.get(player);
+            if (run != null && !run.dimension().equals(actualDimension.apply(player)))
+                cancel(player).ifPresent(cleanup::add);
+        }
+        return List.copyOf(cleanup);
+    }
+
     /** Shutdown must inform any connected private-actor renderer of cleanup. */
     public synchronized List<Event> clear() {
         List<Event> cleanup = new ArrayList<>();
