@@ -30,10 +30,19 @@ expected = {
     "shield_gamma": "resonance_shield_gamma",
 }
 assert data["schema"] == 1 and data["mode"] == "STAGING_ONLY"
+# Story battles MUST remain Cobblemon/RCT Pokémon-only singles.
+assert data["combatMode"] == "POKEMON_ONLY"
+assert data["battleFormat"] == "GEN_9_SINGLES"
+assert set(data) == {
+    "schema", "mode", "authority", "combatMode", "battleFormat", "encounters"
+}, "Story schema cannot contain Minecraft/hybrid combat configuration"
 assert len(data["encounters"]) == len(expected)
 ids = [e["id"] for e in data["encounters"]]
 assert set(ids) == set(expected) and len(ids) == len(set(ids))
 for entry in data["encounters"]:
+    assert set(entry) == {
+        "id", "actor", "chapter", "minBadges", "team", "intro", "win"
+    }, "A story battle cannot contain weapon, mob, melee or hybrid phases"
     assert entry["actor"] == expected[entry["id"]]
     assert isinstance(entry["minBadges"], int) and 0 <= entry["minBadges"] <= 8
     assert entry["minBadges"] == expected_badges[entry["id"]], "Canonical battle badge gate changed"
@@ -42,6 +51,7 @@ for entry in data["encounters"]:
     assert entry["minBadges"] >= 0
     assert 1 <= len(entry["team"]) <= 6
     for pokemon in entry["team"]:
+        assert set(pokemon) == {"species", "level"}, "No physical combat on Pokémon team members"
         assert re.fullmatch(r"[a-z0-9_-]+", pokemon["species"])
         assert isinstance(pokemon["level"], int) and 1 <= pokemon["level"] <= 100
 # Rival continuity: single character, growing team, increasing progression gate.
@@ -54,4 +64,4 @@ assert [max(p["level"] for p in r["team"]) for r in rivals] == sorted(
 # Ensure no unapproved battle content can override official League opponents.
 assert all(e["actor"] not in {"thorn","rook","ashen","kai","vega","draven","freya","nyx","magnus"}
            for e in data["encounters"])
-print("PASS: nine versioned story encounter roster definitions validated (NOT runtime tested)")
+print("PASS: nine Pokémon-only RCT singles story encounters; hybrid combat schema rejected (NOT runtime tested)")
