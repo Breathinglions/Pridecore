@@ -486,6 +486,20 @@ public final class StoryModule {
                 }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
+            // Initial encounter presentation: authoritative server-side effects,
+            // emitted only after RCT launch ownership has been verified.
+            if (player.getWorld() instanceof ServerWorld fxWorld) {
+                fxWorld.spawnParticles(ParticleTypes.ENCHANT,
+                    trainer.getX(), trainer.getY() + 1.15D, trainer.getZ(),
+                    28, 0.7D, 1.0D, 0.7D, 0.04D);
+                if (encounterId.equals("director_cael") ||
+                        encounterId.equals("sable") ||
+                        encounterId.startsWith("shield_")) {
+                    fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                        trainer.getX(), trainer.getY() + 1.1D, trainer.getZ(),
+                        35, 0.9D, 1.0D, 0.9D, 0.06D);
+                }
+            }
             // Presentation must never turn an already authenticated battle
             // into a reported launch failure or leave its ticket orphaned.
             try {
