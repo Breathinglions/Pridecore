@@ -22,3 +22,11 @@ The timeline has a global cap of 64 concurrent scenes. Duplicate scenes for the 
 This is **cinematic encounter presentation**, not multi-phase Pokémon battle mechanics or a full client cutscene system. No modded camera, custom shader, unique model animation, or synchronization to Pokémon turn phases is claimed. Full combat phase scripting requires confirming RCT/Cobblemon's real battle APIs and testing multiplayer behavior in the staging server with the exact installed jars.
 
 Other mod gameplay and official Gym/League match results remain untouched. This system stays inside the Module 2 development branch until validated.
+
+## Authenticated knockout-driven presentation
+
+The local Cobblemon 1.8.1 JAR exposes `CobblemonEvents.BATTLE_FAINTED`, `BattleFaintedEvent.getKilled()` and `BattlePokemon.getActor()/getUuid()`. Module 02 subscribes to that separate event and checks the exact launched/registered battle UUID before considering a cue. The adapter rejects all non-solo battle events and player-owned Pokémon faints; only an opponent-side faint counts. A unique Pokémon UUID may be counted once per registered battle.
+
+The server-only `StoryBattlePhaseTracker` uses each authored encounter's roster size to announce the first opponent faint and, for sufficiently large teams, a late-battle phase. It avoids a new phase on the final faint because that overlaps victory. A timed actionbar/particle cue replaces the previous introductory cue, rather than stacking. These phases are **presentation only** and deliberately do not edit HP, movesets, difficulty or RCT AI. An authenticated win, loss, cancellation or disconnect ends the pending presentation; no combat credits are granted by faint events.
+
+Important: the presence of these binary methods in the supplied Cobblemon 1.8.1 and RCT API 0.16.0 JARs is verified. Successful runtime integration with the installed server's full modset and actual trainer entities **has not been verified in Minecraft**.
