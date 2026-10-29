@@ -53,8 +53,16 @@ public final class StoryEngineTests {
             "Mom completion tells player the next destination");
         check(StoryObjectiveGuide.forStage("pride:trainer_registration").contains("Technician Theo"),
             "Trainer registration gives a useful next destination");
-        check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Ranger Mira"),
-            "Field kit progression includes Route 1 objectives");
+        check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Rin"),
+            "Route 1 objective requires the scripted rival battle");
+        check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
+            "Canyon rivalry is identified in the player's campaign directions");
+        check(StoryObjectiveGuide.forStage("pride:ice_research").contains("summit"),
+            "Summit rivalry is identified in the player's campaign directions");
+        check(StoryObjectiveGuide.forStage("pride:ghost_memories").contains("Lieutenant"),
+            "Eclipse Lieutenant battle is a required stage");
+        check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("shield"),
+            "The Resonance Engine phase remains a mandatory objective");
         check(StoryObjectiveGuide.coveredStages() == 29,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("Quest Book"),
