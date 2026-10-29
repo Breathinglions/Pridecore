@@ -55,7 +55,9 @@ public final class StoryModule {
             if (entity.getType() == EntityType.INTERACTION &&
                     entity.getCommandTags().stream().anyMatch(t ->
                         t.startsWith("pride_finale_"))) {
-                if (entity.squaredDistanceTo(sp) > 36.0D) return ActionResult.FAIL;
+                if (entity.squaredDistanceTo(sp) > 36.0D
+                        || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
+                    return ActionResult.FAIL;
                 var markers = entity.getCommandTags().stream()
                     .filter(t -> t.startsWith("pride_finale_")).toList();
                 if (markers.size() != 1) return ActionResult.FAIL;
@@ -126,7 +128,8 @@ public final class StoryModule {
                     .stream().filter(clue -> entity.getCommandTags().contains(clue.markerTag()))
                     .toList();
                 if (clues.isEmpty()) return ActionResult.PASS;
-                if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D)
+                if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D
+                        || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
                 try {
                     var service = PrideCoreMod.progression(sp.getServer())
