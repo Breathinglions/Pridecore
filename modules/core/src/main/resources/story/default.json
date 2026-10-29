@@ -964,7 +964,8 @@
       "name": "Eclipse Lieutenant",
       "requires": [
         "pride:memory_truth",
-        "pride:clue_echo"
+        "pride:clue_echo",
+        "pride:eclipse_lieutenant_won"
       ],
       "completedFact": "pride:eclipse_assault",
       "start": "main",
