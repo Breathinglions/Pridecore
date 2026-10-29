@@ -37,11 +37,11 @@ public final class StoryFinaleObjectiveGuideTests {
         controller.shieldVictory(player,"gamma");
         check(StoryFinaleObjectiveGuide.next(
             controller.snapshot(player),controller.checkpoint(player))
-            .contains("core"));
+            .contains("heart of the Resonance Engine"));
         controller.stabilize(player);
         check(StoryFinaleObjectiveGuide.next(
             controller.snapshot(player),controller.checkpoint(player))
-            .contains("stabilized"));
+            .contains("quiet at last"));
         boolean rejected = false;
         try {
             StoryFinaleObjectiveGuide.next(controller.snapshot(player),
