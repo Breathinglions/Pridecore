@@ -57,8 +57,13 @@ public final class StoryBattleProof {
         Objects.requireNonNull(battle);
         Encounter encounter = DEFINITIONS.get(encounterId);
         if (encounter == null) throw new IllegalArgumentException("Unknown story battle");
-        if (!progression.get(player).facts().contains(encounter.requiredFact()))
+        Set<String> facts = progression.get(player).facts();
+        if (!facts.contains(encounter.requiredFact()))
             throw new IllegalStateException("Story battle chapter locked");
+        if (facts.contains(encounter.earnedFact()))
+            throw new IllegalStateException("Story battle already completed");
+        // A ticket cannot be claimed for a completed encounter, even when
+        // called directly from a trusted adapter rather than the launch guard.
         Ticket ticket = new Ticket(player, battle, encounterId);
         Ticket previous = active.get(player);
         if (previous != null) {
