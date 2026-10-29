@@ -126,6 +126,12 @@ public final class StoryModule {
                         String direction = marker.substring("pride_finale_conduit_".length());
                         var priorConduits = finale.snapshot(sp.getUuid());
                         var state = finale.conduit(sp.getUuid(), direction);
+                        if (state.conduits() == priorConduits.conduits()) {
+                            sp.sendMessage(Text.literal(
+                                "[Pride Region] This conduit is already charged (" +
+                                state.conduits() + "/4).").formatted(Formatting.GRAY), false);
+                            return ActionResult.SUCCESS;
+                        }
                         persistFinale(sp.getUuid());
                         if (priorConduits.phase() == ResonanceFinaleController.Phase.CONDUITS
                                 && state.phase() == ResonanceFinaleController.Phase.SHIELDS) {
