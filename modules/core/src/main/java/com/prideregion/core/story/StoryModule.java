@@ -455,6 +455,9 @@ public final class StoryModule {
                 }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
+            var roster = StoryBattleRosters.bundled().find(encounterId).orElseThrow();
+            player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
+                .formatted(Formatting.GOLD), false);
             return Optional.of(battleId);
         } catch (IOException | ReflectiveOperationException | RuntimeException ex) {
             // Release failed reservations without discarding a previously
