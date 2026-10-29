@@ -43,7 +43,13 @@ Player disconnects, command cancellation, story reloads and operator session
 resets clear pending NPC anchors.
 
 NPC text and choices are displayed in clickable chat lines; players do not
-need to type a command. Current dialogue UI uses vanilla chat and is not a
+need to type a command. Every clickable response is tied to the exact NPC
+chapter, dialogue node and saved profile revision. A button from an older
+character, previous dialogue screen or earlier chapter is refused even if
+both scenes share a choice ID (such as `continue`). If another genuine
+story event updates the profile during a conversation, the player must speak
+to the character again. This prevents stale chat lines from overwriting
+later progression. Current dialogue UI uses vanilla chat and is not a
 custom GUI or client-only phone interface yet.
 
 ## Staging checks
@@ -56,9 +62,16 @@ custom GUI or client-only phone interface yet.
 3. Confirm that Sequoia, Theo, Avery and Thorn preserve native services.
 4. Confirm the next Rin/Rowan chapter appears only after prerequisite facts
    and that previously completed chapters remain safe to revisit.
-5. Try selecting an old choice after walking away, switching dimensions, or
-   opening a different NPC; the old conversation must not advance progress.
+5. Try selecting an old choice after walking away, switching dimensions,
+   opening a different NPC, moving to a later dialogue screen, or completing
+   an unrelated story milestone; the old conversation must not advance progress.
 6. Verify clickable choices on the exact supported client pack in game.
 
 A successful build verifies the code path and tests, not real mod event ordering
 or physical world click behavior. Production remains disabled until staging.
+
+On operator-only playthrough or temporary-session reset, Pride Core also attempts to
+abort the player's **authenticated active RCT story battles** before releasing
+their trainer locks. This does not stop or change another player's Pokémon
+match or an unrelated League trainer battle. Failure to abort is logged for
+operator inspection and still requires real staging validation.
