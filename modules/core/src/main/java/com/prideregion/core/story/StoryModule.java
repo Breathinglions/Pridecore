@@ -394,10 +394,6 @@ public final class StoryModule {
         } catch (ReflectiveOperationException | RuntimeException ex) {
             cancelPendingStoryBattleLaunch(server, player.getUuid());
             throw new IOException("RCT story battle launch failed", ex);
-        } finally {
-            // This clears any unconfirmed reservation; confirmed battle ownership
-            // is retained until its authoritative end or cancellation.
-            cancelPendingStoryBattleLaunch(server, player.getUuid());
         }
     }
 
