@@ -455,8 +455,13 @@ public final class StoryModule {
                 throw new IOException("RCT battle launched without valid story ownership");
             }
             return Optional.of(battleId);
-        } catch (ReflectiveOperationException | RuntimeException ex) {
-            cancelPendingStoryBattleLaunch(server, player.getUuid());
+        } catch (IOException | ReflectiveOperationException | RuntimeException ex) {
+            // Release failed reservations without discarding a previously
+            // confirmed active battle (which belongs to the result callback).
+            if (launchLedger != null && launchLedger.pending(player.getUuid())
+                    && !launchLedger.active(player.getUuid()))
+                cancelPendingStoryBattleLaunch(server, player.getUuid());
+            if (ex instanceof IOException io) throw io;
             throw new IOException("RCT story battle launch failed", ex);
         }
     }
