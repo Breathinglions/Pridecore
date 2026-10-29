@@ -15,7 +15,7 @@ public final class StoryEngine {
     public record ChoiceView(String id, String text) {}
     public record Reply(String npcId, String npcName, String text,
                         List<ChoiceView> options, long revision) {}
-    private record Session(String npcId, String nodeId) {}
+    private record Session(String npcId, String nodeId, long profileRevision) {}
     private final StoryDefinition story;
     private final ProgressionService progression;
     private final Function<UUID, Set<String>> externalFacts;
@@ -53,7 +53,7 @@ public final class StoryEngine {
         if (!p.facts().containsAll(npc.requires()))
             throw new IllegalStateException("This NPC has no story dialogue available yet");
         String nodeId = p.facts().contains(npc.completedFact()) ? npc.repeat() : npc.start();
-        sessions.put(playerId, new Session(npcId, nodeId));
+        sessions.put(playerId, new Session(npcId, nodeId, p.revision()));
         return reply(npc, npc.nodes().get(nodeId), p, legacyFor(playerId));
     }
 
@@ -63,6 +63,13 @@ public final class StoryEngine {
         var npc = story.npcs().get(session.npcId());
         var node = npc.nodes().get(session.nodeId());
         ProfileState before = progression.get(playerId);
+        // An old chat button must never advance or rewind a profile after a
+        // different NPC, battle or clue has already changed its revision.
+        if (before.revision() != session.profileRevision()) {
+            sessions.remove(playerId);
+            throw new IllegalStateException(
+                "Our story has moved on. Speak to this character again.");
+        }
         if (!before.facts().containsAll(npc.requires())) {
             sessions.remove(playerId);
             throw new IllegalStateException("Prerequisites changed; reopen the conversation");
@@ -101,7 +108,8 @@ public final class StoryEngine {
             return new Reply(npc.id(), npc.name(), "Until we meet again.",
                     List.of(), change.profile().revision());
         }
-        sessions.put(playerId, new Session(npc.id(), option.next()));
+        sessions.put(playerId,
+            new Session(npc.id(), option.next(), change.profile().revision()));
         return reply(npc, npc.nodes().get(option.next()), change.profile(), legacyFor(playerId));
     }
 
