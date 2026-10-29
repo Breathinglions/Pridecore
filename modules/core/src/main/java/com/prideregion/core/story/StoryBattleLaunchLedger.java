@@ -44,6 +44,11 @@ public final class StoryBattleLaunchLedger {
         battles.entrySet().removeIf(e -> e.getValue().equals(player));
     }
 
+    /** Read-only authorization check for native battle event callbacks. */
+    public synchronized boolean owns(UUID battle, UUID player) {
+        return player != null && player.equals(battles.get(battle));
+    }
+
     public synchronized void finished(UUID battle) { battles.remove(battle); }
     public synchronized void clear() { pending.clear(); battles.clear(); }
 }
