@@ -19,16 +19,25 @@ public final class StoryBattleRosters {
 
     public static StoryBattleRosters parse(Reader reader) {
         JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+        // Closed schema intentionally excludes mixed Minecraft boss mechanics.
+        requireExactKeys(root, Set.of("schema", "mode", "authority", "combatMode",
+            "battleFormat", "encounters"));
         if (root.get("schema").getAsInt() != 1
-                || !"STAGING_ONLY".equals(root.get("mode").getAsString()))
-            throw new IllegalArgumentException("Unsupported battle roster schema");
+                || !"STAGING_ONLY".equals(root.get("mode").getAsString())
+                || !StoryCombatPolicy.Mode.POKEMON_ONLY.name().equals(
+                    root.get("combatMode").getAsString())
+                || !"GEN_9_SINGLES".equals(root.get("battleFormat").getAsString()))
+            throw new IllegalArgumentException("Story RCT rosters must be Pokémon-only singles");
         JsonArray entries = root.getAsJsonArray("encounters");
         if (entries == null || entries.size() != StoryBattleSessionRouter.acceptedTrainers().size())
             throw new IllegalArgumentException("Missing or extra story encounters");
         Map<String, Roster> result = new HashMap<>();
         for (JsonElement element : entries) {
             JsonObject o = element.getAsJsonObject();
+            requireExactKeys(o, Set.of("id", "actor", "chapter", "minBadges",
+                "team", "intro", "win"));
             String id = o.get("id").getAsString(), actor = o.get("actor").getAsString();
+            StoryCombatPolicy.requirePokemonOnly(id, root.get("combatMode").getAsString());
             if (!StoryBattleSessionRouter.acceptedTrainers().containsKey(id)
                     || !StoryDefinition.validId(actor))
                 throw new IllegalArgumentException("Unknown encounter or actor");
@@ -40,6 +49,7 @@ public final class StoryBattleRosters {
             List<Member> members = new ArrayList<>();
             for (JsonElement pokemon : team) {
                 JsonObject member = pokemon.getAsJsonObject();
+                requireExactKeys(member, Set.of("species", "level"));
                 String species = member.get("species").getAsString();
                 int level = member.get("level").getAsInt();
                 if (!species.matches("[a-z0-9_-]+") || level < 1 || level > 100)
@@ -53,6 +63,12 @@ public final class StoryBattleRosters {
                 throw new IllegalArgumentException("Repeated encounter");
         }
         return new StoryBattleRosters(result);
+    }
+
+    private static void requireExactKeys(JsonObject object, Set<String> allowed) {
+        if (!object.keySet().equals(allowed))
+            throw new IllegalArgumentException(
+                "Unknown or missing Pokémon-only story roster fields: " + object.keySet());
     }
 
     public static StoryBattleRosters bundled() throws IOException {
