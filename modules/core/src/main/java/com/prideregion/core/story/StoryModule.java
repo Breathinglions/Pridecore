@@ -114,7 +114,7 @@ public final class StoryModule {
                             facts.contains("pride:clue_engine"));
                         if (started.phase() == ResonanceFinaleController.Phase.LOCKED)
                             throw new IllegalStateException(
-                                "Defeat Director Cael and investigate the engine first");
+                                "The Engine remains silent. Director Cael is still at Meridian Institute.");
                         persistFinale(sp.getUuid());
                     }
                     if (marker.equals("pride_finale_core")) {
@@ -122,7 +122,7 @@ public final class StoryModule {
                         if (beforeCore.phase() != ResonanceFinaleController.Phase.STABILIZE
                                 && beforeCore.phase() != ResonanceFinaleController.Phase.COMPLETE)
                             throw new IllegalStateException(
-                                "Disable all three shield defenders before stabilizing the core");
+                                "The ancient seals still hold. The heart of the Engine is beyond reach.");
                         if (beforeCore.phase() == ResonanceFinaleController.Phase.STABILIZE)
                             finale.stabilize(sp.getUuid());
                         persistFinale(sp.getUuid());
@@ -227,15 +227,14 @@ public final class StoryModule {
                             boolean trainerBusy = launchLedger != null
                                 && launchLedger.trainerBusy(trainer.getUuid());
                             sp.sendMessage(Text.literal(trainerBusy
-                                ? "[Pride Region] This trainer is already in a battle. Try again when the fight ends."
-                                : "[Pride Region] This encounter isn't available yet, or is already completed.")
+                                ? "[Pride Region] Someone is with this Trainer. Your moment will come."
+                                : "[Pride Region] There's still more to this story. Come back when the time feels right.")
                                 .formatted(Formatting.YELLOW), false);
                         }
                     } catch (IOException | RuntimeException ex) {
                         LOGGER.warn("Story trainer battle launch denied for {} / {}",
                             sp.getUuid(), encounterId, ex);
-                        sp.sendMessage(Text.literal("Story battle unavailable: " +
-                            safe(ex.getMessage())).formatted(Formatting.RED), false);
+                        sp.sendMessage(Text.literal("[Pride Region] Something interrupted this meeting. Please try again later.").formatted(Formatting.RED), false);
                     }
                     return ActionResult.SUCCESS;
                 }
@@ -530,7 +529,7 @@ public final class StoryModule {
         boolean completed = proof.victory(ticket, actualBattleId, actualWinnerId);
         if (completed) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(ticket.player());
-            player.sendMessage(Text.literal("[Pride Region] Story battle victory recorded.")
+            player.sendMessage(Text.literal("[Pride Region] The road ahead is opening.")
                 .formatted(Formatting.GREEN), false);
         }
         return completed;
@@ -769,11 +768,10 @@ public final class StoryModule {
                             victor.getX(), victor.getY() + 1.0D, victor.getZ(),
                             30, 0.9D, 1.0D, 0.9D, 0.035D);
                     }
-                    victor.sendMessage(Text.literal("[Pride Region] Resonance shields " +
-                        shieldState.shields() + "/3" +
-                        (shieldState.phase() == ResonanceFinaleController.Phase.STABILIZE
-                            ? " — All shields disabled. Stabilize the engine core!"
-                            : " — Defeat the remaining shield defenders."))
+                    victor.sendMessage(Text.literal("[Pride Region] " + (shieldState.phase()
+                            == ResonanceFinaleController.Phase.STABILIZE
+                            ? "The last ancient seal fades. The Engine's heart begins to glow."
+                            : "Another ancient seal falls silent. The chamber trembles."))
                         .formatted(Formatting.AQUA), false);
                 }
             }
@@ -781,7 +779,7 @@ public final class StoryModule {
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null) {
-                String victoryLine = "Story battle victory recorded.";
+                String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
                         victoryLine = StoryBattleRosters.bundled()
