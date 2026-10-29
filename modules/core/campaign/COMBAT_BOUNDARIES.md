@@ -28,8 +28,8 @@ trap, mob fight, or any other damage to their physical Minecraft entity.
 
 The physical RCT trainer entity is just the interaction anchor and **cannot
 take ordinary Minecraft damage when the story module is enabled in an allowed
-world**. The scoped `ServerLivingEntityEvents.ALLOW_DAMAGE` listener cancels
-damage only for valid `pride_battle_<encounter>` actors. It does not protect
+world**. The scoped `AttackEntityCallback` cancels left-click weapon/hand attacks, and the `ServerLivingEntityEvents.ALLOW_DAMAGE` listener cancels
+incoming damage only for valid `pride_battle_<encounter>` actors. It does not protect
 unrelated Pokémon, mobs, League NPCs, or other modules' boss entities.
 Disabling Module 02 deactivates this protection. Physical trainer entities are
 not to be used as combat targets.
