@@ -855,6 +855,45 @@ public final class StoryModule {
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
     }
 
+    /** Staging-only local arena inspection; it never generates any entities. */
+    private static int auditFinaleArena(ServerCommandSource source) {
+        ServerPlayerEntity actor = source.getPlayer();
+        if (actor == null) return message(source, "Run finale arena audit in-game as an operator.");
+        var found = actor.getWorld().getOtherEntities(actor,
+            actor.getBoundingBox().expand(64.0D),
+            e -> e.getCommandTags().stream().anyMatch(StoryWorldMarkerCatalog::isStoryTag));
+        List<Set<String>> markers = new ArrayList<>();
+        List<String> malformed = new ArrayList<>();
+        for (Entity entity : found) {
+            Set<String> tags = entity.getCommandTags();
+            markers.add(tags);
+            boolean livingNonPlayer = entity instanceof net.minecraft.entity.LivingEntity
+                && !(entity instanceof net.minecraft.entity.player.PlayerEntity);
+            boolean cobblemonNpc = "cobblemon:npc".equals(
+                Registries.ENTITY_TYPE.getId(entity.getType()).toString());
+            for (String tag : tags) {
+                if (!StoryArenaReadiness.REQUIRED.contains(tag)) continue;
+                if (!StoryWorldMarkerCatalog.validOnEntity(tag, livingNonPlayer,
+                        cobblemonNpc, entity.getType() == EntityType.INTERACTION))
+                    malformed.add(tag + " on " + entity.getUuid());
+            }
+        }
+        var result = StoryArenaReadiness.check(markers);
+        if (!result.missing().isEmpty())
+            source.sendFeedback(() -> Text.literal("MISSING arena devices: "
+                + new TreeSet<>(result.missing())), false);
+        if (!result.duplicate().isEmpty())
+            source.sendFeedback(() -> Text.literal("DUPLICATE arena markers: "
+                + new TreeSet<>(result.duplicate())), false);
+        if (!malformed.isEmpty())
+            source.sendFeedback(() -> Text.literal("INCORRECT entity types: " + malformed), false);
+        boolean ready = result.ready() && malformed.isEmpty();
+        return message(source, "Local finale arena (64 blocks): " +
+            result.present().size() + "/8 required markers; " +
+            (ready ? "MARKER SET COMPLETE" : "SETUP INCOMPLETE") +
+            ". This checks nearby loaded entities, not RCT battle functionality.");
+    }
+
     /**
      * Non-mutating RCT/Cobblemon compatibility check. Confirms binary
      * signatures and authored rosters, NOT battle behavior in Minecraft.
@@ -1143,7 +1182,9 @@ public final class StoryModule {
                     .executes(ctx -> unbindWorldMarker(ctx.getSource(),
                         EntityArgumentType.getEntity(ctx, "entity")))))
             .then(CommandManager.literal("audit-markers")
-                .executes(ctx -> auditWorldMarkers(ctx.getSource()))));
+                .executes(ctx -> auditWorldMarkers(ctx.getSource())))
+            .then(CommandManager.literal("audit-finale")
+                .executes(ctx -> auditFinaleArena(ctx.getSource()))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
             .then(CommandManager.literal("talk")
