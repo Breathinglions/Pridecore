@@ -162,6 +162,60 @@
       ],
       "intro": "You stand between our research and the future. Prove your conviction.",
       "win": "The experiment ends. Help me stabilize the machine."
+    },
+    {
+      "id": "shield_alpha",
+      "actor": "resonance_shield_alpha",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "bronzong",
+          "level": 61
+        },
+        {
+          "species": "scizor",
+          "level": 62
+        }
+      ],
+      "intro": "The Steel-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The alpha shield disengages. The engine is becoming stable."
+    },
+    {
+      "id": "shield_beta",
+      "actor": "resonance_shield_beta",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "electivire",
+          "level": 62
+        },
+        {
+          "species": "magnezone",
+          "level": 63
+        }
+      ],
+      "intro": "The Electric-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The beta shield disengages. The engine is becoming stable."
+    },
+    {
+      "id": "shield_gamma",
+      "actor": "resonance_shield_gamma",
+      "chapter": "Resonance Finale",
+      "minBadges": 8,
+      "team": [
+        {
+          "species": "espeon",
+          "level": 63
+        },
+        {
+          "species": "metagross",
+          "level": 64
+        }
+      ],
+      "intro": "The Psychic-aligned Resonance Shield activates. Defeat its defenders to release the seal.",
+      "win": "The gamma shield disengages. The engine is becoming stable."
     }
   ]
 }
