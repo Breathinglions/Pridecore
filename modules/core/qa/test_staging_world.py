@@ -36,3 +36,19 @@ assert "run function pridecore:staging/place_engine_props" in setup
 assert "kill @e[type=minecraft:interaction,tag=pride_staging_prop,distance=..32]" in cleanup
 assert "kill @e" not in setup and "kill @e" not in place
 print("PASS: optional staging world props are bounded, unique and removable")
+
+# Nine hand-placed evidence markers share an exact allowlisted identifier,
+# same-dimension local duplication check and a bounded cleanup selector.
+clues = {"forest","mine","foundry","river","grid","ward","ice","echo","engine"}
+for clue in clues:
+    function = (base / f"place_clue_{clue}.mcfunction").read_text()
+    marker = f"pride_clue_{clue}"
+    assert function.count(f"tag={marker},distance=..3") == 2
+    assert function.count("summon minecraft:interaction") == 1
+    assert f'Tags:["{marker}","pride_staging_clue"]' in function
+    assert "unless entity" in function and "kill @e" not in function
+    assert "width:1.0f,height:1.5f" in function
+clue_cleanup = (base / "remove_nearest_clue.mcfunction").read_text()
+assert "kill @e[type=minecraft:interaction,tag=pride_staging_clue,distance=..4,limit=1,sort=nearest]" in clue_cleanup
+assert "kill @a" not in clue_cleanup
+print("PASS: nine locally placed investigation clues and nearest-only cleanup validated")
