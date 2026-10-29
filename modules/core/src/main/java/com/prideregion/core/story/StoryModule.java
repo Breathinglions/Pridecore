@@ -292,6 +292,12 @@ public final class StoryModule {
         if (liveServer != server || engine == null || battleRouter == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         if (server.getPlayerManager().getPlayer(start.playerId()) == null) return false;
+        if (start.encounterId().startsWith("shield_")) {
+            restoreFinale(start.playerId());
+            if (finale == null || finale.snapshot(start.playerId()).phase()
+                    != ResonanceFinaleController.Phase.SHIELDS)
+                return false;
+        }
         return battleRouter.started(start);
     }
 
@@ -300,7 +306,14 @@ public final class StoryModule {
             UUID battleId, UUID winnerId) throws IOException {
         if (liveServer != server || engine == null || battleRouter == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
         boolean result = battleRouter.ended(battleId, winnerId);
+        if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
+            if (finale != null && winnerId != null) {
+                finale.shieldVictory(winnerId, resolvedEncounter.substring("shield_".length()));
+                persistFinale(winnerId);
+            }
+        }
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null)
