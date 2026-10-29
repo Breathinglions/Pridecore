@@ -12,6 +12,21 @@ import java.util.*;
 public final class RctStoryBattleLauncher {
     private RctStoryBattleLauncher() {}
 
+    /**
+     * Abort an RCT battle whose returned UUID failed Pride Core ownership
+     * confirmation. Never leave an untracked trainer battle running.
+     */
+    public static boolean abort(UUID battleId, ClassLoader loader)
+            throws ReflectiveOperationException {
+        Objects.requireNonNull(battleId);
+        Class<?> apiType = Class.forName("com.gitlab.srcmc.rctapi.api.RCTApi", true, loader);
+        Object api = apiType.getMethod("getInstance", String.class).invoke(null, "pridecore");
+        if (api == null) return false;
+        Object manager = apiType.getMethod("getBattleManager").invoke(api);
+        return Boolean.TRUE.equals(manager.getClass().getMethod("end", UUID.class)
+            .invoke(manager, battleId));
+    }
+
     public static UUID launch(String encounterId, Object serverPlayer,
                               Object livingTrainer, ClassLoader loader)
             throws ReflectiveOperationException, IOException {
