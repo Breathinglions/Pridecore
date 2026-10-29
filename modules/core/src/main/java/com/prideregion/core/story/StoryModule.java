@@ -585,9 +585,16 @@ public final class StoryModule {
                     LOGGER.warn("Story battle victory saved but dialogue unavailable",
                         presentationError);
                 }
-                player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
-                    .formatted(Formatting.GREEN), false);
-                if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                // Credit was already durably written. Presentation and
+                // advancement UI synchronization may fail independently.
+                try {
+                    player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
+                        .formatted(Formatting.GREEN), false);
+                    if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                } catch (RuntimeException presentationError) {
+                    LOGGER.warn("Verified story victory {} persisted but player UI update failed",
+                        battleId, presentationError);
+                }
             }
         }
         return result;
