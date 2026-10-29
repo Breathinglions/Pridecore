@@ -512,9 +512,12 @@ public final class StoryModule {
         if (launchLedger != null) launchLedger.finished(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
-                var shieldState = finale.shieldVictory(
-                    winnerId, resolvedEncounter.substring("shield_".length()));
-                persistFinale(winnerId);
+                // The victory fact was already persisted by StoryBattleProof.
+                // Reconciliation is idempotent and also covers the case where
+                // a checkpoint write failed after an earlier native result.
+                restoreFinale(winnerId);
+                reconcileFinaleShields(winnerId);
+                var shieldState = finale.snapshot(winnerId);
                 ServerPlayerEntity victor = server.getPlayerManager().getPlayer(winnerId);
                 if (victor != null) {
                     if (victor.getWorld() instanceof ServerWorld fxWorld) {
