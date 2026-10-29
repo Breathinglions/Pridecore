@@ -40,10 +40,17 @@ public final class CobblemonStoryVictoryListener {
                 for (Object id : (Iterable<?>) players)
                     if (id instanceof UUID uuid) playerIds.add(uuid);
                 Object winners = event.getClass().getMethod("getWinners").invoke(event);
+                Object losers = event.getClass().getMethod("getLosers").invoke(event);
                 Set<UUID> playerWinners = new HashSet<>();
                 for (Object actor : (List<?>) winners) {
                     UUID actorId = (UUID) actor.getClass().getMethod("getUuid").invoke(actor);
                     if (playerIds.contains(actorId)) playerWinners.add(actorId);
+                }
+                // Reject ambiguous outcomes with missing or shared winner/loser actors.
+                if (!(losers instanceof List<?> losingActors) || losingActors.isEmpty()
+                        || ((List<?>) winners).isEmpty()) {
+                    sink.cancelled(battleId);
+                    return;
                 }
                 // Story fights are always one player versus NPC. A multi-player
                 // battle must never mint single-player campaign progression.
