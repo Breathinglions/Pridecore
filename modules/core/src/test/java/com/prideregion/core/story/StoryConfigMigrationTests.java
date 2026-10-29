@@ -104,6 +104,54 @@ public final class StoryConfigMigrationTests {
             "No rewrite on same version");
         check(again.backup()==null, "No duplicate backups");
 
+        // Upgrade a real pre-narrative stock story, preserving a customized
+        // NPC while rewriting only *exact* bundled 2026 stock wording.
+        Path legacyPath = folder.resolve("legacy-stock.json");
+        JsonObject legacyStory;
+        try (InputStream input = StoryConfigMigrationTests.class.getResourceAsStream(
+                "/story/legacy_stock_dialogue_v1.json");
+             Reader reader = new InputStreamReader(
+                 Objects.requireNonNull(input), StandardCharsets.UTF_8)) {
+            legacyStory = JsonParser.parseReader(reader).getAsJsonObject();
+        }
+        JsonObject legacyMom = find(legacyStory.getAsJsonArray("npcs"), "mom");
+        legacyMom.getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .addProperty("text", "A special introduction written by our world builder.");
+        Files.writeString(legacyPath, legacyStory.toString());
+        StoryConfigManager.Result storyUpgrade;
+        try (InputStream input = bundled()) {
+            storyUpgrade = StoryConfigManager.upgrade(legacyPath, input);
+        }
+        check(storyUpgrade.change() == StoryConfigManager.Change.UPGRADED,
+            "Old stock dialogue gets a safe narrative-only upgrade");
+        check(storyUpgrade.backup() != null && Files.exists(storyUpgrade.backup()),
+            "Narrative migration backs up the previous story");
+        JsonObject migrated = JsonParser.parseString(
+            Files.readString(legacyPath)).getAsJsonObject();
+        var migratedNpcs = migrated.getAsJsonArray("npcs");
+        check(find(migratedNpcs, "mom").getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .get("text").getAsString().equals(
+                "A special introduction written by our world builder."),
+            "A personalized NPC scene is never overwritten");
+        check(find(migratedNpcs, "rin").getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .get("text").getAsString().contains("second sunrise"),
+            "Unedited Rin dialogue moves to immersive story prose");
+        check(find(migratedNpcs, "rin").getAsJsonArray("nodes").get(0).getAsJsonObject()
+            .getAsJsonArray("options").get(0).getAsJsonObject()
+            .get("text").getAsString().equals("I'll see you on the road."),
+            "Original technical Continue Story choices become character dialogue");
+        check(find(migratedNpcs, "ranger_epilogue").getAsJsonArray("nodes")
+            .get(1).getAsJsonObject().get("text").getAsString()
+            .contains("old seals"), "Original finale battle instructions are updated");
+        String migratedSnapshot = Files.readString(legacyPath);
+        try (InputStream input = bundled()) {
+            check(StoryConfigManager.upgrade(legacyPath, input).change()
+                == StoryConfigManager.Change.UNCHANGED,
+                "Original stock dialogue migration is idempotent");
+        }
+        check(Files.readString(legacyPath).equals(migratedSnapshot),
+            "Second narrative migration leaves byte-for-byte content unchanged");
+
         Path broken = folder.resolve("broken.json");
         Files.writeString(broken,"{not valid JSON");
         byte[] brokenBytes = Files.readAllBytes(broken);
