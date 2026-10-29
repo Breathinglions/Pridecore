@@ -369,6 +369,38 @@ public final class StoryModule {
         launchLedger.cancelPlayer(player);
     }
 
+    /**
+     * Trusted server-only launch for a pre-identified story NPC. Invoked by
+     * the native NPC adapter after it validates encounter ownership.
+     * No player or admin command can launch this through client input.
+     */
+    public static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
+            ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
+            String encounterId) throws IOException {
+        if (liveServer != server || engine == null || launchLedger == null)
+            return Optional.empty();
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        if (!reserveStoryBattleLaunch(server, player.getUuid(),
+                encounterId, trainer.getUuid())) return Optional.empty();
+        try {
+            UUID battleId = RctStoryBattleLauncher.launch(encounterId, player, trainer,
+                StoryModule.class.getClassLoader());
+            if (!confirmStoryBattleLaunch(server, player.getUuid(),
+                    trainer.getUuid(), battleId)) {
+                nativeStoryBattleCancelled(server, battleId);
+                throw new IOException("RCT battle launched without valid story ownership");
+            }
+            return Optional.of(battleId);
+        } catch (ReflectiveOperationException | RuntimeException ex) {
+            cancelPendingStoryBattleLaunch(server, player.getUuid());
+            throw new IOException("RCT story battle launch failed", ex);
+        } finally {
+            // This clears any unconfirmed reservation; confirmed battle ownership
+            // is retained until its authoritative end or cancellation.
+            cancelPendingStoryBattleLaunch(server, player.getUuid());
+        }
+    }
+
     /** Process only genuine resolved native battle results. */
     public static boolean nativeStoryBattleEnded(MinecraftServer server,
             UUID battleId, UUID winnerId) throws IOException {
