@@ -15,7 +15,7 @@ public final class StoryBattleProofTests {
         var progression = new ProgressionService(
             new ProfileStore(Files.createTempDirectory("pride-battle-proof-")));
         var proofs = new StoryBattleProof(progression);
-        check(StoryBattleProof.definitions().size() == 6);
+        check(StoryBattleProof.definitions().size() == 9);
         for (var definition : StoryBattleProof.definitions()) {
             UUID owner = UUID.randomUUID(), other = UUID.randomUUID();
             UUID battle = UUID.randomUUID();
