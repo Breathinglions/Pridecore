@@ -25,3 +25,7 @@ Live recovery: clicking any tagged finale device now reconciles previously verif
 Activating a physical conduit now emits server-side electric sparks and end-rod particles from its tagged interaction entity. Successfully stabilizing the core emits a larger end-rod/totem burst at the core marker. This is an initial native visual-effects pass (no additional client particle mod required), **not** the requested fully cinematic multi-phase boss sequence. Particle counts are bounded and only emit after eligible interaction transitions.
 
 After an authenticated shield-defender victory, the player now receives a bounded electric/end-rod visual burst, the verified shields-completed count, and a clear prompt to defeat remaining defenders or stabilize the core once all three are down. This effect is emitted only following trusted battle-victory progression; it is not triggered by arbitrary world interaction.
+
+## Player-facing operation progress
+
+Players can run `/pridecore story finale` to read their saved current phase, conduit count, shield-defender count, and the next objective. The command does not unlock story chapters, spawn battles, award facts, or edit player inventory. Progress is reconciled against already verified shield wins before display. The finale must be enabled in the story configuration.
