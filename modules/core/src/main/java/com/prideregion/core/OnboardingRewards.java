@@ -172,10 +172,15 @@ public final class OnboardingRewards {
             if (!Registries.ITEM.containsId(grant.id()))
                 return failure(source, "Missing registered item: " + grant.id());
             Item item = Registries.ITEM.get(grant.id());
-            ItemStack stack = new ItemStack(item, grant.count());
-            if (stack.isEmpty() || grant.count() > stack.getMaxCount())
-                return failure(source, "Item count exceeds stack limit: " + grant.id());
-            items.add(stack);
+            ItemStack check = new ItemStack(item, 1);
+            if (check.isEmpty() || check.getMaxCount() < 1)
+                return failure(source, "Item cannot be granted: " + grant.id());
+            int left = grant.count();
+            while (left > 0) {
+                int chunk = Math.min(left, check.getMaxCount());
+                items.add(new ItemStack(item, chunk));
+                left -= chunk;
+            }
         }
         if (!canFit(player, items))
             return failure(source, "Free inventory slots before receiving your kit");
