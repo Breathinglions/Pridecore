@@ -62,6 +62,20 @@ assert [n["id"] for n in d["npcs"][:6]] == ["mom","sequoia","theo","avery","rang
 for npc in d["npcs"]:
  assert npc["completedFact"].startswith("pride:")
  assert all(x["id"] for x in npc["nodes"])
+# Every major boss victory must block its intended narrative continuation.
+gate_map={
+ "ranger":"pride:rin_route1_won",
+ "heat_technician":"pride:rin_canyon_won",
+ "ghost_medium":"pride:rin_summit_won",
+ "eclipse_operative":"pride:eclipse_lieutenant_won",
+ "director_cael":"pride:sable_battle_won",
+ "ranger_epilogue":"pride:cael_battle_won",
+ "league_guide":"pride:finale_completed",
+}
+for npc_id, fact in gate_map.items():
+ npc=next(n for n in d["npcs"] if n["id"] == npc_id)
+ assert fact in npc["requires"], f"Missing story gate {fact} on {npc_id}"
+print("PASS: mandatory chapter battle gates validated")
 print("PASS: bundled story JSON validated")
 PY
 python3 - "$ROOT/src/main/java/com/prideregion/core/story/StoryEffects.java" <<'PY'
