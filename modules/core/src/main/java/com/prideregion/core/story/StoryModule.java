@@ -785,14 +785,15 @@ public final class StoryModule {
             ServerPlayerEntity actor = source.getPlayer();
             if (actor != null && actor.squaredDistanceTo(entity) > 1024.0D)
                 throw new IllegalStateException("Move within 32 blocks of the entity");
-            if ("battle".equals(kind)) {
-                if (!(entity instanceof net.minecraft.entity.LivingEntity)
-                        || entity instanceof net.minecraft.entity.player.PlayerEntity)
-                    throw new IllegalArgumentException("Battle marker requires a living non-player trainer");
-            } else if (entity.getType() != EntityType.INTERACTION) {
+            boolean livingNonPlayer = entity instanceof net.minecraft.entity.LivingEntity
+                && !(entity instanceof net.minecraft.entity.player.PlayerEntity);
+            boolean cobblemonNpc = "cobblemon:npc".equals(
+                Registries.ENTITY_TYPE.getId(entity.getType()).toString());
+            if (!StoryWorldMarkerCatalog.validOnEntity(tag, livingNonPlayer,
+                    cobblemonNpc, entity.getType() == EntityType.INTERACTION))
                 throw new IllegalArgumentException(
-                    "Clue and finale markers require a minecraft:interaction entity");
-            }
+                    "Marker requires the correct entity type: npc=registered Cobblemon NPC, "
+                    + "battle=living non-player, clue/finale=minecraft:interaction");
             if (!StoryWorldMarkerCatalog.canBind(entity.getCommandTags(), tag))
                 throw new IllegalStateException(
                     "Remove the conflicting story tag with admin unbind first");
@@ -837,19 +838,14 @@ public final class StoryModule {
         for (Entity entity : tagged) {
             List<String> tags = entity.getCommandTags().stream()
                 .filter(StoryWorldMarkerCatalog::isStoryTag).toList();
-            boolean valid = tags.size() == 1 && (
-                tags.getFirst().startsWith("pride_battle_")
-                    ? entity instanceof net.minecraft.entity.LivingEntity
-                        && !(entity instanceof net.minecraft.entity.player.PlayerEntity)
-                        && StoryBattleSessionRouter.acceptedTrainers().containsKey(
-                            tags.getFirst().substring("pride_battle_".length()))
-                    : entity.getType() == EntityType.INTERACTION &&
-                        (tags.getFirst().startsWith("pride_clue_")
-                            ? StoryEvidenceEngine.definition(
-                                tags.getFirst().substring("pride_clue_".length())) != null
-                            : StoryWorldMarkerCatalog.finaleIds().stream().anyMatch(
-                                id -> StoryWorldMarkerCatalog.marker("finale", id)
-                                    .equals(tags.getFirst()))));
+            boolean livingNonPlayer = entity instanceof net.minecraft.entity.LivingEntity
+                && !(entity instanceof net.minecraft.entity.player.PlayerEntity);
+            boolean cobblemonNpc = "cobblemon:npc".equals(
+                Registries.ENTITY_TYPE.getId(entity.getType()).toString());
+            boolean valid = tags.size() == 1
+                && StoryWorldMarkerCatalog.validOnEntity(tags.getFirst(),
+                    livingNonPlayer, cobblemonNpc,
+                    entity.getType() == EntityType.INTERACTION);
             if (valid) healthy++; else invalid++;
             if (!valid)
                 source.sendFeedback(() -> Text.literal(
