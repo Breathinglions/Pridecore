@@ -38,11 +38,24 @@ public final class StoryEngineTests {
         UUID p = UUID.randomUUID(), other = UUID.randomUUID();
         rejected(() -> engine.begin(p,"sequoia"));
         rejected(() -> engine.choose(p,"yes"));
-        check(engine.begin(p,"mom").text().contains("Professor"),"Mom starts journey");
+        var displayedMom = engine.begin(p,"mom");
+        check(displayedMom.text().contains("Professor"), "Mom starts journey");
+        check(displayedMom.npcId().equals("mom") && displayedMom.nodeId().equals("first"),
+            "Visible scene includes exact NPC and dialogue node");
+        rejected(() -> engine.chooseDisplayed(p,"sequoia", displayedMom.nodeId(),
+            displayedMom.revision(), "yes"));
+        rejected(() -> engine.chooseDisplayed(p,"mom", "again",
+            displayedMom.revision(), "yes"));
+        rejected(() -> engine.chooseDisplayed(p,"mom", displayedMom.nodeId(),
+            displayedMom.revision()+1, "yes"));
         rejected(() -> engine.choose(p,"unknown"));
         check(store.get(p).revision()==0,"Invalid option no writes");
-        var done = engine.choose(p,"yes");
+        var done = engine.chooseDisplayed(p, displayedMom.npcId(), displayedMom.nodeId(),
+            displayedMom.revision(), "yes");
         check(done.options().isEmpty() && done.revision()==1,"Single transaction applied");
+        rejected(() -> engine.chooseDisplayed(p, displayedMom.npcId(),
+            displayedMom.nodeId(), displayedMom.revision(), "yes"));
+
         check(store.get(p).facts().contains("pride:met_mom"),"Story fact stored");
         check(store.get(p).storyStage().equals("pride:professor_visit"),"Stage stored");
         check(engine.currentStage(p).equals("pride:professor_visit"),
