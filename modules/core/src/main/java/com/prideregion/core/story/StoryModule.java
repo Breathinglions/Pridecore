@@ -512,8 +512,26 @@ public final class StoryModule {
         if (launchLedger != null) launchLedger.finished(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
-                finale.shieldVictory(winnerId, resolvedEncounter.substring("shield_".length()));
+                var shieldState = finale.shieldVictory(
+                    winnerId, resolvedEncounter.substring("shield_".length()));
                 persistFinale(winnerId);
+                ServerPlayerEntity victor = server.getPlayerManager().getPlayer(winnerId);
+                if (victor != null) {
+                    if (victor.getWorld() instanceof ServerWorld fxWorld) {
+                        fxWorld.spawnParticles(ParticleTypes.ELECTRIC_SPARK,
+                            victor.getX(), victor.getY() + 1.0D, victor.getZ(),
+                            52, 1.0D, 1.2D, 1.0D, 0.08D);
+                        fxWorld.spawnParticles(ParticleTypes.END_ROD,
+                            victor.getX(), victor.getY() + 1.0D, victor.getZ(),
+                            30, 0.9D, 1.0D, 0.9D, 0.035D);
+                    }
+                    victor.sendMessage(Text.literal("[Pride Region] Resonance shields " +
+                        shieldState.shields() + "/3" +
+                        (shieldState.phase() == ResonanceFinaleController.Phase.STABILIZE
+                            ? " — All shields disabled. Stabilize the engine core!"
+                            : " — Defeat the remaining shield defenders."))
+                        .formatted(Formatting.AQUA), false);
+                }
             }
         }
         if (result && winnerId != null) {
