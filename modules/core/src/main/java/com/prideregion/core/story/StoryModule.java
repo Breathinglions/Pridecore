@@ -466,6 +466,13 @@ public final class StoryModule {
             UUID battleId, UUID winnerId) throws IOException {
         if (liveServer != server || engine == null || battleRouter == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        // Native callbacks must match the precise battle reserved by our RCT
+        // launcher, even if another adapter accidentally armed a router ticket.
+        if (winnerId != null && (launchLedger == null ||
+                !launchLedger.owns(battleId, winnerId))) {
+            nativeStoryBattleCancelled(server, battleId);
+            return false;
+        }
         String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
         boolean result = battleRouter.ended(battleId, winnerId);
         if (launchLedger != null) launchLedger.finished(battleId);
