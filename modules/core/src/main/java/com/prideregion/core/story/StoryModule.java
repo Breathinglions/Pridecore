@@ -84,7 +84,12 @@ public final class StoryModule {
                         persistFinale(sp.getUuid());
                     }
                     if (marker.equals("pride_finale_core")) {
-                        if (finale.snapshot(sp.getUuid()).phase() == ResonanceFinaleController.Phase.STABILIZE)
+                        var beforeCore = finale.snapshot(sp.getUuid());
+                        if (beforeCore.phase() != ResonanceFinaleController.Phase.STABILIZE
+                                && beforeCore.phase() != ResonanceFinaleController.Phase.COMPLETE)
+                            throw new IllegalStateException(
+                                "Disable all three shield defenders before stabilizing the core");
+                        if (beforeCore.phase() == ResonanceFinaleController.Phase.STABILIZE)
                             finale.stabilize(sp.getUuid());
                         persistFinale(sp.getUuid());
                         completeResonanceFinale(sp.getServer(), sp.getUuid());
