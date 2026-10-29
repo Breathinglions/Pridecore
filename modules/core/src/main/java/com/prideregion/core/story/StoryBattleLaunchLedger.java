@@ -53,6 +53,11 @@ public final class StoryBattleLaunchLedger {
         return player != null && player.equals(battles.get(battle));
     }
 
+    /** Return the authenticated owner before retiring a battle result. */
+    public synchronized Optional<UUID> owner(UUID battle) {
+        return Optional.ofNullable(battles.get(battle));
+    }
+
     public synchronized void finished(UUID battle) { battles.remove(battle); }
     public synchronized void clear() { pending.clear(); battles.clear(); }
 }
