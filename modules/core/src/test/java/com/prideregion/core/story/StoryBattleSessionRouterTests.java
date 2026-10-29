@@ -36,10 +36,21 @@ public final class StoryBattleSessionRouterTests {
             check(service.get(player).facts().contains(battle.earnedFact()));
             check(!router.ended(battleId, player));
             UUID pending = UUID.randomUUID();
+            // Once won, an authenticated encounter cannot be replayed.
+            boolean replayDenied = false;
+            try {
+                router.started(new StoryBattleSessionRouter.NativeStart(
+                    pending, player, battle.id(), trainer));
+            } catch (IllegalStateException expected) {
+                replayDenied = true;
+            }
+            check(replayDenied);
+            // Verify disconnect cleanup for a different, still-eligible player.
+            service.grant(other, battle.requiredFact());
             check(router.started(new StoryBattleSessionRouter.NativeStart(
-                pending, player, battle.id(), trainer)));
-            router.disconnect(player);
-            check(!router.ended(pending, player));
+                pending, other, battle.id(), trainer)));
+            router.disconnect(other);
+            check(!router.ended(pending, other));
             check(!service.get(other).facts().contains(battle.earnedFact()));
         }
         System.out.println("PASS: " + checks + " native event routing assertions");
