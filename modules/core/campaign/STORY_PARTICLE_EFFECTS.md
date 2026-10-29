@@ -21,4 +21,4 @@ Use a particle registry ID such as `minecraft:flame`, or a compatible installed 
 
 Particle distribution, counts, and positions still come from the authored encounter logic. The effect registry is intentionally limited to known presentation keys. The next-stage Pride Client effects system can replace this adapter with richer timed animations without changing story progression.
 
-Rin, Sable, and Director Cael use their own entrance effect keys (falling back to the vanilla enchant particle). The generic electric effect remains an additional burst for selected bosses. Finale conduit and shield keys are reserved for separate future cues and currently have no distinct emit call; configuring them today does not alter the existing effect.
+Rin, Sable, and Director Cael use their own entrance effect keys (falling back to the vanilla enchant particle). The generic electric effect remains an additional burst for selected bosses. Finale conduit and shield keys now control the primary electric effect emitted on authenticated conduit activations and shield-defender wins, respectively. Secondary end-rod effects remain configurable separately.
