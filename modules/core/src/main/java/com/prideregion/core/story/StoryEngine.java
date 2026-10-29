@@ -98,7 +98,7 @@ public final class StoryEngine {
                 option.grant(), option.revoke());
         if (option.next() == null) {
             sessions.remove(playerId);
-            return new Reply(npc.id(), npc.name(), "Conversation finished. Your progress was saved.",
+            return new Reply(npc.id(), npc.name(), "Until we meet again.",
                     List.of(), change.profile().revision());
         }
         sessions.put(playerId, new Session(npc.id(), option.next()));
