@@ -399,6 +399,28 @@ public final class StoryModule {
         }
     }
 
+    /**
+     * Trusted world-event hook for the final authenticated engine interaction.
+     * World event code must verify the physical core marker and reach first.
+     * This method cannot skip any required phase or fabricate a boss victory.
+     */
+    public static boolean completeResonanceFinale(MinecraftServer server, UUID playerId)
+            throws IOException {
+        if (liveServer != server || engine == null || finale == null) return false;
+        if (!server.isOnThread())
+            throw new IllegalStateException("Finale must complete on server thread");
+        if (server.getPlayerManager().getPlayer(playerId) == null) return false;
+        var progression = PrideCoreMod.progression(server)
+            .orElseThrow(() -> new IOException("Progression unavailable"));
+        boolean changed = new ResonanceFinaleCompletion(progression, finale).complete(playerId);
+        if (changed) {
+            ServerPlayerEntity player = server.getPlayerManager().getPlayer(playerId);
+            player.sendMessage(Text.literal("[Pride Region] Resonance Engine stabilized! Return to the League Guide.")
+                .formatted(Formatting.GREEN), false);
+        }
+        return changed;
+    }
+
     private static Path configDir() {
         return FabricLoader.getInstance().getConfigDir().resolve("pride_core");
     }
