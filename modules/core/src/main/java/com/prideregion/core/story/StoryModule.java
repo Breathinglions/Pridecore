@@ -3,6 +3,7 @@ package com.prideregion.core.story;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -54,6 +55,16 @@ public final class StoryModule {
     private StoryModule() {}
 
     public static void registerHooks() {
+        // Module 02 is a Pokémon trainer battle, NEVER a hybrid Minecraft
+        // boss fight. Only exact, valid story trainer actors are protected.
+        // The future Flashpoint/Operation/Raid/World Boss modules own hybrid combat.
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            boolean protectedTrainer = StoryCombatPolicy.protectTrainer(
+                entity.getCommandTags(), engine != null && liveServer != null,
+                STORY_WORLDS.permits(entity.getWorld().getRegistryKey().getValue().toString()),
+                entity instanceof net.minecraft.entity.player.PlayerEntity);
+            return !protectedTrainer;
+        });
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
                 return ActionResult.PASS;
