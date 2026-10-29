@@ -540,11 +540,16 @@ public final class StoryModule {
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null) {
-                String victoryLine = resolvedEncounter == null
-                    ? "Story battle victory recorded."
-                    : StoryBattleRosters.bundled().find(resolvedEncounter)
-                        .map(StoryBattleRosters.Roster::win)
-                        .orElse("Story battle victory recorded.");
+                String victoryLine = "Story battle victory recorded.";
+                try {
+                    if (resolvedEncounter != null)
+                        victoryLine = StoryBattleRosters.bundled()
+                            .find(resolvedEncounter).map(StoryBattleRosters.Roster::win)
+                            .orElse(victoryLine);
+                } catch (IOException | RuntimeException presentationError) {
+                    LOGGER.warn("Story battle victory saved but dialogue unavailable",
+                        presentationError);
+                }
                 player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
                     .formatted(Formatting.GREEN), false);
                 if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
