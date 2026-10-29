@@ -44,6 +44,7 @@ javac --release 21 -d "$TMP" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattlePhaseTrackerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryBattleResultRetryQueueTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryCampaignEndToEndTests.java" \
+ "$ROOT/src/test/java/com/prideregion/core/story/StoryBattlePersistenceRecoveryTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleControllerTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/StoryPlaythroughResetTests.java" \
  "$ROOT/src/test/java/com/prideregion/core/story/ResonanceFinaleCompletionTests.java" \
@@ -62,6 +63,7 @@ java -cp "$TMP" com.prideregion.core.story.StoryEncounterAvailabilityTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattlePhaseTrackerTests
 java -cp "$TMP" com.prideregion.core.story.StoryBattleResultRetryQueueTests
 java -cp "$TMP" com.prideregion.core.story.StoryCampaignEndToEndTests
+java -cp "$TMP" com.prideregion.core.story.StoryBattlePersistenceRecoveryTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleControllerTests
 java -cp "$TMP" com.prideregion.core.story.StoryPlaythroughResetTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleCompletionTests
