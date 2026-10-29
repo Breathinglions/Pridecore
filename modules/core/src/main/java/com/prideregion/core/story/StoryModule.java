@@ -35,6 +35,7 @@ public final class StoryModule {
     private static volatile StoryEngine engine;
     private static volatile StoryBattleProof battleProof;
     private static volatile StoryBattleSessionRouter battleRouter;
+    private static volatile StoryBattleLaunchLedger launchLedger;
     private static volatile ResonanceFinaleController finale;
     private static volatile ResonanceCheckpointStore finaleStore;
     private static volatile String health = "disabled";
@@ -171,6 +172,7 @@ public final class StoryModule {
             if (running != null) running.cancel(handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
             if (router != null) router.disconnect(handler.getPlayer().getUuid());
+            if (launchLedger != null) launchLedger.cancelPlayer(handler.getPlayer().getUuid());
             ResonanceFinaleController activeFinale = liveServer == server ? finale : null;
             if (activeFinale != null) activeFinale.disconnect(handler.getPlayer().getUuid());
         });
@@ -181,6 +183,7 @@ public final class StoryModule {
         engine = null;
         battleProof = null;
         battleRouter = null;
+        launchLedger = null;
         finale = null;
         finaleStore = null;
         health = "disabled";
@@ -219,6 +222,7 @@ public final class StoryModule {
             });
             battleProof = new StoryBattleProof(service);
             battleRouter = new StoryBattleSessionRouter(battleProof);
+            launchLedger = new StoryBattleLaunchLedger();
             finale = new ResonanceFinaleController();
             finaleStore = new ResonanceCheckpointStore(directory.resolve("finale_checkpoints"));
             engine = loaded;
@@ -243,6 +247,8 @@ public final class StoryModule {
             finaleStore = null;
             if (battleRouter != null) battleRouter.clear();
             battleRouter = null;
+            if (launchLedger != null) launchLedger.clear();
+            launchLedger = null;
             if (battleProof != null) battleProof.clear();
             battleProof = null;
             engine = null;
@@ -318,6 +324,49 @@ public final class StoryModule {
         return battleRouter.started(start);
     }
 
+    /**
+     * Called by trusted server-side RCT launch code before invoking startBattle.
+     * Never expose this bridge through a client packet or player command.
+     */
+    public static boolean reserveStoryBattleLaunch(MinecraftServer server, UUID player,
+            String encounterId, UUID trainerEntity) throws IOException {
+        if (liveServer != server || engine == null || launchLedger == null) return false;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        if (server.getPlayerManager().getPlayer(player) == null) return false;
+        var profile = PrideCoreMod.progression(server)
+            .orElseThrow(() -> new IOException("Progression unavailable")).get(player);
+        var def = StoryBattleProof.definitions().stream()
+            .filter(e -> e.id().equals(encounterId)).findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Unknown story encounter"));
+        if (!profile.facts().contains(def.requiredFact()) ||
+                profile.facts().contains(def.earnedFact())) return false;
+        if (encounterId.startsWith("shield_")) {
+            restoreFinale(player);
+            if (finale == null || finale.snapshot(player).phase()
+                    != ResonanceFinaleController.Phase.SHIELDS) return false;
+        }
+        return launchLedger.reserve(new StoryBattleLaunchLedger.Launch(
+            player, encounterId, trainerEntity));
+    }
+
+    /** Called only after the trusted RCT launcher returns the real battle UUID. */
+    public static boolean confirmStoryBattleLaunch(MinecraftServer server, UUID player,
+            UUID trainerEntity, UUID nativeBattle) throws IOException {
+        if (liveServer != server || launchLedger == null) return false;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        var start = launchLedger.launched(player, trainerEntity, nativeBattle);
+        if (start.isEmpty()) return false;
+        boolean ok = nativeStoryBattleStarted(server, start.get());
+        if (!ok) launchLedger.finished(nativeBattle);
+        return ok;
+    }
+
+    public static void cancelPendingStoryBattleLaunch(MinecraftServer server, UUID player) {
+        if (liveServer != server || launchLedger == null) return;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        launchLedger.cancelPlayer(player);
+    }
+
     /** Process only genuine resolved native battle results. */
     public static boolean nativeStoryBattleEnded(MinecraftServer server,
             UUID battleId, UUID winnerId) throws IOException {
@@ -325,6 +374,7 @@ public final class StoryModule {
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         String resolvedEncounter = battleRouter.encounterForBattle(battleId).orElse(null);
         boolean result = battleRouter.ended(battleId, winnerId);
+        if (launchLedger != null) launchLedger.finished(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
                 finale.shieldVictory(winnerId, resolvedEncounter.substring("shield_".length()));
@@ -344,6 +394,7 @@ public final class StoryModule {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         battleRouter.cancel(battleId);
+        if (launchLedger != null) launchLedger.finished(battleId);
     }
 
     /** Show each encounter's prerequisite and verified-win status; never grants anything. */
