@@ -297,6 +297,55 @@ public final class StoryModule {
         }
     }
 
+    private static StoryPlaythroughReset resetService(MinecraftServer server)
+            throws IOException {
+        if (liveServer != server || engine == null)
+            throw new IllegalStateException("Story module disabled");
+        var service = PrideCoreMod.progression(server)
+            .orElseThrow(() -> new IOException("Progression unavailable"));
+        return new StoryPlaythroughReset(service, StoryJson.load(storyFile()));
+    }
+
+    private static int previewPlaythroughReset(ServerCommandSource source,
+                                                ServerPlayerEntity target) {
+        try {
+            var preview = resetService(source.getServer()).preview(target.getUuid());
+            return message(source, "Module 02 reset preview for " +
+                target.getName().getString() + ": stage=" + preview.currentStage() +
+                ", campaign facts to revoke=" + preview.campaignFacts() +
+                ", unrelated Pride Core facts preserved=" + preview.preserved().size() +
+                ". Confirm with /pridecore story admin reset-playthrough " +
+                target.getName().getString() + " confirm. External badges, Pokémon, " +
+                "legacy tags and FTB data WILL NOT be reset.");
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Reset preview refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    private static int resetPlaythrough(ServerCommandSource source,
+                                        ServerPlayerEntity target) {
+        try {
+            if (!source.getServer().isOnThread())
+                throw new IllegalStateException("Reset must run on server thread");
+            var reset = resetService(source.getServer()).reset(target.getUuid());
+            if (engine != null) engine.cancel(target.getUuid());
+            if (battleRouter != null) battleRouter.disconnect(target.getUuid());
+            if (finale != null) finale.disconnect(target.getUuid());
+            LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
+                source.getName(), target.getUuid());
+            return message(source, "Module 02 campaign reset for " +
+                target.getName().getString() + "; revision=" +
+                reset.profile().revision() + ". Talk to Mom to begin. IMPORTANT: " +
+                "League badges, existing starter, external onboarding tags and FTB " +
+                "quest data were NOT reset; use a clean staging test profile for a " +
+                "true first-time onboarding playthrough.");
+        } catch (IOException | RuntimeException ex) {
+            source.sendError(Text.literal("Playthrough reset refused: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
     /** Read-only operator diagnostics; never changes story facts or rewards. */
     private static int inspectTestState(ServerCommandSource source, ServerPlayerEntity target) {
         try {
@@ -410,6 +459,17 @@ public final class StoryModule {
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .executes(ctx -> adminEncounters(ctx.getSource(),
                         EntityArgumentType.getPlayer(ctx, "player"))))));
+        story.then(CommandManager.literal("admin")
+            .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("reset-preview")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> previewPlaythroughReset(ctx.getSource(),
+                        EntityArgumentType.getPlayer(ctx, "player")))))
+            .then(CommandManager.literal("reset-playthrough")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .then(CommandManager.literal("confirm")
+                        .executes(ctx -> resetPlaythrough(ctx.getSource(),
+                            EntityArgumentType.getPlayer(ctx, "player")))))));
         return story;
     }
 
