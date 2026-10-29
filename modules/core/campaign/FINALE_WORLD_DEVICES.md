@@ -17,3 +17,5 @@ The operator can inspect a player's status with `/pridecore story admin inspect 
 Shield battle roster definitions are now authored in `story_battles.json`: Alpha (Steel-themed, levels 61–62), Beta (Electric-themed, levels 62–63), and Gamma (Psychic-themed, levels 63–64). They are **content specifications** only. The native trainer spawn and battle launcher must still be implemented and verified before a normal player can initiate these encounters.
 
 Crash-recovery safeguard: after restoring a checkpoint in the SHIELDS phase, the server reconciles each previously persisted authenticated shield-win fact before allowing further progress. This covers a crash occurring after the player wins but before the separate finale checkpoint save; it does not invent victories or auto-launch a battle.
+
+Live recovery: clicking any tagged finale device now reconciles previously verified shield wins even when the player has not disconnected. This prevents an interrupted checkpoint save from requiring relog. The physical trainer launches and Cobblemon 1.8.1 callback signatures still require verified runtime integration.
