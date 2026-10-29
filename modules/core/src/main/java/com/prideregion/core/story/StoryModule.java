@@ -20,6 +20,8 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.registry.Registries;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -1718,13 +1720,16 @@ public final class StoryModule {
         player.sendMessage(Text.literal(reply.npcName() + ": ").formatted(Formatting.GOLD)
             .append(Text.literal(reply.text()).formatted(Formatting.WHITE)), false);
         for (var option : reply.options()) {
-            player.sendMessage(Text.literal("  [" + option.id() + "] ")
-                .formatted(Formatting.AQUA)
-                .append(Text.literal(option.text()).formatted(Formatting.GRAY)), false);
+            // Story choices are clickable dialogue, not a chat command
+            // tutorial. The server still revalidates the active session,
+            // selected option, owning player and physical NPC range.
+            String command = "/pridecore story choose " + option.id();
+            player.sendMessage(Text.literal("  › " + option.text()).styled(style ->
+                style.withColor(Formatting.AQUA)
+                    .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command))
+                    .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                        Text.literal("Respond to " + reply.npcName())))), false);
         }
-        if (!reply.options().isEmpty())
-            player.sendMessage(Text.literal("Choose: /pridecore story choose <option>")
-                .formatted(Formatting.DARK_GRAY), false);
     }
 
     private static String safe(String message) {
