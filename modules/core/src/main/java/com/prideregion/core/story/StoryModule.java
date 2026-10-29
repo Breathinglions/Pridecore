@@ -202,10 +202,14 @@ public final class StoryModule {
                         return ActionResult.FAIL;
                     try {
                         var launched = launchRctStoryBattle(sp.getServer(), sp, trainer, encounterId);
-                        if (launched.isEmpty())
-                            sp.sendMessage(Text.literal(
-                                "[Pride Region] This encounter isn't available yet, or is already completed.")
+                        if (launched.isEmpty()) {
+                            boolean trainerBusy = launchLedger != null
+                                && launchLedger.trainerBusy(trainer.getUuid());
+                            sp.sendMessage(Text.literal(trainerBusy
+                                ? "[Pride Region] This trainer is already in a battle. Try again when the fight ends."
+                                : "[Pride Region] This encounter isn't available yet, or is already completed.")
                                 .formatted(Formatting.YELLOW), false);
+                        }
                     } catch (IOException | RuntimeException ex) {
                         LOGGER.warn("Story trainer battle launch denied for {} / {}",
                             sp.getUuid(), encounterId, ex);
