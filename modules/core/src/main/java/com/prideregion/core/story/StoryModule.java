@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.MinecraftServer;
@@ -43,6 +44,7 @@ public final class StoryModule {
     private static volatile ResonanceCheckpointStore finaleStore;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
+    private static final StoryCinematicTimeline CINEMATICS = new StoryCinematicTimeline();
 
     private StoryModule() {}
 
@@ -226,7 +228,30 @@ public final class StoryModule {
                     handler.getPlayer().getUuid(), ex.toString());
             }
         });
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (liveServer != server || engine == null) return;
+            for (var scene : CINEMATICS.tick()) {
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(scene.player());
+                if (viewer == null) { CINEMATICS.cancel(scene.player()); continue; }
+                try {
+                    viewer.sendMessage(Text.literal(scene.cue().title())
+                        .formatted(Formatting.GOLD), true);
+                    if (viewer.getWorld() instanceof ServerWorld fxWorld) {
+                        var fallback = scene.cue().effectKey().equals("battle.electric")
+                            || scene.cue().effectKey().equals("finale.shield")
+                            ? ParticleTypes.ELECTRIC_SPARK : ParticleTypes.ENCHANT;
+                        StoryEffects.emit(fxWorld, scene.cue().effectKey(), fallback,
+                            viewer.getX(), viewer.getY() + 1.1D, viewer.getZ(),
+                            scene.cue().particles(), 0.8D, 0.9D, 0.8D, 0.035D);
+                    }
+                } catch (RuntimeException visualError) {
+                    LOGGER.warn("Story cinematic cue could not display for {}",
+                        scene.player(), visualError);
+                }
+            }
+        });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            CINEMATICS.cancel(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
@@ -239,6 +264,7 @@ public final class StoryModule {
 
     public static void start(MinecraftServer server) {
         liveServer = server;
+        CINEMATICS.clear();
         engine = null;
         battleProof = null;
         battleRouter = null;
@@ -333,6 +359,7 @@ public final class StoryModule {
             battleRouter = null;
             finale = null;
             finaleStore = null;
+            CINEMATICS.clear();
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -341,6 +368,7 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            CINEMATICS.clear();
             if (victoryListener != null) {
                 try { victoryListener.uninstall(); }
                 catch (ReflectiveOperationException ex) {
@@ -501,6 +529,7 @@ public final class StoryModule {
                 }
                 throw new IOException("RCT battle launched without valid story ownership");
             }
+            CINEMATICS.begin(player.getUuid(), encounterId);
             // Optional cinematic presentation must never unwind a confirmed
             // battle launch: after ownership confirmation the battle is live.
             try {
