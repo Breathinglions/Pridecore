@@ -248,7 +248,11 @@ public final class StoryModule {
             if (liveServer != server || engine == null) return;
             for (var scene : CINEMATICS.tick()) {
                 ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(scene.player());
-                if (viewer == null) { CINEMATICS.cancel(scene.player()); continue; }
+                if (viewer == null || !STORY_WORLDS.permits(
+                        viewer.getWorld().getRegistryKey().getValue().toString())) {
+                    CINEMATICS.cancel(scene.player());
+                    continue;
+                }
                 try {
                     viewer.sendMessage(Text.literal(scene.cue().title())
                         .formatted(Formatting.GOLD), true);
@@ -1367,6 +1371,8 @@ public final class StoryModule {
             return 0;
         }
         try {
+            if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Story dialogue is not enabled in this dimension");
             if (!StoryDefinition.validId(npc) || !StoryDefinition.validId(option))
                 throw new IllegalArgumentException("Unrecognized story action");
             String nativeTag = NativeNpcIdentity.tagFor(npc);
@@ -1415,6 +1421,8 @@ public final class StoryModule {
             return 0;
         }
         try {
+            if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Story dialogue is not enabled in this dimension");
             StoryEngine active = ready(source.getServer());
             String previousStage = active.currentStage(player.getUuid());
             show(player, active.choose(player.getUuid(), id));
