@@ -15,6 +15,10 @@ public final class StoryBattleLaunchLedgerTests {
         var launch=new StoryBattleLaunchLedger.Launch(alice,"rin_route1",npc);
         ok(ledger.reserve(launch));
         ok(ledger.pending(alice));
+        ok(ledger.trainerBusy(npc));
+        ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(
+            bob, "rin_route1", npc)));
+
         ok(!ledger.active(alice));
         ok(!ledger.reserve(launch));
         ok(ledger.launched(alice,UUID.randomUUID(),battle).isEmpty());
@@ -26,6 +30,10 @@ public final class StoryBattleLaunchLedgerTests {
         ok(ledger.owner(UUID.randomUUID()).isEmpty());
         ok(!ledger.pending(alice));
         ok(ledger.active(alice));
+        ok(ledger.trainerBusy(npc));
+        ok(!ledger.reserve(new StoryBattleLaunchLedger.Launch(
+            bob, "shield_gamma", npc)));
+
         ok(!ledger.owns(battle, bob));
         ok(verified.trainerIdentity().equals("pride_story:rin_route1"));
         ok(ledger.matches(verified));
@@ -41,6 +49,8 @@ public final class StoryBattleLaunchLedgerTests {
         ledger.finished(battle);
         ok(!ledger.matches(verified));
         ok(ledger.owner(battle).isEmpty());
+        ok(!ledger.trainerBusy(npc));
+
         ok(!ledger.owns(battle, alice));
         ok(!ledger.active(alice));
         ok(ledger.reserve(new StoryBattleLaunchLedger.Launch(alice,"sable",npc)));
