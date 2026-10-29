@@ -1316,7 +1316,10 @@ public final class StoryModule {
         story.then(CommandManager.literal("evidence").executes(ctx -> evidenceStatus(ctx.getSource())));
         story.then(CommandManager.literal("finale")
             .executes(ctx -> finaleStatus(ctx.getSource())));
+        // Raw encounter IDs, badge gates and READY/LOCKED flags are admin
+        // diagnostics; players encounter the campaign through the story.
         story.then(CommandManager.literal("encounters")
+            .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> playerEncounterStatus(ctx.getSource())));
         // The original RCT League Thorn is now the sole physical encounter.
         // Never expose the retired duplicate TBCS "Story Thorn" battle path.
