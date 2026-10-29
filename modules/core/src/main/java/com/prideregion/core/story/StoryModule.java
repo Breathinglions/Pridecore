@@ -36,6 +36,7 @@ public final class StoryModule {
     private static volatile StoryBattleProof battleProof;
     private static volatile StoryBattleSessionRouter battleRouter;
     private static volatile StoryBattleLaunchLedger launchLedger;
+    private static volatile CobblemonStoryVictoryListener victoryListener;
     private static volatile ResonanceFinaleController finale;
     private static volatile ResonanceCheckpointStore finaleStore;
     private static volatile String health = "disabled";
@@ -227,10 +228,31 @@ public final class StoryModule {
             launchLedger = new StoryBattleLaunchLedger();
             finale = new ResonanceFinaleController();
             finaleStore = new ResonanceCheckpointStore(directory.resolve("finale_checkpoints"));
+            // Native Cobblemon 1.8.1 callback; only already-registered RCT
+            // battles can reach the authenticated story victory router.
+            victoryListener = CobblemonStoryVictoryListener.install(
+                StoryModule.class.getClassLoader(), new CobblemonStoryVictoryListener.Sink() {
+                    public boolean isRegistered(UUID battleId) {
+                        return battleRouter != null &&
+                            battleRouter.encounterForBattle(battleId).isPresent();
+                    }
+                    public void victory(UUID battleId, UUID playerId) {
+                        server.execute(() -> {
+                            try { nativeStoryBattleEnded(server, battleId, playerId); }
+                            catch (IOException | RuntimeException ex) {
+                                LOGGER.error("Verified Cobblemon story result failed", ex);
+                            }
+                        });
+                    }
+                    public void cancelled(UUID battleId) {
+                        server.execute(() -> nativeStoryBattleCancelled(server, battleId));
+                    }
+                });
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
-        } catch (IOException | RuntimeException ex) {
+        } catch (IOException | ReflectiveOperationException | RuntimeException ex) {
+            victoryListener = null;
             engine = null;
             battleProof = null;
             battleRouter = null;
@@ -244,6 +266,13 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            if (victoryListener != null) {
+                try { victoryListener.uninstall(); }
+                catch (ReflectiveOperationException ex) {
+                    LOGGER.error("Could not unsubscribe Cobblemon story listener", ex);
+                }
+                victoryListener = null;
+            }
             if (finale != null) finale.clear();
             finale = null;
             finaleStore = null;
