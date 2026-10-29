@@ -11,11 +11,11 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Good morning! Professor Sequoia is expecting you at his lab. Remember, the best trainers look after their Pokemon, not just their badges.",
+          "text": "Up already? Professor Sequoia sent word from the laboratory. He says the whole region may change when you meet your first partner. I packed a little something for your journey.",
           "options": [
             {
               "id": "begin",
-              "text": "I'm ready for my adventure!",
+              "text": "I'll go see the Professor.",
               "stage": "pride:visit_sequoia",
               "grant": [
                 "pride:met_mom"
@@ -23,18 +23,18 @@
             },
             {
               "id": "questions",
-              "text": "What should I do first?",
+              "text": "What did the Professor say?",
               "next": "instructions"
             }
           ]
         },
         {
           "id": "instructions",
-          "text": "Visit Professor Sequoia's laboratory. He'll explain how to choose your first partner. Then meet Technician Theo and Avery.",
+          "text": "Sequoia is expecting you near the village square. Theo and Avery will help you find your feet before you leave Hearthleaf.",
           "options": [
             {
               "id": "ready",
-              "text": "I'll visit the Professor.",
+              "text": "I'll find the lab.",
               "stage": "pride:visit_sequoia",
               "grant": [
                 "pride:met_mom"
@@ -44,7 +44,7 @@
         },
         {
           "id": "return",
-          "text": "Have you visited the Professor yet? Remember to explore and enjoy the journey!",
+          "text": "The house feels quiet without you. Come home whenever you need to remember where your journey began.",
           "options": []
         }
       ]
@@ -61,11 +61,11 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Welcome, young Trainer! This region is home to extraordinary Pokemon and mysteries. Use my existing starter selection service to choose your partner; this story dialogue does NOT give or verify a starter Pokemon.",
+          "text": "Welcome to my laboratory! Every great discovery begins with a question, and every journey is better shared. There's a Pokémon out there waiting to become your partner.",
           "options": [
             {
               "id": "understood",
-              "text": "I'll choose my partner and register.",
+              "text": "I think I've found my partner.",
               "stage": "pride:trainer_registration",
               "grant": [
                 "pride:met_sequoia"
@@ -78,7 +78,7 @@
         },
         {
           "id": "return",
-          "text": "Once you've chosen your Pokemon through the existing starter system, visit Technician Theo. My story dialogue cannot confirm which Pokemon you received.",
+          "text": "The road beyond Hearthleaf is full of mysteries. I hope you and your partner find something extraordinary.",
           "options": []
         }
       ]
@@ -95,7 +95,7 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Every Trainer needs a proper record. Use the existing Trainer Registration service to receive your Trainer Card and Pokedex. Then speak with Avery for field supplies.",
+          "text": "There you are! I kept your Trainer Card ready. One day you'll look at this old photograph and remember where everything began. Avery has something for you, too.",
           "options": [
             {
               "id": "next",
@@ -112,7 +112,7 @@
         },
         {
           "id": "return",
-          "text": "Remember: your Trainer Card and Pokedex are issued by the existing registration system, not by this story dialogue.",
+          "text": "Keep your card safe. There are places in the region where that little piece of paper opens big doors.",
           "options": []
         }
       ]
@@ -129,7 +129,7 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Heading out? Use my existing Field Kit interaction for supplies. The kit contains Pokeballs, food and a guide. This dialogue doesn't issue items, so you can't claim them twice through it.",
+          "text": "I heard you're leaving town! Here, these supplies should make the road a little easier. Don't forget to look up from the path now and then—the region is beautiful.",
           "options": [
             {
               "id": "journey",
@@ -146,7 +146,7 @@
         },
         {
           "id": "return",
-          "text": "Check your field kit and stay alert on Route 1.",
+          "text": "Route 1 is lovely this time of year. I wish I could see it through your eyes again.",
           "options": []
         }
       ]
@@ -165,11 +165,11 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Welcome to Route 1. The Pokemon here seem uneasy. You may explore the route, practice catching, and investigate the faint glow among the trees. Thorn's Verdant Gym lies further on.",
+          "text": "Something strange moved through the woods last night. The Pokémon are unsettled, and there's a pale glow between the trees. Rin was asking about it earlier.",
           "options": [
             {
               "id": "explore",
-              "text": "I'll investigate and train.",
+              "text": "I'll keep my eyes open.",
               "stage": "pride:verdant_approach",
               "grant": [
                 "pride:route1_briefed"
@@ -183,7 +183,7 @@
         },
         {
           "id": "return",
-          "text": "Keep your Pokemon healthy. Something unusual is happening beyond the trees.",
+          "text": "That glow hasn't gone away. I don't like the silence beneath the trees.",
           "options": []
         }
       ]
@@ -200,11 +200,11 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "I'm Thorn, Leader of Verdant Gym. Listen to your Pokemon and respect the forest. When you're ready, challenge me through the existing Gym system. This dialogue does not grant badges or change League eligibility.",
+          "text": "The forest remembers everyone who passes through it. The Pokémon have been restless since the last storm. When our paths cross again, I want to know what you've learned.",
           "options": [
             {
               "id": "challenge",
-              "text": "I understand. I'll prepare for the challenge.",
+              "text": "I want to understand what's happening.",
               "stage": "pride:verdant_gym_intro",
               "grant": [
                 "pride:met_thorn"
@@ -217,7 +217,7 @@
         },
         {
           "id": "return",
-          "text": "The Verdant Badge must be earned through our existing League battles.",
+          "text": "Even the oldest trees bend when the wind changes. Listen to what the forest is trying to say.",
           "options": []
         }
       ]
@@ -234,36 +234,36 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Good to see you again! We met at Professor Sequoia's Lab when we chose our first Pokémon. I'm Rin, your rival on the road to the League. I won't let you reach the Champion without a challenge.",
+          "text": "There you are! Remember the day we met at Sequoia's lab? I thought the League was the only thing worth chasing. But last night the forest glowed like a second sunrise.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll see you on the road.",
               "grant": [
                 "pride:met_rin"
               ]
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Where did the light go?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Let's meet again on the road. Our Pokémon will grow stronger together.",
+          "text": "I followed the light toward the old road. Whatever it is, we might be the first to find out.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "If you hear anything about that light, come find me. I have a feeling this is only the beginning.",
           "options": []
         }
       ]
@@ -280,11 +280,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Thorn asked me to check the forest after your Verdant victory. The Pokémon here are restless, and glowing fragments appeared after the storm.",
+          "text": "Thorn sent me after the storm. The forest is covered in fragments that hum when the wind blows. I've lived here for years, and I've never seen anything like them.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll follow the trail.",
               "stage": "pride:forest_investigation",
               "grant": [
                 "pride:forest_evidence"
@@ -295,25 +295,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What makes the fragments unusual?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Take note of their shape. The Meridian Institute says it's ordinary mineral drift, but I am not convinced.",
+          "text": "Meridian calls it mineral dust. If that's true, why do the wild Pokémon avoid the places where it falls?",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The fragments are still warm to the touch. There must be more to this than the Institute admits.",
           "options": []
         }
       ]
@@ -331,11 +331,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Rook's Bastion trial proved you can handle yourself. Someone removed the oldest survey pages from our mine archive.",
+          "text": "Someone took the oldest pages from our mine surveys. They left the fresh reports behind, as though they knew exactly what they wanted.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll look into the missing records.",
               "stage": "pride:rock_investigation",
               "grant": [
                 "pride:mine_records"
@@ -346,25 +346,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Who was using that wagon?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "See these marks? Eclipse was here, but the equipment on the wagon belongs to Meridian.",
+          "text": "I found Eclipse markings near a freight wagon, but its equipment belongs to Meridian. Someone isn't telling us the truth.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The missing pages mention a chamber below the mountain. That's where the old maps suddenly end.",
           "options": []
         }
       ]
@@ -382,11 +382,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "You think we stole the surveys for profit? Meridian hides what it mines. If you care about Pokémon, question the company behind the badges.",
+          "text": "You think Eclipse came for gold? Meridian has been digging beneath protected habitats for years. Someone had to make them listen.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll hear what you have to say.",
               "stage": "pride:eclipse_detected",
               "grant": [
                 "pride:eclipse_contact"
@@ -394,25 +394,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What did Meridian leave behind?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "I'm not asking you to trust Eclipse. I'm asking you to look closer.",
+          "text": "I'm not asking you to trust us. Look at the places they've abandoned. The Pokémon won't go near them anymore.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "Our people are afraid, too. We just stopped believing Meridian would ever tell the truth.",
           "options": []
         }
       ]
@@ -429,11 +429,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "You're following Eclipse rumors? Maybe. But we need evidence before accusing anyone.",
+          "text": "I found the same Eclipse markings you did, but the tracks lead in two directions. Somebody wants us to blame the wrong people.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "We'll compare what we find.",
               "stage": "pride:rival_debate",
               "grant": [
                 "pride:rival_theory"
@@ -441,25 +441,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What did the tracks reveal?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "I'll keep investigating the south road. Whoever finds the truth first buys the other a meal.",
+          "text": "I'll follow the southern trail. Meet me again when you know who was carrying those old records.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The canyon is quiet now, but I don't think whoever passed through is far away.",
           "options": []
         }
       ]
@@ -477,11 +477,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Ashen helped stop the overheating near the foundry, but the instruments are still reading impossible temperatures.",
+          "text": "Ashen helped us stop the foundry from overheating, but the gauges haven't cooled. The heat is coming from somewhere we can't see.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll follow the source.",
               "stage": "pride:fire_district",
               "grant": [
                 "pride:heat_anomaly"
@@ -492,25 +492,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Where does the current lead?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "The power isn't rising from the earth. Something is feeding it into the station.",
+          "text": "Look at this reading. The power isn't rising out of the earth. Something is feeding it into our lines.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "We keep lowering the output, and the temperature keeps climbing. That shouldn't be possible.",
           "options": []
         }
       ]
@@ -528,11 +528,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Our institute studies Resonance to keep people and Pokémon safe. I joined Meridian because our work could save endangered habitats.",
+          "text": "I joined Meridian because Resonance could restore damaged habitats. Lately, more of our research has disappeared behind locked doors.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll find out what was hidden.",
               "stage": "pride:institute_introduction",
               "grant": [
                 "pride:meridian_leads"
@@ -540,25 +540,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Who sealed the reports?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Still, some files have been sealed beyond even my authorization. I hope there's a harmless reason.",
+          "text": "The risk reports were sealed without explanation. I keep telling myself there must be a harmless reason.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "I still believe we can help the region. I'm no longer sure everyone here agrees on how.",
           "options": []
         }
       ]
@@ -575,11 +575,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Kai's Tidal Badge means you understand the waterways. The river was poisoned by a timed energy pulse, not an ordinary spill.",
+          "text": "The river changed color before Eclipse arrived. I watched the first pulse move beneath the water like a shadow.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll bring this to the Rangers.",
               "stage": "pride:tidal_investigation",
               "grant": [
                 "pride:water_evidence"
@@ -590,25 +590,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Where did the pulse begin?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Eclipse arrived later, so they could not have caused the first event. We need to tell the Rangers.",
+          "text": "The timing matters. Whatever caused the first pulse began upstream, long before anyone saw an Eclipse ship.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The fish have started returning, but the stones along the bank still glow at night.",
           "options": []
         }
       ]
@@ -626,11 +626,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "The Pride Rangers protect Pokémon no matter which faction profits from a disaster. Thank you for bringing us evidence.",
+          "text": "You've brought us evidence from the forest, the mine and the river. None of it fits the story Meridian has been telling the region.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll keep searching for answers.",
               "stage": "pride:ranger_investigation",
               "grant": [
                 "pride:ranger_probe"
@@ -638,25 +638,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What have the Rangers learned?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "We'll open an independent case. Keep exploring freely, but don't face the institute's security teams alone.",
+          "text": "We'll investigate independently. I want the facts to reach people before anyone decides who's to blame.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The Rangers are gathering witnesses. Every account matters now.",
           "options": []
         }
       ]
@@ -673,11 +673,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Vega's city kept the grid stable. Beneath the power station is a second circuit no one told the League about.",
+          "text": "The city's grid stayed online through the storm. That's when I noticed a second circuit feeding power into a place that doesn't appear on any map.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll find out what's inside.",
               "stage": "pride:powergrid_reveal",
               "grant": [
                 "pride:engine_plan"
@@ -688,25 +688,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Where do those cables lead?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Every wire converges at a sealed Meridian facility. They're building something called the Resonance Engine.",
+          "text": "Every cable runs toward a sealed Meridian facility. Their files call it the Resonance Engine.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "There's too much power flowing into that facility for an ordinary research station.",
           "options": []
         }
       ]
@@ -724,11 +724,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Director Cael insists the engine will heal the region. He might believe it. But the risk reports are missing from the public archive.",
+          "text": "Director Cael once promised the Engine would heal the region. I believed him. Now the public risk reports have vanished, and no one will explain why.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll find the missing research.",
               "stage": "pride:meridian_records",
               "grant": [
                 "pride:meridian_documents"
@@ -736,25 +736,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What happened to the old records?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "I can show you where the older research records were taken. Use them responsibly.",
+          "text": "The oldest files were moved to the archive below the Institute. I still have the key to the corridor.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "I hope the records give you an answer. They only gave me more questions.",
           "options": []
         }
       ]
@@ -771,11 +771,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Draven's Dragon trial echoes an old oath: power is guarded, not owned. Our ancestors sealed Resonance conduits after a terrible flood.",
+          "text": "Long before Meridian, our ancestors discovered Resonance beneath these mountains. They sealed it after a flood erased three villages.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll follow the ancient records.",
               "stage": "pride:dragon_lore",
               "grant": [
                 "pride:ancient_ward"
@@ -786,25 +786,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What happened after the flood?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "You found the new circuit. Now seek the cold station where the earliest warning was recorded.",
+          "text": "The old oath says power is guarded, never owned. Someone wrote that warning for a reason.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "Ancient stories survive because someone needed the future to listen.",
           "options": []
         }
       ]
@@ -822,11 +822,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Freya kept these records hidden beneath the snow. Meridian knew the engine could frighten and displace whole Pokémon habitats.",
+          "text": "These records were hidden beneath the ice. Meridian knew the Engine could drive Pokémon from entire habitats, yet they approved the next experiment.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "The others need to hear this.",
               "stage": "pride:ice_research",
               "grant": [
                 "pride:frozen_warning"
@@ -837,25 +837,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Who wrote the warnings?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "A researcher tried to shut it down and vanished from the project. Her signature is on every safety warning.",
+          "text": "A researcher tried to stop the project. Her name was removed from the files, but her warnings remain.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The snow preserved what Meridian tried to erase. Now the truth can no longer stay buried.",
           "options": []
         }
       ]
@@ -873,11 +873,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "We kept competing while the region changed around us. I thought becoming Champion was the biggest thing we could do.",
+          "text": "When we left Hearthleaf, I thought becoming Champion would be the greatest thing we'd ever do. Look at the region below us now. Everything feels different.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "We'll see this through together.",
               "stage": "pride:rival_reunited",
               "grant": [
                 "pride:rival_ally"
@@ -885,25 +885,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Do you remember that first day?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "I was wrong. Whatever comes next, you won't face it alone.",
+          "text": "Whatever waits at Meridian, you won't have to face it alone. I made you that promise when we were kids.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "I can still see Hearthleaf from here. It reminds me why we started.",
           "options": []
         }
       ]
@@ -921,11 +921,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Nyx's Ghost trial taught you that memories leave traces. The echoes here show Eclipse's raid and Meridian's experiment were both dangerous.",
+          "text": "Memories cling to this place. I can hear the echoes of Eclipse's raid, but beneath them is something far older: the sound of Meridian's first experiment.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll bring this warning to Eclipse.",
               "stage": "pride:ghost_memories",
               "grant": [
                 "pride:memory_truth"
@@ -936,25 +936,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What do the echoes show?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Eclipse plans to destroy the engine. A sudden shutdown could unleash every stored pulse at once.",
+          "text": "Eclipse believes destroying the Engine will end the danger. The visions suggest a sudden silence could release everything it holds.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The echoes have grown louder. We are running out of time to understand them.",
           "options": []
         }
       ]
@@ -973,11 +973,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Sable has ordered the assault. We were told there was no other way to stop Meridian.",
+          "text": "Sable ordered us toward the Engine. We thought Meridian left us no other choice. But now I don't know what will happen when we reach it.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll speak with Sable.",
               "stage": "pride:eclipse_infiltration",
               "grant": [
                 "pride:eclipse_assault"
@@ -985,25 +985,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Why does Sable distrust Meridian?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "If you truly have proof, take it to the leader. Perhaps the region doesn't need another disaster to learn the truth.",
+          "text": "If the evidence you've found is real, Sable needs to see it before our people make a terrible mistake.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "We went looking for answers and found a catastrophe waiting to happen.",
           "options": []
         }
       ]
@@ -1020,11 +1020,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "I founded Eclipse after Meridian buried our reports. I was right about their experiments, but my people endangered Pokémon to expose them.",
+          "text": "I founded Eclipse when Meridian buried our warnings. I was right about the danger, but I let fear convince me anything was justified.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "We'll find Cael.",
               "stage": "pride:sable_confrontation",
               "grant": [
                 "pride:sable_warning"
@@ -1032,25 +1032,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What did Meridian hide from you?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "If the engine explodes, none of that will matter. Find Cael and force him to face the truth.",
+          "text": "I cannot undo what's happened. I can still help stop Cael from repeating our mistakes.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The truth belongs to everyone affected by the Engine, not to Meridian or Eclipse.",
           "options": []
         }
       ]
@@ -1068,11 +1068,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Resonance could restore entire ecosystems. Every great discovery demands courage, even when our models show uncertainty.",
+          "text": "Resonance could have healed the mountains, the rivers, everything we lost. I wanted to believe the cost would be small.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "We have to make this right.",
               "stage": "pride:engine_confrontation",
               "grant": [
                 "pride:cael_confronted"
@@ -1080,25 +1080,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "Can the Engine still be saved?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "You bring evidence I cannot dismiss. I will authorize a shutdown review, but stabilizing the engine requires real action, not words.",
+          "text": "The evidence you carry changes everything. I cannot ignore it now. The Engine is unstable, and it remembers every pulse we've sent into it.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "I built that machine to save the region. I have to live with what it became.",
           "options": []
         }
       ]
@@ -1117,11 +1117,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "You've uncovered the heart of the crisis. The Rangers will coordinate a stabilization mission with trusted researchers and Rin.",
+          "text": "The Rangers and Meridian's remaining researchers are working together. Even Rin has offered to help. The Engine is still unstable, but this time no one faces it alone.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'll go to the Engine.",
               "stage": "pride:crisis_briefed",
               "grant": [
                 "pride:crisis_intel_complete"
@@ -1129,25 +1129,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What did the ancient seals protect?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Your briefing is complete. The final engine operation requires its own battle and world objectives before we can call the region safe.",
+          "text": "The old seals surround its heart. They were built by people who understood what Resonance could do when left unchecked.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "We're holding the perimeter. Whatever happens inside, we're counting on you.",
           "options": []
         }
       ]
@@ -1165,11 +1165,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "The road to Magnus remains open to Trainers who have earned all eight badges. Victory Road will test everything you've learned.",
+          "text": "Victory Road is just ahead. Magnus is waiting beyond it, but the person who left Hearthleaf is not the person standing here now.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "I'm ready for what comes next.",
               "stage": "pride:victory_road_briefed",
               "grant": [
                 "pride:league_path"
@@ -1180,25 +1180,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What lies beyond Victory Road?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Your investigation doesn't award badges. Your battles and the League alone decide who becomes Champion.",
+          "text": "The League remembers victories. The region will remember the choices you made when nobody was watching.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "The road is open. Take your time and remember every place that brought you here.",
           "options": []
         }
       ]
@@ -1215,11 +1215,11 @@
       "nodes": [
         {
           "id": "main",
-          "text": "Magnus recognizes your victories, and the Hall of Fame now records your name. Your adventure did not end when you became Champion.",
+          "text": "Your name belongs among the great Trainers now. But the Hall of Fame records only a fraction of what you have done for this region.",
           "options": [
             {
               "id": "continue",
-              "text": "Continue the Pride Region story.",
+              "text": "There's still so much to discover.",
               "stage": "pride:champion_epilogue",
               "grant": [
                 "pride:champion_greeted"
@@ -1230,25 +1230,25 @@
             },
             {
               "id": "learn_more",
-              "text": "Tell me more.",
+              "text": "What comes after the League?",
               "next": "detail"
             }
           ]
         },
         {
           "id": "detail",
-          "text": "Pride Region is full of expeditions, research, competitive battles and friendships yet to come.",
+          "text": "New roads will open. New mysteries will surface. The people you've helped will tell stories long after these lights fade.",
           "options": [
             {
               "id": "back",
-              "text": "Back to our conversation.",
+              "text": "I see. There's something else...",
               "next": "main"
             }
           ]
         },
         {
           "id": "return",
-          "text": "We've already spoken. Keep following your current objective in the quest journal.",
+          "text": "A chapter ended when you entered these halls. The adventure itself did not.",
           "options": []
         }
       ]
