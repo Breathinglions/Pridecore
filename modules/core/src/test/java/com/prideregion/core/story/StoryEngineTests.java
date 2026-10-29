@@ -61,12 +61,12 @@ public final class StoryEngineTests {
             "Summit rivalry is identified in the player's campaign directions");
         check(StoryObjectiveGuide.forStage("pride:ghost_memories").contains("Lieutenant"),
             "Eclipse Lieutenant battle is a required stage");
-        check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("shield"),
-            "The Resonance Engine phase remains a mandatory objective");
+        check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
+            "The Resonance crisis remains visible through narrative direction");
         check(StoryObjectiveGuide.coveredStages() == 29,
             "All 27 milestone stages and the empty profile have directions");
-        check(StoryObjectiveGuide.forStage("pride:unmapped").contains("Quest Book"),
-            "Unknown custom stages fail safely with generic quest-book guidance");
+        check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
+            "Unknown custom stages fall back to immersive, nontechnical story direction");
         check(engine.completedNpcs(p).contains("mom"),
             "Completed NPC checkpoint can be projected to the player's advancement");
         check(engine.completedNpcs(other).isEmpty(),
