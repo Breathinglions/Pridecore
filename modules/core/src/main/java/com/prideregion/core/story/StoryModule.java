@@ -46,6 +46,7 @@ public final class StoryModule {
     private static volatile ResonanceCheckpointStore finaleStore;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
+    private static volatile StoryDimensionGate STORY_WORLDS = StoryDimensionGate.open();
     private static final StoryCinematicTimeline CINEMATICS = new StoryCinematicTimeline();
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
 
@@ -54,6 +55,8 @@ public final class StoryModule {
     public static void registerHooks() {
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
+                return ActionResult.PASS;
+            if (!STORY_WORLDS.permits(sp.getWorld().getRegistryKey().getValue().toString()))
                 return ActionResult.PASS;
             // Physical finale devices are explicitly tagged interaction entities.
             // No world coordinates are guessed; builders place each device.
@@ -286,6 +289,7 @@ public final class StoryModule {
 
     public static void start(MinecraftServer server) {
         liveServer = server;
+        STORY_WORLDS = StoryDimensionGate.open();
         CINEMATICS.clear();
         BATTLE_PHASES.clear();
         engine = null;
@@ -309,6 +313,8 @@ public final class StoryModule {
             }
             Properties props = new Properties();
             try (var input = Files.newInputStream(settings)) { props.load(input); }
+            STORY_WORLDS = StoryDimensionGate.parse(
+                props.getProperty("story_allowed_dimensions", ""));
             StoryEffects.reset();
             for (String key : StoryEffects.keys()) {
                 String configuredParticle = props.getProperty("effects." + key, "").trim();
@@ -387,6 +393,7 @@ public final class StoryModule {
             finaleStore = null;
             CINEMATICS.clear();
             BATTLE_PHASES.clear();
+            STORY_WORLDS = StoryDimensionGate.open();
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -395,6 +402,7 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
             BATTLE_PHASES.clear();
             if (victoryListener != null) {
@@ -495,7 +503,8 @@ public final class StoryModule {
         if (liveServer != server || engine == null || launchLedger == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         ServerPlayerEntity contender = server.getPlayerManager().getPlayer(player);
-        if (contender == null) return false;
+        if (contender == null || !STORY_WORLDS.permits(
+                contender.getWorld().getRegistryKey().getValue().toString())) return false;
         var roster = StoryBattleRosters.bundled().find(encounterId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown story roster"));
         if (!StoryLeagueBadgeGate.allows(roster.minBadges(), contender.getCommandTags()))
