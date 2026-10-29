@@ -249,6 +249,28 @@ public final class StoryModule {
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (liveServer != server || engine == null) return;
+            var recoveries = BATTLE_RETRIES.tick();
+            for (var retry : recoveries.due()) {
+                try {
+                    // Still require the trusted native ticket and player;
+                    // expired or disconnected sessions may never mint facts.
+                    if (server.getPlayerManager().getPlayer(retry.winner()) == null) {
+                        nativeStoryBattleCancelled(server, retry.battle());
+                        continue;
+                    }
+                    nativeStoryBattleEnded(server, retry.battle(), retry.winner());
+                } catch (IOException | RuntimeException retryFailure) {
+                    LOGGER.warn("Story victory persistence retry {}/{} failed for {}",
+                        retry.attempt(), StoryBattleResultRetryQueue.MAX_RETRIES,
+                        retry.battle(), retryFailure);
+                }
+            }
+            for (var expired : recoveries.expired()) {
+                LOGGER.error("Story victory {} exhausted {} persistence retries. "
+                    + "No unverified progress was awarded; operator review required.",
+                    expired.battle(), expired.attempt());
+                nativeStoryBattleCancelled(server, expired.battle());
+            }
             for (var scene : CINEMATICS.tick()) {
                 ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(scene.player());
                 if (viewer == null || !STORY_WORLDS.permits(
