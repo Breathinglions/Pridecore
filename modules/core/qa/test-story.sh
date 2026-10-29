@@ -52,9 +52,13 @@ java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleControllerTests
 java -cp "$TMP" com.prideregion.core.story.StoryPlaythroughResetTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceFinaleCompletionTests
 java -cp "$TMP" com.prideregion.core.story.ResonanceCheckpointStoreTests
-python3 - "$ROOT/src/main/resources/story/default.json" <<'PY'
-import json,sys
+python3 - "$ROOT/src/main/resources/story/default.json" "$ROOT/src/main/java/com/prideregion/core/story/NativeNpcIdentity.java" <<'PY'
+import json,sys,re,pathlib
 d=json.load(open(sys.argv[1]))
+java=pathlib.Path(sys.argv[2]).read_text()
+allowed=java.split("ALLOWED = Set.of(",1)[1].split(");",1)[0]
+npc_ids=set(re.findall(r'"([a-z0-9_]+)"',allowed))
+assert npc_ids == {npc["id"] for npc in d["npcs"]}, "Physical NPC binding allowlist must match authored story JSON"
 assert d["version"]==1
 assert len(d["npcs"])==27
 league=next(n for n in d["npcs"] if n["id"]=="league_guide")
