@@ -29,6 +29,9 @@ public final class ResonanceFinaleController {
     public synchronized Snapshot conduit(UUID player, String name) {
         State state = require(player, Phase.CONDUITS);
         if (!CONDUITS.contains(name)) throw new IllegalArgumentException("Unknown conduit");
+        // Repeated clicks from laggy clients must not allocate a new state or
+        // masquerade as a newly charged conduit.
+        if (state.conduits().contains(name)) return snapshot(player);
         Set<String> updated = new HashSet<>(state.conduits());
         updated.add(name);
         Phase next = updated.equals(CONDUITS) ? Phase.SHIELDS : Phase.CONDUITS;
