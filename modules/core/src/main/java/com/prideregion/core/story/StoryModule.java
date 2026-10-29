@@ -530,7 +530,12 @@ public final class StoryModule {
             StoryBattleSessionRouter.NativeStart start) throws IOException {
         if (liveServer != server || engine == null || battleRouter == null) return false;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
-        if (server.getPlayerManager().getPlayer(start.playerId()) == null) return false;
+        // Exact launch ledger match is mandatory, including the encounter ID.
+        // An unrelated server adapter cannot arm another fight on the same UUID.
+        if (launchLedger == null || !launchLedger.matches(start)) return false;
+        ServerPlayerEntity authorized = server.getPlayerManager().getPlayer(start.playerId());
+        if (authorized == null || !STORY_WORLDS.permits(
+                authorized.getWorld().getRegistryKey().getValue().toString())) return false;
         if (start.encounterId().startsWith("shield_")) {
             restoreFinale(start.playerId());
             if (finale == null || finale.snapshot(start.playerId()).phase()
