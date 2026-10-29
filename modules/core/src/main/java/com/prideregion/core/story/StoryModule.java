@@ -34,6 +34,7 @@ public final class StoryModule {
     private static volatile MinecraftServer liveServer;
     private static volatile StoryEngine engine;
     private static volatile StoryBattleProof battleProof;
+    private static volatile StoryBattleSessionRouter battleRouter;
     private static volatile String health = "disabled";
     private static volatile String configStatus = "unchecked";
 
@@ -113,8 +114,8 @@ public final class StoryModule {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
-            StoryBattleProof proof = liveServer == server ? battleProof : null;
-            if (proof != null) proof.cancelPlayer(handler.getPlayer().getUuid());
+            StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
+            if (router != null) router.disconnect(handler.getPlayer().getUuid());
         });
     }
 
@@ -122,6 +123,7 @@ public final class StoryModule {
         liveServer = server;
         engine = null;
         battleProof = null;
+        battleRouter = null;
         health = "disabled";
         configStatus = "unchecked";
         try {
@@ -157,12 +159,14 @@ public final class StoryModule {
                 return player == null ? Set.of() : Set.copyOf(player.getCommandTags());
             });
             battleProof = new StoryBattleProof(service);
+            battleRouter = new StoryBattleSessionRouter(battleProof);
             engine = loaded;
             health = "active";
             LOGGER.info("Pride Story module active: {} NPC definitions", loaded.npcCount());
         } catch (IOException | RuntimeException ex) {
             engine = null;
             battleProof = null;
+            battleRouter = null;
             health = "error (see server log)";
             configStatus = "error";
             LOGGER.error("Pride Story initialization refused; no world/NPC changes made", ex);
@@ -171,6 +175,8 @@ public final class StoryModule {
 
     public static void stop(MinecraftServer server) {
         if (liveServer == server) {
+            if (battleRouter != null) battleRouter.clear();
+            battleRouter = null;
             if (battleProof != null) battleProof.clear();
             battleProof = null;
             engine = null;
@@ -225,6 +231,40 @@ public final class StoryModule {
         if (!server.isOnThread())
             throw new IllegalStateException("Story battle cancellation must run on server thread");
         proof.cancel(playerId, battleId);
+    }
+
+    /**
+     * Trusted native battle event adapter entrypoint. The caller must have
+     * independently verified the native battle UUID, configured trainer
+     * identity, and owning player. Never expose this as a player command.
+     */
+    public static boolean nativeStoryBattleStarted(MinecraftServer server,
+            StoryBattleSessionRouter.NativeStart start) throws IOException {
+        if (liveServer != server || engine == null || battleRouter == null) return false;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        if (server.getPlayerManager().getPlayer(start.playerId()) == null) return false;
+        return battleRouter.started(start);
+    }
+
+    /** Process only genuine resolved native battle results. */
+    public static boolean nativeStoryBattleEnded(MinecraftServer server,
+            UUID battleId, UUID winnerId) throws IOException {
+        if (liveServer != server || engine == null || battleRouter == null) return false;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        boolean result = battleRouter.ended(battleId, winnerId);
+        if (result && winnerId != null) {
+            ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
+            if (player != null)
+                player.sendMessage(Text.literal("[Pride Region] Story battle victory recorded.")
+                    .formatted(Formatting.GREEN), false);
+        }
+        return result;
+    }
+
+    public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
+        if (liveServer != server || battleRouter == null) return;
+        if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
+        battleRouter.cancel(battleId);
     }
 
     private static Path configDir() {
