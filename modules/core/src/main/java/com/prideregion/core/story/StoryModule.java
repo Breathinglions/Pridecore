@@ -153,8 +153,7 @@ public final class StoryModule {
                         var state = finale.conduit(sp.getUuid(), direction);
                         if (state.conduits() == priorConduits.conduits()) {
                             sp.sendMessage(Text.literal(
-                                "[Pride Region] This conduit is already charged (" +
-                                state.conduits() + "/4).").formatted(Formatting.GRAY), false);
+                                "[Pride Region] This ancient conduit is already alive with light.").formatted(Formatting.GRAY), false);
                             return ActionResult.SUCCESS;
                         }
                         persistFinale(sp.getUuid());
@@ -171,8 +170,10 @@ public final class StoryModule {
                                 entity.getX(), entity.getY() + 0.6D, entity.getZ(),
                                 12, 0.45D, 0.6D, 0.45D, 0.02D);
                         }
-                        sp.sendMessage(Text.literal("[Pride Region] Resonance conduits " +
-                            state.conduits() + "/4; phase " + state.phase())
+                        sp.sendMessage(Text.literal(
+                            state.phase() == ResonanceFinaleController.Phase.SHIELDS
+                                ? "The fourth conduit awakens. Three ancient seals answer from the chamber."
+                                : "A low hum spreads through the ancient stone.")
                             .formatted(Formatting.AQUA), false);
                     } else {
                         throw new IllegalArgumentException("Unknown finale device");
@@ -1584,7 +1585,7 @@ public final class StoryModule {
     }
 
     private static void sendNextObjective(ServerPlayerEntity player, String stage) {
-        player.sendMessage(Text.literal("[Pride Region] Next objective: ")
+        player.sendMessage(Text.literal("[Pride Region] Your journey: ")
             .formatted(Formatting.GOLD)
             .append(Text.literal(StoryObjectiveGuide.forStage(stage))
                 .formatted(Formatting.YELLOW)), false);
