@@ -55,6 +55,22 @@ public final class StoryModule {
     private static final StoryBattlePhaseTracker BATTLE_PHASES = new StoryBattlePhaseTracker();
     private static final StoryBattleResultRetryQueue BATTLE_RETRIES = new StoryBattleResultRetryQueue();
     private static final StoryDialogueAnchorLedger DIALOGUE_ANCHORS = new StoryDialogueAnchorLedger();
+    // Per-player private native dialogue handoff. A single physical Rin
+    // remains the authoritative NPC for all three chapters.
+    private static final Map<UUID, RinDialogueTicket> RIN_DIALOGUES = new HashMap<>();
+    private static final class RinDialogueTicket {
+        final UUID npc;
+        final String dimension;
+        final RinChapterGate.Scene scene;
+        int delay = 2;
+        int remaining = 900;
+        RinDialogueTicket(UUID npc, String dimension, RinChapterGate.Scene scene) {
+            this.npc = npc;
+            this.dimension = dimension;
+            this.scene = scene;
+        }
+    }
+
     // Disabled by default. Only OP4 staging previews may initiate a scene until
     // the verified native Cobblemon NPC + owner-only renderer adapter exists.
     private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
@@ -315,6 +331,46 @@ public final class StoryModule {
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (liveServer != server || engine == null) return;
+            // Wait until Cobblemon closes the entry overlay before opening the
+            // chapter-specific native screen. Never broadcast a dialogue to
+            // other nearby players; recheck current NPC and chapter on send.
+            for (var it = RIN_DIALOGUES.entrySet().iterator(); it.hasNext();) {
+                var entry = it.next();
+                RinDialogueTicket ticket = entry.getValue();
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(entry.getKey());
+                if (viewer == null || --ticket.remaining <= 0
+                        || !STORY_WORLDS.permits(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !viewer.getWorld().getRegistryKey().getValue().toString()
+                            .equals(ticket.dimension)
+                        || !rinNpcNearby(viewer, ticket.npc)) {
+                    it.remove();
+                    continue;
+                }
+                if (ticket.delay > 0 && --ticket.delay == 0) {
+                    try {
+                        var p = PrideCoreMod.progression(server).orElseThrow()
+                            .get(viewer.getUuid());
+                        if (RinChapterGate.choose(p.facts(), viewer.getCommandTags())
+                                != ticket.scene) {
+                            it.remove();
+                            continue;
+                        }
+                        // Static IDs from our checked enum only. The server
+                        // (not a client-provided string) issues /opendialogue.
+                        server.getCommandManager().executeWithPrefix(
+                            server.getCommandSource().withSilent(),
+                            "opendialogue " + ticket.scene.dialogue() + " "
+                                + viewer.getGameProfile().getName());
+                        LOGGER.debug("Opened private Rin chapter {} for {}",
+                            ticket.scene, viewer.getUuid());
+                    } catch (IOException | RuntimeException failure) {
+                        LOGGER.warn("Could not open private Rin native overlay for {}",
+                            viewer.getUuid(), failure);
+                        it.remove();
+                    }
+                }
+            }
             var recoveries = BATTLE_RETRIES.tick();
             for (var retry : recoveries.due()) {
                 try {
@@ -447,6 +503,7 @@ public final class StoryModule {
         StoryPresentationConfig.reset();
         PRIVATE_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
+        RIN_DIALOGUES.clear();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
         engine = null;
@@ -566,6 +623,7 @@ public final class StoryModule {
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
+        RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
@@ -581,6 +639,7 @@ public final class StoryModule {
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
+        RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             if (victoryListener != null) {
@@ -735,15 +794,27 @@ public final class StoryModule {
     public static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
             ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
             String encounterId) throws IOException {
+        return launchRctStoryBattle(server, player, trainer, encounterId, false);
+    }
+
+    private static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
+            ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
+            String encounterId, boolean canonicalRin) throws IOException {
         if (liveServer != server || engine == null || launchLedger == null)
             return Optional.empty();
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         boolean sameDimension = trainer.getWorld().getRegistryKey().equals(
             player.getWorld().getRegistryKey());
-        if (!StoryTrainerBindingGate.permits(encounterId,
+        boolean authorized = canonicalRin
+            ? StoryTrainerBindingGate.permitsCanonicalRin(encounterId,
                 trainer.getCommandTags(), sameDimension,
                 trainer instanceof net.minecraft.entity.player.PlayerEntity,
-                player.squaredDistanceTo(trainer))) return Optional.empty();
+                player.squaredDistanceTo(trainer))
+            : StoryTrainerBindingGate.permits(encounterId,
+                trainer.getCommandTags(), sameDimension,
+                trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                player.squaredDistanceTo(trainer));
+        if (!authorized) return Optional.empty();
         if (!reserveStoryBattleLaunch(server, player.getUuid(),
                 encounterId, trainer.getUuid())) return Optional.empty();
         try {
@@ -1281,6 +1352,7 @@ public final class StoryModule {
             abortOwnedStoryBattles(source.getServer(), target.getUuid());
             if (engine != null) engine.cancel(target.getUuid());
             DIALOGUE_ANCHORS.clear(target.getUuid());
+            RIN_DIALOGUES.remove(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
             BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1331,6 +1403,7 @@ public final class StoryModule {
         abortOwnedStoryBattles(source.getServer(), target.getUuid());
         if (engine != null) engine.cancel(target.getUuid());
         DIALOGUE_ANCHORS.clear(target.getUuid());
+            RIN_DIALOGUES.remove(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
         if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
         BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1469,6 +1542,12 @@ public final class StoryModule {
             .requires(source -> source.hasPermissionLevel(4))
             .then(CommandManager.literal("runtime-preflight")
                 .executes(ctx -> adminRuntimePreflight(ctx.getSource()))));
+        // Chapter and encounter IDs are never accepted as player input.
+        story.then(CommandManager.literal("rin")
+            .then(CommandManager.literal("open")
+                .executes(ctx -> openRinChapter(ctx.getSource())))
+            .then(CommandManager.literal("challenge")
+                .executes(ctx -> challengeRin(ctx.getSource()))));
         story.then(CommandManager.literal("native")
             .then(CommandManager.argument("npc", StringArgumentType.word())
                 .then(CommandManager.argument("choice", StringArgumentType.word())
@@ -1675,6 +1754,95 @@ public final class StoryModule {
     // first-win callbacks. Narrative synchronization reads verified League
     // tags; Pride Core never launches a second shadow trainer battle.
 
+    private static boolean rinNpcNearby(ServerPlayerEntity player, UUID exactNpc) {
+        if (exactNpc == null) return false;
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> e.getUuid().equals(exactNpc)
+                && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains("pride_npc_rin")
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+            .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
+    }
+
+    private static Optional<net.minecraft.entity.LivingEntity> nearbyRin(ServerPlayerEntity player) {
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains("pride_npc_rin")
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+            .stream().filter(e -> e instanceof net.minecraft.entity.LivingEntity
+                && e.squaredDistanceTo(player) <= 36.0D)
+            .map(e -> (net.minecraft.entity.LivingEntity)e).findFirst();
+    }
+
+    private static int openRinChapter(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Rin is not available in this world");
+            var rin = nearbyRin(player).orElseThrow(
+                () -> new IllegalStateException("Talk to Rin in person"));
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            var scene = RinChapterGate.choose(profile.facts(), player.getCommandTags());
+            RIN_DIALOGUES.put(player.getUuid(), new RinDialogueTicket(rin.getUuid(),
+                player.getWorld().getRegistryKey().getValue().toString(), scene));
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Rin's story is unavailable right now."));
+            LOGGER.warn("Rin dialogue rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    private static int challengeRin(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            RinDialogueTicket ticket = RIN_DIALOGUES.get(player.getUuid());
+            if (ticket == null || ticket.delay > 0 || ticket.remaining <= 0
+                    || ticket.scene.encounter() == null)
+                throw new IllegalStateException("Open Rin's current conversation first");
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString())
+                    || !ticket.dimension.equals(player.getWorld()
+                        .getRegistryKey().getValue().toString())
+                    || !rinNpcNearby(player, ticket.npc))
+                throw new IllegalStateException("Return to Rin to challenge him");
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            if (RinChapterGate.choose(profile.facts(), player.getCommandTags())
+                    != ticket.scene)
+                throw new IllegalStateException("The story chapter has changed");
+            String encounter = ticket.scene.encounter();
+            var roster = StoryBattleRosters.active().find(encounter).orElseThrow();
+            if (!StoryLeagueBadgeGate.allows(roster.minBadges(), player.getCommandTags()))
+                throw new IllegalStateException("More Gym badges are needed");
+            var rin = nearbyRin(player).filter(e -> e.getUuid().equals(ticket.npc))
+                .orElseThrow(() -> new IllegalStateException("Rin has moved"));
+            // Physical marker is only pride_npc_rin. Never add conflicting
+            // pride_battle_rin_* tags or spawn another copy of this character.
+            RIN_DIALOGUES.remove(player.getUuid());
+            var battle = launchRctStoryBattle(source.getServer(), player,
+                rin, encounter, true);
+            if (battle.isEmpty())
+                throw new IllegalStateException("Rin is unavailable for battle");
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Rin's challenge is unavailable: "
+                + safe(failure.getMessage())));
+            LOGGER.warn("Rin battle request rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
     private static int nativeChoice(ServerCommandSource source, String npc, String option) {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) {
@@ -1801,6 +1969,7 @@ public final class StoryModule {
                 throw new IOException("Story module disabled; reload cannot enable it");
             engine = next; // old conversations discarded, player progress preserved.
             DIALOGUE_ANCHORS.clearAll();
+        RIN_DIALOGUES.clear();
             health = "active";
             return message(source, "Story definitions reloaded: " + next.npcCount()
                 + " NPCs. Existing conversations reset; saved progress retained.");
@@ -1863,6 +2032,7 @@ public final class StoryModule {
         try {
             var response = ready(source.getServer()).begin(target.getUuid(), npc);
             DIALOGUE_ANCHORS.clear(target.getUuid());
+            RIN_DIALOGUES.remove(target.getUuid());
             show(target, response);
             return message(source, "Presented NPC " + npc + " dialogue to " + target.getName().getString());
         } catch (IOException | RuntimeException ex) {
