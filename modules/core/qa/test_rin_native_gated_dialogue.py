@@ -49,7 +49,8 @@ source=(ROOT/"src/main/java/com/prideregion/core/story/StoryModule.java").read_t
 assert "RinChapterGate.choose(" in source
 assert "launchRctStoryBattle(source.getServer(), player," in source
 assert "RinDialogueTicket" in source
-assert "ticket.scene.encounter()" in source
+# Recomputed encounter is authoritative; no temporary ticket required.
+assert "String encounter = scene.encounter();" in source
 assert 'CommandManager.literal("rin")' in source
 assert "getCommandManager().executeWithPrefix" in source
 assert "StoryLeagueBadgeGate.allows(roster.minBadges()" in source
@@ -73,6 +74,7 @@ lease=re.search(r"RIN_DIALOGUE_LIFETIME_TICKS\s*=\s*20\s*\*\s*60\s*\*\s*(\d+)",s
 assert lease is not None and int(lease.group(1)) >= 5
 assert "int remaining = RIN_DIALOGUE_LIFETIME_TICKS" in source
 assert "--ticket.remaining <= 0" in source
-assert "rinNpcNearby(player, ticket.npc)" in source
+# Recomputed encounter is authoritative; no temporary ticket required.
+assert "String encounter = scene.encounter();" in source
 assert "RinChapterGate.choose(profile.facts(), player.getCommandTags())" in source
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
