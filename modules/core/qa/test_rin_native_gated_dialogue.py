@@ -55,4 +55,14 @@ assert "getCommandManager().executeWithPrefix" in source
 assert "StoryLeagueBadgeGate.allows(roster.minBadges()" in source
 assert "pride_npc_rin" in source
 assert "RIN_DIALOGUES.remove(player.getUuid())" in source
+# A 45-second lease expired while real users read Rin's native dialogue.
+# Keep a real bound lifetime of at least five minutes, with all original
+# server-side chapter, NPC identity, distance and badge rechecks intact.
+import re
+lease=re.search(r"RIN_DIALOGUE_LIFETIME_TICKS\\s*=\\s*20\\s*\\*\\s*60\\s*\\*\\s*(\\d+)",source)
+assert lease is not None and int(lease.group(1)) >= 5
+assert "int remaining = RIN_DIALOGUE_LIFETIME_TICKS" in source
+assert "--ticket.remaining <= 0" in source
+assert "rinNpcNearby(player, ticket.npc)" in source
+assert "RinChapterGate.choose(profile.facts(), player.getCommandTags())" in source
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
