@@ -1,7 +1,7 @@
 name: Build Pride Core Module 02 Story and NPCs
 on:
   push:
-    branches: [feature/pridecore-module02-story-npcs]
+    branches: [feature/pridecore-module02-story-npcs, feature/pridecore-module02-private-rin-scenes]
     paths: ['modules/core/**', '.github/workflows/build-pride-module02.yml']
   pull_request:
     paths: ['modules/core/**', '.github/workflows/build-pride-module02.yml']
