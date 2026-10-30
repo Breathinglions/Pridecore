@@ -58,12 +58,18 @@ public final class StoryModule {
     // Per-player private native dialogue handoff. A single physical Rin
     // remains the authoritative NPC for all three chapters.
     private static final Map<UUID, RinDialogueTicket> RIN_DIALOGUES = new HashMap<>();
+    // Give players time to read native Cobblemon dialogue, including pauses
+    // to review their team. The original 900-tick (45-second) lease expired
+    // during normal reading and rejected the visible Challenge Rin button.
+    // This is only a temporary, server-owned dialogue session; eligibility,
+    // exact physical NPC, badge count and chapter are rechecked on challenge.
+    private static final int RIN_DIALOGUE_LIFETIME_TICKS = 20 * 60 * 10;
     private static final class RinDialogueTicket {
         final UUID npc;
         final String dimension;
         final RinChapterGate.Scene scene;
         int delay = 2;
-        int remaining = 900;
+        int remaining = RIN_DIALOGUE_LIFETIME_TICKS;
         RinDialogueTicket(UUID npc, String dimension, RinChapterGate.Scene scene) {
             this.npc = npc;
             this.dimension = dimension;
