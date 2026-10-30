@@ -3,8 +3,6 @@ package com.prideregion.scenes.client;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.MathHelper;
@@ -14,14 +12,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Client-only staging placeholder for the eventual Cobblemon Rin model.
- * This is a temporary villager silhouette with owner-local, smoothed movement.
- * It is NEVER a server entity, trader, interaction target, or battle NPC.
+ * Client-only staging version of Rin using his uploaded Minecraft player skin.
+ * This temporary humanoid is scoped to one viewer with smoothed gait/yaw.
+ * It is NEVER a server entity, trainer, progression trigger, or battle NPC.
  */
 public final class RinPreviewProjection {
     private static final Logger LOGGER = LoggerFactory.getLogger("PrideRinProjection");
     private ClientWorld world;
-    private VillagerEntity actor;
+    private RinPreviewPlayerEntity actor;
     private UUID session;
     private Vec3d destination;
     private Vec3d faceTarget;
@@ -45,7 +43,7 @@ public final class RinPreviewProjection {
             }
             clear();
             ClientWorld current = client.world;
-            VillagerEntity created = new VillagerEntity(EntityType.VILLAGER, current);
+            RinPreviewPlayerEntity created = new RinPreviewPlayerEntity(current, packet.session());
             int id = nextVirtualId--;
             while (current.getEntityById(id) != null) id = nextVirtualId--;
             created.setId(id);
@@ -53,7 +51,7 @@ public final class RinPreviewProjection {
             created.setPosition(packet.x(), packet.y(), packet.z());
             created.setNoGravity(true);
             created.setSilent(true);
-            created.setCustomName(Text.literal("Rin [Staging Preview]"));
+            created.setCustomName(Text.literal("Rin"));
             created.setCustomNameVisible(true);
             current.addEntity(created);
             boolean registered = current.getEntityById(id) == created;
@@ -62,7 +60,7 @@ public final class RinPreviewProjection {
                 id, registered, created.isAlive(),
                 current.getRegistryKey().getValue(), packet.x(), packet.y(), packet.z());
             if (!registered) {
-                LOGGER.error("Rin placeholder was not registered in ClientWorld; "
+                LOGGER.error("Rin player-skin preview was not registered in ClientWorld; "
                     + "no animation can render");
                 return;
             }
@@ -87,14 +85,14 @@ public final class RinPreviewProjection {
             }
             case FACE -> {
                 faceTarget = new Vec3d(packet.x(), packet.y(), packet.z());
-                // FACE arrives while MOVE may still be animating. Turn toward
-                // Sequoia only after the last walk step; otherwise subsequent
-                // steps turn Rin back toward the walking direction.
+                // FACE is a cardinal or world facing point from the trusted
+                // server anchors. Turn after the walk so Rin does not
+                // snap back toward the walking direction.
                 LOGGER.info("Rin projection will face {} after walking", faceTarget);
                 if (destination != null
                         && faceTarget.squaredDistanceTo(destination) < 0.01)
                     LOGGER.warn("Rin FACE target equals MOVE destination: "
-                        + "set scene.lab.face to Sequoia's real coordinates, "
+                        + "set scene.lab.face=north (or another valid heading), "
                         + "not Rin's stopping position");
             }
             case REMOVE -> clear();
@@ -154,8 +152,7 @@ public final class RinPreviewProjection {
         float change = MathHelper.wrapDegrees(desired - current);
         float smooth = current + MathHelper.clamp(change,
             -MAX_TURN_PER_TICK, MAX_TURN_PER_TICK);
-        // Body, head and root yaw must agree. setYaw alone leaves the
-        // villager's visible body facing an old direction.
+        // Body, head and root yaw must agree for a humanoid player render.
         actor.setYaw(smooth);
         actor.setBodyYaw(smooth);
         actor.setHeadYaw(smooth);
