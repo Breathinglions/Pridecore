@@ -7,6 +7,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -23,7 +24,10 @@ public final class RinPreviewProjection {
     private VillagerEntity actor;
     private UUID session;
     private Vec3d destination;
+    private Vec3d faceTarget;
     private int steps;
+    private static final int WALK_STEPS = 22;
+    private static final float MAX_TURN_PER_TICK = 15.0F;
     private int silenceTicks;
     private int nextVirtualId = -2_000_000;
     private static final int MAX_SILENCE_TICKS = 220;
@@ -66,6 +70,7 @@ public final class RinPreviewProjection {
             world = current;
             session = packet.session();
             destination = null;
+            faceTarget = null;
             steps = 0;
             silenceTicks = 0;
             return;
@@ -75,19 +80,22 @@ public final class RinPreviewProjection {
         silenceTicks = 0;
         switch (packet.action()) {
             case MOVE -> {
-                LOGGER.info("Rin projection MOVE received");
                 destination = new Vec3d(packet.x(), packet.y(), packet.z());
-                steps = 22;
+                faceTarget = null; // The next FACE packet names the final look target.
+                steps = WALK_STEPS;
+                LOGGER.info("Rin projection walking for {} ticks to {}", steps, destination);
             }
             case FACE -> {
-                LOGGER.info("Rin projection FACE received");
-                double dx = packet.x() - actor.getX();
-                double dz = packet.z() - actor.getZ();
-                if (dx * dx + dz * dz > 0.0001) {
-                    float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
-                    actor.setYaw(yaw);
-                    actor.setHeadYaw(yaw);
-                }
+                faceTarget = new Vec3d(packet.x(), packet.y(), packet.z());
+                // FACE arrives while MOVE may still be animating. Turn toward
+                // Sequoia only after the last walk step; otherwise subsequent
+                // steps turn Rin back toward the walking direction.
+                LOGGER.info("Rin projection will face {} after walking", faceTarget);
+                if (destination != null
+                        && faceTarget.squaredDistanceTo(destination) < 0.01)
+                    LOGGER.warn("Rin FACE target equals MOVE destination: "
+                        + "set scene.lab.face to Sequoia's real coordinates, "
+                        + "not Rin's stopping position");
             }
             case REMOVE -> clear();
             case ENTER -> { /* handled above */ }
@@ -107,12 +115,50 @@ public final class RinPreviewProjection {
         }
         if (destination != null && steps > 0) {
             Vec3d at = actor.getPos();
-            double factor = 1.0D / steps;
-            Vec3d next = at.add(destination.subtract(at).multiply(factor));
+            // Tick-rate stable linear interpolation, instead of sliding a
+            // no-gravity virtual actor while its vanilla walking limbs idle.
+            Vec3d next = at.add(destination.subtract(at).multiply(1.0D / steps));
+            Vec3d walked = next.subtract(at);
             actor.setPosition(next);
+            double horizontal = Math.hypot(walked.x, walked.z);
+            if (horizontal > 0.00001D) {
+                rotateToward(walked.x, walked.z);
+                // LivingEntityRenderer reads limbAnimator, not just position.
+                // Feed real horizontal stride distance on the local preview.
+                actor.limbAnimator.updateLimbs(
+                    (float) Math.min(1.0D, horizontal * 4.0D), 1.0F);
+            } else {
+                actor.limbAnimator.updateLimbs(0.0F, 1.0F);
+            }
             steps--;
-            if (steps == 0) destination = null;
+            if (steps == 0) {
+                destination = null;
+                LOGGER.info("Rin projection finished walking; awaiting final facing");
+            }
+        } else {
+            // Decelerate legs to a resting stance after the last step.
+            actor.limbAnimator.updateLimbs(0.0F, 1.0F);
+            if (faceTarget != null) {
+                double dx = faceTarget.x - actor.getX();
+                double dz = faceTarget.z - actor.getZ();
+                if (dx * dx + dz * dz > 0.01D)
+                    rotateToward(dx, dz);
+            }
         }
+    }
+
+    private void rotateToward(double dx, double dz) {
+        if (dx * dx + dz * dz < 0.0001D) return;
+        float desired = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
+        float current = actor.getYaw();
+        float change = MathHelper.wrapDegrees(desired - current);
+        float smooth = current + MathHelper.clamp(change,
+            -MAX_TURN_PER_TICK, MAX_TURN_PER_TICK);
+        // Body, head and root yaw must agree. setYaw alone leaves the
+        // villager's visible body facing an old direction.
+        actor.setYaw(smooth);
+        actor.setBodyYaw(smooth);
+        actor.setHeadYaw(smooth);
     }
 
     public void clear() {
@@ -122,6 +168,7 @@ public final class RinPreviewProjection {
         session = null;
         world = null;
         destination = null;
+        faceTarget = null;
         steps = 0;
         silenceTicks = 0;
     }
