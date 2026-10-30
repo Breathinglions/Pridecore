@@ -57,8 +57,12 @@ public final class StoryPrivateSceneDirector {
             "I'm going to be Champion someday. Guess we'll see who gets there first!", ""),
         new Cue(125, Kind.DIALOGUE, "Professor Sequoia",
             "Competition is healthy when you look after your partners. Now, both of you—choose wisely.", ""),
-        new Cue(160, Kind.ACTOR_REMOVE, "Rin", "", ""),
-        new Cue(160, Kind.OPEN_NATIVE_STARTER, "Professor Sequoia", "", "")
+        // Rin finishes speaking, turns toward the authored exit and visibly
+        // walks out instead of vanishing beside Sequoia. The 22-tick client
+        // movement finishes before the actor is removed at tick 165.
+        new Cue(138, Kind.ACTOR_MOVE, "Rin", "", "lab_exit"),
+        new Cue(165, Kind.ACTOR_REMOVE, "Rin", "", ""),
+        new Cue(165, Kind.OPEN_NATIVE_STARTER, "Professor Sequoia", "", "")
     );
 
     private static final List<Cue> CANYON = List.of(
