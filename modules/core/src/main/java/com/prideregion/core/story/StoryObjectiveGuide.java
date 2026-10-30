@@ -1,6 +1,7 @@
 package com.prideregion.core.story;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Read-only, player-facing directions for current story checkpoints.
@@ -41,6 +42,18 @@ public final class StoryObjectiveGuide {
         Map.entry("pride:victory_road_briefed", "Victory Road leads toward Champion Magnus and the final chapter of your League journey."),
         Map.entry("pride:champion_epilogue", "Your name is in the Hall of Fame. The region still holds stories no one has told.")
     );
+
+    /** Display the correct next task when a battle fact changes but the stage
+     * intentionally stays on the same checkpoint until the next NPC speaks.
+     * No progression, quests, items or battle results are granted here.
+     */
+    public static String forStage(String stage, Set<String> facts) {
+        if ("pride:route1_orientation".equals(stage)
+                && facts != null && facts.contains("pride:rin_route1_won"))
+            return "You've won your first Pokémon battle against Rin! "
+                + "Find Ranger Mira along Route 1 to investigate the eerie glow near the trees.";
+        return forStage(stage);
+    }
 
     public static String forStage(String stage) {
         return NEXT.getOrDefault(stage,
