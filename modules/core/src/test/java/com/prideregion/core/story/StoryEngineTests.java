@@ -419,6 +419,9 @@ public final class StoryEngineTests {
         check(!store.get(bossPlayer).facts().contains("pride:sable_warning"),
             "Dialogue cannot substitute for authenticated Sable victory");
         store.grant(bossPlayer, "pride:sable_battle_won");
+        // A verified external battle event changes the profile revision:
+        // reopen the NPC instead of accepting a stale conversation ticket.
+        sableStory.begin(bossPlayer, "sable");
         check(sableStory.choose(bossPlayer, "continue").options().isEmpty(),
             "Verified Sable victory unlocks the canonical story checkpoint");
         check(!store.get(bystander).facts().contains("pride:sable_warning"),
