@@ -22,16 +22,26 @@ public final class StorySceneAnchorConfig {
             return dx * dx + dy * dy + dz * dz;
         }
     }
-    public record Layout(String dimension, Point entry, Point move, Point face) {
+    /**
+     * Four positions: arrival, conversational stop, look target and departure.
+     * A scene without an authored exit defaults to its entry position.
+     */
+    public record Layout(String dimension, Point entry, Point move, Point face,
+                         Point exit) {
         public Layout {
             Objects.requireNonNull(dimension);
             Objects.requireNonNull(entry);
             Objects.requireNonNull(move);
             Objects.requireNonNull(face);
+            Objects.requireNonNull(exit);
             if (!dimension.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")
                     || entry.distanceSquared(move) > 64.0D * 64.0D
-                    || entry.distanceSquared(face) > 64.0D * 64.0D)
+                    || entry.distanceSquared(face) > 64.0D * 64.0D
+                    || entry.distanceSquared(exit) > 64.0D * 64.0D)
                 throw new IllegalArgumentException("Invalid scene layout");
+        }
+        public Layout(String dimension, Point entry, Point move, Point face) {
+            this(dimension, entry, move, face, entry);
         }
     }
 
@@ -73,15 +83,34 @@ public final class StorySceneAnchorConfig {
             String start = p.getProperty(prefix + "entry", "").trim();
             String move = p.getProperty(prefix + "move", "").trim();
             String face = p.getProperty(prefix + "face", "").trim();
-            if (dimension.isEmpty() && start.isEmpty() && move.isEmpty() && face.isEmpty())
+            String exit = p.getProperty(prefix + "exit", "").trim();
+            if (dimension.isEmpty() && start.isEmpty() && move.isEmpty()
+                    && face.isEmpty() && exit.isEmpty())
                 continue;
             if (dimension.isEmpty() || start.isEmpty() || move.isEmpty() || face.isEmpty())
                 throw new IllegalArgumentException("Incomplete scene: " + entry.getValue());
-            found.put(entry.getKey(), new Layout(dimension, point(start), point(move), point(face)));
+            Point entrance = point(start);
+            Point stop = point(move);
+            Point heading = facingPoint(face, stop);
+            Point departure = exit.isEmpty() ? entrance : point(exit);
+            found.put(entry.getKey(), new Layout(dimension, entrance, stop,
+                heading, departure));
         }
         if (found.isEmpty())
             throw new IllegalArgumentException("Visual mode requires at least one complete layout");
         return new StorySceneAnchorConfig(found);
+    }
+    /** A cardinal heading is relative to Rin's stopping position.
+     * It does not require a second fake Sequoia NPC or a guessed coordinate.
+     */
+    private static Point facingPoint(String text, Point stop) {
+        return switch (text.toLowerCase(Locale.ROOT)) {
+            case "north" -> new Point(stop.x(), stop.y(), stop.z() - 1.0D);
+            case "south" -> new Point(stop.x(), stop.y(), stop.z() + 1.0D);
+            case "west" -> new Point(stop.x() - 1.0D, stop.y(), stop.z());
+            case "east" -> new Point(stop.x() + 1.0D, stop.y(), stop.z());
+            default -> point(text);
+        };
     }
     private static Point point(String text) {
         String[] parts = text.split(",", -1);
