@@ -981,6 +981,19 @@ public final class StoryModule {
                     player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
                         .formatted(Formatting.GREEN), false);
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                    // A genuine Rin win grants the victory fact, but
+                    // Ranger Mira (not the battle) advances the stage. Guide
+                    // the winner there immediately instead of advertising
+                    // the already-completed rival encounter.
+                    if ("rin_route1".equals(resolvedEncounter)) {
+                        try {
+                            sendNextObjective(player, ready(server)
+                                .currentStage(player.getUuid()));
+                        } catch (IOException | RuntimeException reminderFailure) {
+                            LOGGER.warn("Rin victory persisted but next-objective reminder failed",
+                                reminderFailure);
+                        }
+                    }
                 } catch (RuntimeException presentationError) {
                     LOGGER.warn("Verified story victory {} persisted but player UI update failed",
                         battleId, presentationError);
@@ -1731,10 +1744,14 @@ public final class StoryModule {
         }
     }
 
-    private static void sendNextObjective(ServerPlayerEntity player, String stage) {
+    private static void sendNextObjective(ServerPlayerEntity player, String stage)
+            throws IOException {
+        var facts = PrideCoreMod.progression(player.getServer())
+            .orElseThrow(() -> new IOException("Progression unavailable"))
+            .get(player.getUuid()).facts();
         player.sendMessage(Text.literal("[Pride Region] Next objective: ")
             .formatted(Formatting.GOLD)
-            .append(Text.literal(StoryObjectiveGuide.forStage(stage))
+            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts))
                 .formatted(Formatting.YELLOW)), false);
     }
 
