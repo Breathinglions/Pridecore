@@ -32,6 +32,31 @@ public final class StorySceneAnchorConfigTests {
         // original staging anchor, so no actor persists until the TTL.
         ok(config.forDimension(scene, "pride:test").isPresent());
         ok(config.forDimension(scene, "pride:wrong").isEmpty());
+        // The Lab's final heading may be an explicit Minecraft cardinal
+        // direction. North must point toward negative Z, not toward Rin's
+        // final walking location. Departure uses an independent exit.
+        Properties lab = anchors();
+        lab.setProperty("scene.lab.dimension", "multiworld:prideregiontest");
+        lab.setProperty("scene.lab.entry", "-53,102,3197");
+        lab.setProperty("scene.lab.move", "-57,102,3197");
+        lab.setProperty("scene.lab.face", "north");
+        lab.setProperty("scene.lab.exit", "-51,102,3197");
+        var authored = StorySceneAnchorConfig.parse(lab)
+            .forDimension(scene, "multiworld:prideregiontest").orElseThrow();
+        ok(authored.face().x() == -57 && authored.face().z() == 3196);
+        ok(authored.exit().x() == -51 && authored.exit().y() == 102
+            && authored.exit().z() == 3197);
+        ok(authored.move().x() == -57);
+        lab.remove("scene.lab.exit");
+        ok(StorySceneAnchorConfig.parse(lab)
+            .forDimension(scene, "multiworld:prideregiontest")
+            .orElseThrow().exit().equals(authored.entry()));
+        lab.setProperty("scene.lab.exit", "500,102,3197");
+        boolean invalidExit = false;
+        try { StorySceneAnchorConfig.parse(lab); }
+        catch (IllegalArgumentException expected) { invalidExit = true; }
+        ok(invalidExit);
+
         p.setProperty("visual_preview_enabled", "false");
         ok(StorySceneAnchorConfig.parse(p).count() == 0);
         p.setProperty("visual_preview_enabled", "true");
