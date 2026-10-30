@@ -9,6 +9,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Client-only staging placeholder for the eventual Cobblemon Rin model.
@@ -16,6 +18,7 @@ import java.util.UUID;
  * It is NEVER a server entity, trader, interaction target, or battle NPC.
  */
 public final class RinPreviewProjection {
+    private static final Logger LOGGER = LoggerFactory.getLogger("PrideRinProjection");
     private ClientWorld world;
     private VillagerEntity actor;
     private UUID session;
@@ -31,8 +34,11 @@ public final class RinPreviewProjection {
         if (packet.action() == ClientSceneVisualPayload.Action.ENTER) {
             // Require an entry close to the viewer; server checks world/owner
             // already, but the optional client must reject absurd coordinates.
-            if (client.player.squaredDistanceTo(packet.x(), packet.y(), packet.z()) > 96 * 96)
+            if (client.player.squaredDistanceTo(packet.x(), packet.y(), packet.z()) > 96 * 96) {
+                LOGGER.warn("Ignored Rin ENTER: client viewer farther than 96 blocks from {},{},{}",
+                    packet.x(), packet.y(), packet.z());
                 return;
+            }
             clear();
             ClientWorld current = client.world;
             VillagerEntity created = new VillagerEntity(EntityType.VILLAGER, current);
@@ -46,6 +52,16 @@ public final class RinPreviewProjection {
             created.setCustomName(Text.literal("Rin [Staging Preview]"));
             created.setCustomNameVisible(true);
             current.addEntity(created);
+            boolean registered = current.getEntityById(id) == created;
+            LOGGER.info("Rin projection ENTER: virtual entity id={} registered={} alive={} "
+                + "world={} position={},{},{}",
+                id, registered, created.isAlive(),
+                current.getRegistryKey().getValue(), packet.x(), packet.y(), packet.z());
+            if (!registered) {
+                LOGGER.error("Rin placeholder was not registered in ClientWorld; "
+                    + "no animation can render");
+                return;
+            }
             actor = created;
             world = current;
             session = packet.session();
@@ -59,10 +75,12 @@ public final class RinPreviewProjection {
         silenceTicks = 0;
         switch (packet.action()) {
             case MOVE -> {
+                LOGGER.info("Rin projection MOVE received");
                 destination = new Vec3d(packet.x(), packet.y(), packet.z());
                 steps = 22;
             }
             case FACE -> {
+                LOGGER.info("Rin projection FACE received");
                 double dx = packet.x() - actor.getX();
                 double dz = packet.z() - actor.getZ();
                 if (dx * dx + dz * dz > 0.0001) {
@@ -80,6 +98,10 @@ public final class RinPreviewProjection {
         if (actor == null) return;
         if (client.world != world || client.player == null
                 || !actor.isAlive() || ++silenceTicks > MAX_SILENCE_TICKS) {
+            LOGGER.warn("Rin client projection cleared early: worldChanged={} playerMissing={} "
+                + "alive={} silentTicks={}",
+                client.world != world, client.player == null,
+                actor.isAlive(), silenceTicks);
             clear();
             return;
         }
