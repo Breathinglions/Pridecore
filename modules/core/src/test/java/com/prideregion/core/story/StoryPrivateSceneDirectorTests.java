@@ -44,16 +44,27 @@ public final class StoryPrivateSceneDirectorTests {
         // Full duration yields the same one-use native UI request, no facts.
         var next = director.begin(alice, "pride:staging",
             StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
-        int opens = 0, entrances = 0, removals = 0;
+        int opens = 0, entrances = 0, removals = 0, exits = 0;
         for (int i = 0; i < 205; i++) {
             for (var event : director.tick()) {
                 ok(event.owner().equals(alice) && event.session().equals(next.session()));
-                if (event.kind() == StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER) opens++;
+                if (event.kind() == StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER) {
+                    opens++;
+                    ok(i == 165); // Resume only after the exit walk.
+                }
                 if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_ENTER) entrances++;
-                if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_REMOVE) removals++;
+                if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_MOVE
+                        && "lab_exit".equals(event.anchor())) {
+                    exits++;
+                    ok(i == 138); // 27 ticks until disappearance, enough for gait.
+                }
+                if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_REMOVE) {
+                    removals++;
+                    ok(i == 165);
+                }
             }
         }
-        ok(opens == 1 && entrances == 1 && removals == 1);
+        ok(opens == 1 && entrances == 1 && removals == 1 && exits == 1);
         ok(director.size() == 0);
         ok(director.cancel(alice).isEmpty());
         // Disconnect/shutdown does not send starter UI continuation.
