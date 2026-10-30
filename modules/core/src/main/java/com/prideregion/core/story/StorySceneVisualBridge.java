@@ -59,8 +59,9 @@ public final class StorySceneVisualBridge {
         boolean missingFacingTarget = Math.pow(stop.x() - facing.x(), 2.0D)
             + Math.pow(stop.z() - facing.z(), 2.0D) < 0.01D;
         return String.format(java.util.Locale.ROOT,
-            "READY (client channel advertised; dimension=%s; entry=%.2f,%.2f,%.2f; distance=%.1f)%s",
+            "READY (client channel advertised; dimension=%s; entry=%.2f,%.2f,%.2f; distance=%.1f; exit=%.2f,%.2f,%.2f)%s",
             dimension, entry.x(), entry.y(), entry.z(), distance,
+            match.get().exit().x(), match.get().exit().y(), match.get().exit().z(),
             missingFacingTarget
                 ? " WARNING: FACE_EQUALS_MOVE (set scene.<scene>.face to the person Rin should look at, not his destination)"
                 : "");
@@ -91,7 +92,12 @@ public final class StorySceneVisualBridge {
         if (layout.isEmpty()) return false;
         var point = switch (action) {
             case ENTER -> layout.get().entry();
-            case MOVE -> layout.get().move();
+            // The Lab uses the same MOVE packet for entry and exit. The
+            // trusted scene director supplies the lab_exit cue; clients
+            // never choose their own exit coordinates.
+            case MOVE -> "lab_exit".equals(cue.anchor())
+                && cue.scene() == StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO
+                    ? layout.get().exit() : layout.get().move();
             case FACE -> layout.get().face();
             case REMOVE -> layout.get().entry();
         };
