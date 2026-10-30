@@ -5,6 +5,8 @@ This is a static compatibility guard, NOT an in-game networking test.
 """
 import pathlib
 import re
+import hashlib
+import struct
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 SERVER = ROOT / "modules/core/src/main/java/com/prideregion/core/story/StorySceneVisualPayload.java"
@@ -12,6 +14,8 @@ CLIENT = ROOT / "modules/client/src/main/java/com/prideregion/scenes/client/Clie
 SENDER = ROOT / "modules/core/src/main/java/com/prideregion/core/story/StorySceneVisualBridge.java"
 RECEIVER = ROOT / "modules/client/src/main/java/com/prideregion/scenes/client/PrideScenesClientMod.java"
 PROJECTION = ROOT / "modules/client/src/main/java/com/prideregion/scenes/client/RinPreviewProjection.java"
+RIN_ENTITY = ROOT / "modules/client/src/main/java/com/prideregion/scenes/client/RinPreviewPlayerEntity.java"
+RIN_SKIN = ROOT / "modules/client/src/main/resources/assets/pride_scenes_client/textures/entity/rin.png"
 
 server, client = SERVER.read_text(), CLIENT.read_text()
 def actions(content):
@@ -46,6 +50,21 @@ assert "if (faceTarget != null)" in projection
 assert "if (destination != null && steps > 0)" in projection
 assert projection.index("if (destination != null && steps > 0)") < projection.index("if (faceTarget != null)")
 assert "faceTarget = null;" in projection
+# Uploaded Rin identity must be rendered on an actual player-shaped local
+# actor, never a generic villager or an online player's account skin.
+assert "new RinPreviewPlayerEntity(current, packet.session())" in projection
+assert "new VillagerEntity" not in projection
+player = RIN_ENTITY.read_text()
+assert "extends OtherClientPlayerEntity" in player
+assert "public SkinTextures getSkinTextures()" in player
+assert 'Identifier.of("pride_scenes_client", "textures/entity/rin.png")' in player
+assert "SkinTextures.Model.WIDE" in player
+assert "new GameProfile(sceneId, \"Rin\")" in player
+skin = RIN_SKIN.read_bytes()
+assert skin[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+assert struct.unpack(">II", skin[16:24]) == (64, 64)
+assert hashlib.sha256(skin).hexdigest() == (
+    "80a451909750a70a8f791ebba744d833b4acac0feb3ae79b4a64fb78c416be6e")
 for source in (receiver, projection):
     assert "ServerPlayNetworking.send" not in source
 print("PASS: private scene protocol, channel, receiver, lifecycle and no-C2S boundaries")
