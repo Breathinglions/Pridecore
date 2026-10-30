@@ -61,7 +61,7 @@ assert 'Identifier.of("pride_scenes_client", "textures/entity/rin.png")' in play
 assert "SkinTextures.Model.WIDE" in player
 assert "new GameProfile(sceneId, \"Rin\")" in player
 skin = RIN_SKIN.read_bytes()
-assert skin[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+assert skin[:8] == b"\x89PNG\r\n\x1a\n"
 assert struct.unpack(">II", skin[16:24]) == (64, 64)
 assert hashlib.sha256(skin).hexdigest() == (
     "80a451909750a70a8f791ebba744d833b4acac0feb3ae79b4a64fb78c416be6e")
