@@ -34,6 +34,18 @@ assert "ClientPlayNetworking.send(" not in receiver
 projection = PROJECTION.read_text()
 assert "current.addEntity(created)" in projection and "world.removeEntity(" in projection
 assert "MAX_SILENCE_TICKS" in projection and "client.world != world" in projection
+# A client-only actor must drive its own gait when moving; changing
+# position alone renders a sliding villager with frozen legs. Its head,
+# body and root should agree, and FACE must wait until walking has ended.
+assert "actor.limbAnimator.updateLimbs(" in projection
+assert "horizontal * 4.0D" in projection
+assert "actor.setBodyYaw(smooth)" in projection
+assert "actor.setHeadYaw(smooth)" in projection
+assert "MathHelper.wrapDegrees(" in projection
+assert "if (faceTarget != null)" in projection
+assert "if (destination != null && steps > 0)" in projection
+assert projection.index("if (destination != null && steps > 0)") < projection.index("if (faceTarget != null)")
+assert "faceTarget = null;" in projection
 for source in (receiver, projection):
     assert "ServerPlayNetworking.send" not in source
 print("PASS: private scene protocol, channel, receiver, lifecycle and no-C2S boundaries")
