@@ -54,9 +54,16 @@ public final class StorySceneVisualBridge {
                 entry.x(), entry.y(), entry.z(), distance);
         if (!ServerPlayNetworking.canSend(viewer, StorySceneVisualPayload.ID))
             return "CLIENT_CHANNEL_MISSING (client does not advertise pridecore:scene_visual_v1)";
+        var stop = match.get().move();
+        var facing = match.get().face();
+        boolean missingFacingTarget = Math.pow(stop.x() - facing.x(), 2.0D)
+            + Math.pow(stop.z() - facing.z(), 2.0D) < 0.01D;
         return String.format(java.util.Locale.ROOT,
-            "READY (client channel advertised; dimension=%s; entry=%.2f,%.2f,%.2f; distance=%.1f)",
-            dimension, entry.x(), entry.y(), entry.z(), distance);
+            "READY (client channel advertised; dimension=%s; entry=%.2f,%.2f,%.2f; distance=%.1f)%s",
+            dimension, entry.x(), entry.y(), entry.z(), distance,
+            missingFacingTarget
+                ? " WARNING: FACE_EQUALS_MOVE (set scene.<scene>.face to the person Rin should look at, not his destination)"
+                : "");
     }
 
     /** Only real server-owned scene events may reach the selected player. */
