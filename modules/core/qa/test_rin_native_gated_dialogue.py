@@ -55,6 +55,16 @@ assert "getCommandManager().executeWithPrefix" in source
 assert "StoryLeagueBadgeGate.allows(roster.minBadges()" in source
 assert "pride_npc_rin" in source
 assert "RIN_DIALOGUES.remove(player.getUuid())" in source
+# An expired or dropped second-page native GUI ticket must not block an
+# otherwise authorized physical Rin battle, but story+badge checks remain.
+challenge=source.split("private static int challengeRin(",1)[1].split(
+    "private static int nativeChoice(",1)[0]
+assert "RinChapterGate.choose(" in challenge
+assert "StoryLeagueBadgeGate.allows(roster.minBadges()" in challenge
+assert "nearbyRin(player).orElseThrow" in challenge
+assert "launchRctStoryBattle(source.getServer(), player," in challenge
+assert "if (ticket == null" not in challenge
+assert "if (ticket != null" in challenge
 # A 45-second lease expired while real users read Rin's native dialogue.
 # Keep a real bound lifetime of at least five minutes, with all original
 # server-side chapter, NPC identity, distance and badge rechecks intact.
