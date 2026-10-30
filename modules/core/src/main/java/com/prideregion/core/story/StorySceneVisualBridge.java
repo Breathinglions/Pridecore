@@ -27,6 +27,38 @@ public final class StorySceneVisualBridge {
     public static void disable() { anchors = StorySceneAnchorConfig.disabled(); }
     public static int enabledLayouts() { return anchors.count(); }
 
+    /**
+     * Operator-visible snapshot of the exact visual packet prerequisites.
+     * A scripted chat cue does NOT imply the client visual channel is ready.
+     * No packets or player progression are affected by this diagnostic.
+     */
+    public static String diagnostic(ServerPlayerEntity viewer,
+                                    StoryPrivateSceneDirector.SceneId scene) {
+        Objects.requireNonNull(viewer);
+        Objects.requireNonNull(scene);
+        String dimension = viewer.getWorld().getRegistryKey().getValue().toString();
+        var config = anchors;
+        if (config.count() == 0)
+            return "ANCHORS_DISABLED (server did not load an enabled, complete scene layout)";
+        var match = config.forDimension(scene, dimension);
+        if (match.isEmpty())
+            return "SCENE_DIMENSION_MISMATCH (player dimension=" + dimension
+                + ", configured layouts=" + config.count() + ")";
+        var entry = match.get().entry();
+        var viewerPoint = new StorySceneAnchorConfig.Point(
+            viewer.getX(), viewer.getY(), viewer.getZ());
+        double distance = Math.sqrt(viewerPoint.distanceSquared(entry));
+        if (distance > 96.0)
+            return String.format(java.util.Locale.ROOT,
+                "TOO_FAR (entry=%.2f,%.2f,%.2f; player distance=%.1f blocks; max=96)",
+                entry.x(), entry.y(), entry.z(), distance);
+        if (!ServerPlayNetworking.canSend(viewer, StorySceneVisualPayload.ID))
+            return "CLIENT_CHANNEL_MISSING (client does not advertise pridecore:scene_visual_v1)";
+        return String.format(java.util.Locale.ROOT,
+            "READY (client channel advertised; dimension=%s; entry=%.2f,%.2f,%.2f; distance=%.1f)",
+            dimension, entry.x(), entry.y(), entry.z(), distance);
+    }
+
     /** Only real server-owned scene events may reach the selected player. */
     public static boolean emit(ServerPlayerEntity viewer,
                                StoryPrivateSceneDirector.Event cue) {
