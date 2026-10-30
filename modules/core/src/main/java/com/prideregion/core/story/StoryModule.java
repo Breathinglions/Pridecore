@@ -1635,6 +1635,12 @@ public final class StoryModule {
                         .executes(ctx -> previewRinScene(ctx.getSource(),
                             EntityArgumentType.getPlayer(ctx, "player"),
                             StringArgumentType.getString(ctx, "scene"))))))
+            .then(CommandManager.literal("rin-visual-status")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .then(CommandManager.argument("scene", StringArgumentType.word())
+                        .executes(ctx -> rinVisualStatus(ctx.getSource(),
+                            EntityArgumentType.getPlayer(ctx, "player"),
+                            StringArgumentType.getString(ctx, "scene"))))))
             .then(CommandManager.literal("cancel-rin-preview")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .executes(ctx -> cancelRinPreview(ctx.getSource(),
@@ -2013,6 +2019,30 @@ public final class StoryModule {
         }
     }
 
+    private static StoryPrivateSceneDirector.SceneId sceneId(String requested) {
+        return switch (requested) {
+            case "lab" -> StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+            case "canyon" -> StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION;
+            case "summit" -> StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION;
+            default -> throw new IllegalArgumentException("Choose lab, canyon or summit");
+        };
+    }
+
+    private static int rinVisualStatus(ServerCommandSource source,
+                                       ServerPlayerEntity target, String requested) {
+        try {
+            var scene = sceneId(requested);
+            return message(source, "Rin " + requested + " visual diagnostic for "
+                + target.getName().getString() + ": "
+                + StorySceneVisualBridge.diagnostic(target, scene)
+                + ". Only visual packets are diagnosed; preview text is always sent to chat.");
+        } catch (IllegalArgumentException invalid) {
+            source.sendError(Text.literal("Rin visual diagnostic refused: "
+                + safe(invalid.getMessage())));
+            return 0;
+        }
+    }
+
     /**
      * OP4-only script rehearsal, isolated from native Sequoia and RCT NPCs.
      * The actual starter/dialogue continuation is NEVER invoked in preview.
@@ -2026,17 +2056,16 @@ public final class StoryModule {
             String dimension = target.getWorld().getRegistryKey().getValue().toString();
             if (!STORY_WORLDS.permits(dimension))
                 throw new IllegalStateException("Scene preview forbidden outside staging world");
-            StoryPrivateSceneDirector.SceneId scene = switch (requested) {
-                case "lab" -> StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
-                case "canyon" -> StoryPrivateSceneDirector.SceneId.RIN_CANYON_REUNION;
-                case "summit" -> StoryPrivateSceneDirector.SceneId.RIN_SUMMIT_REUNION;
-                default -> throw new IllegalArgumentException("Choose lab, canyon or summit");
-            };
+            StoryPrivateSceneDirector.SceneId scene = sceneId(requested);
+            String visualStatus = StorySceneVisualBridge.diagnostic(target, scene);
+            LOGGER.info("Rin {} preview visual readiness for {}: {}",
+                requested, target.getUuid(), visualStatus);
             var result = PRIVATE_SCENES.begin(target.getUuid(), dimension, scene);
             if (!result.started()) return message(source,
                 "No new Rin preview started (session already active or preview capacity reached).");
             return message(source, "Previewing " + requested + " Rin scene for "
-                + target.getName().getString() + ". No NPC, starter or story facts changed.");
+                + target.getName().getString() + ". Visual status: "
+                + visualStatus + ". No NPC, starter or story facts changed.");
         } catch (RuntimeException ex) {
             source.sendError(Text.literal("Rin preview refused: " + safe(ex.getMessage())));
             return 0;
