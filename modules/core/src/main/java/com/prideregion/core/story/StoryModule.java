@@ -1811,29 +1811,38 @@ public final class StoryModule {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) return 0;
         try {
-            RinDialogueTicket ticket = RIN_DIALOGUES.get(player.getUuid());
-            if (ticket == null || ticket.delay > 0 || ticket.remaining <= 0
-                    || ticket.scene.encounter() == null)
-                throw new IllegalStateException("Open Rin's current conversation first");
+            // The GUI can close or replace its temporary handoff ticket
+            // before Cobblemon's second-page action reaches this command.
+            // Recompute the chapter from trusted server-owned facts and the
+            // original League badge tags. The ticket is context, never the
+            // source of battle entitlement.
             if (!STORY_WORLDS.permits(player.getWorld()
-                    .getRegistryKey().getValue().toString())
-                    || !ticket.dimension.equals(player.getWorld()
-                        .getRegistryKey().getValue().toString())
-                    || !rinNpcNearby(player, ticket.npc))
-                throw new IllegalStateException("Return to Rin to challenge him");
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Rin is not available in this world");
             var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
                 .get(player.getUuid());
-            if (RinChapterGate.choose(profile.facts(), player.getCommandTags())
-                    != ticket.scene)
-                throw new IllegalStateException("The story chapter has changed");
-            String encounter = ticket.scene.encounter();
+            RinChapterGate.Scene scene = RinChapterGate.choose(
+                profile.facts(), player.getCommandTags());
+            if (scene.encounter() == null)
+                throw new IllegalStateException(
+                    "Rin's next challenge has not unlocked yet");
+            String encounter = scene.encounter();
             var roster = StoryBattleRosters.active().find(encounter).orElseThrow();
             if (!StoryLeagueBadgeGate.allows(roster.minBadges(), player.getCommandTags()))
                 throw new IllegalStateException("More Gym badges are needed");
-            var rin = nearbyRin(player).filter(e -> e.getUuid().equals(ticket.npc))
-                .orElseThrow(() -> new IllegalStateException("Rin has moved"));
-            // Physical marker is only pride_npc_rin. Never add conflicting
-            // pride_battle_rin_* tags or spawn another copy of this character.
+            var rin = nearbyRin(player).orElseThrow(
+                () -> new IllegalStateException("Return to Rin to challenge him"));
+
+            // A retained ticket must agree with today's authenticated actor
+            // and chapter. A dropped/expired UI ticket cannot bypass those
+            // same validation rules or strand a legitimate battle challenge.
+            RinDialogueTicket ticket = RIN_DIALOGUES.get(player.getUuid());
+            if (ticket != null && (ticket.scene != scene
+                    || !ticket.dimension.equals(player.getWorld()
+                        .getRegistryKey().getValue().toString())
+                    || !ticket.npc.equals(rin.getUuid())))
+                throw new IllegalStateException(
+                    "Rin's conversation changed. Talk to him again");
             RIN_DIALOGUES.remove(player.getUuid());
             var battle = launchRctStoryBattle(source.getServer(), player,
                 rin, encounter, true);
