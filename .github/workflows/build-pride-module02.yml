@@ -32,6 +32,8 @@ jobs:
         run: python3 modules/core/qa/test_configurable_onboarding.py
       - name: Verify unified Hearthleaf native dialogue safety
         run: python3 modules/core/qa/test_unified_onboarding_dialogue.py
+      - name: Verify one Rin three private badge-gated native chapters
+        run: python3 modules/core/qa/test_rin_native_gated_dialogue.py
       - name: Verify native Cobblemon NPC overlay is not replaced by vanilla chat
         run: python3 modules/core/qa/test_story_npc_interaction.py
       - name: Verify optional private-scene wire contract
