@@ -212,20 +212,21 @@ def main():
         generated[f"data/pride_story/npcs/{npc}.json"]=dump(native_npc(npc,name))
         d = mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice)
         if npc == "rin":
-            d["pages"][0]["input"]["options"].insert(1, {
-                "text": "Discuss the evidence against Eclipse (canyon).",
-                "value": "rin_canyon", "action": [
-                    script_action("rin_canyon", "continue"),
-                    "q.dialogue.close();"
-                ]
-            })
-            d["pages"][0]["input"]["options"].insert(2, {
-                "text": "Compare the research at the summit.",
-                "value": "rin_summit", "action": [
-                    script_action("rin_summit", "continue"),
-                    "q.dialogue.close();"
-                ]
-            })
+            # A single physical Rin NPC, one neutral opening screen.
+            # Server computes a private chapter-specific native dialogue from
+            # verified Pride story facts and original eight League badge tags.
+            # Never expose Canyon/Summit buttons at Route 1.
+            d["pages"][0]["lines"] = [
+                "Hey! It's good to see you. There is a lot we should catch up on.",
+                "Want to talk for a minute?"
+            ]
+            d["pages"][0]["input"]["options"] = [
+                {"text":"Talk to Rin.", "value":"talk",
+                 "action":["q.dialogue.close();",
+                           "q.player.run_command('pridecore story rin open');"]},
+                {"text":"Goodbye.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
         if npc == "ranger_rowan":
             d["pages"][0]["input"]["options"].insert(1, {
                 "text": "Brief the Rangers about the Resonance Engine.",
@@ -235,6 +236,53 @@ def main():
                 ]
             })
         generated[f"data/pride_story/dialogues/{npc}.json"]=dump(d)
+        if npc == "rin":
+            # The /opendialogue server command opens exactly one of these.
+            # All text shown belongs to that specific chapter; no hidden,
+            # greyed-out or leaked future chapter buttons are necessary.
+            phase = {
+                "rin_route1": [
+                    "I heard Sequoia gave you your first partner! Mine is ready, too.",
+                    "Let's see what we've learned. How about our first Pokémon battle?"
+                ],
+                "rin_canyon": [
+                    "Those Eclipse markings in the canyon weren't put there by accident.",
+                    "We've both come a long way. Let's test our teams before we follow the trail."
+                ],
+                "rin_summit": [
+                    "I found the missing research at the summit. The truth is bigger than I imagined.",
+                    "We've nearly reached the end of this journey. One more battle, like old times?"
+                ]
+            }
+            for chapter, lines in phase.items():
+                native = dialogue("rin", "Rin", lines[0], lines[1], "continue")
+                # The argument-free server command derives the chapter again,
+                # never trusting a client-provided encounter ID.
+                native["pages"][0]["input"]["options"] = [
+                    {"text":"Challenge Rin to a Pokémon battle.", "value":"challenge",
+                     "action":["q.dialogue.close();",
+                               "q.player.run_command('pridecore story rin challenge');"]},
+                    {"text":"Let's talk later.", "value":"bye",
+                     "action":"q.dialogue.close();"}
+                ]
+                native["speakers"]["npc"]["face"] = {
+                    "type":"artificial", "modelType":"npc",
+                    "identifier":"pride_story:rin", "aspects":[]
+                }
+                generated[f"data/pride_story/dialogues/{chapter}.json"] = dump(native)
+            after = dialogue("rin","Rin",
+                "You've grown so much since we first met at Sequoia's laboratory.",
+                "Let's catch up again when our paths cross. I'll be ready!",
+                "continue")
+            after["pages"][0]["input"]["options"] = [
+                {"text":"See you soon.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            after["speakers"]["npc"]["face"] = {
+                "type":"artificial", "modelType":"npc",
+                "identifier":"pride_story:rin", "aspects":[]
+            }
+            generated["data/pride_story/dialogues/rin_return.json"] = dump(after)
         # Compatible with existing League spawn runtime function.
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
             f"# Pride Story native NPC: {name}. Run as a player, away from other NPCs.\n"
