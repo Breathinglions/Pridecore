@@ -72,4 +72,10 @@ assert "ClientTickEvents.END_CLIENT_TICK.register(CAMERA::tick)" in mod
 assert "CAMERA.clear();" in mod
 assert "public Vec3d actorPosition(UUID expectedSession)" in projection
 assert "public boolean hasActor(UUID expectedSession)" in projection
+# The client and server must agree on the longer Lab sequence; otherwise
+# the private actor exits and the native starter UI opens too early.
+director=(root.parent/"core/src/main/java/com/prideregion/core/story/StoryPrivateSceneDirector.java").read_text()
+assert "MAX_TICKS = 390" in director
+assert 'new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit")' in director
+assert 'new Cue(332, Kind.OPEN_NATIVE_STARTER' in director
 print("PASS: Preview7 render-only owner-scoped camera, cinematic HUD, frontal Sequoia, cleanup, no progression")
