@@ -118,7 +118,10 @@ public final class ClientCameraDirector {
         // Smooth lens movement follows an NPC, while static shots blend from
         // the previous camera only through clear space.
         double alpha;
-        if ("follow".equals(shot.mode()) && target(client, shot.target()) != null)
+        if ("follow".equals(shot.mode())
+                && ("rin".equalsIgnoreCase(shot.target())
+                    && projection.actorPosition(session) != null
+                    || target(client, shot.target()) != null))
             alpha = 0.22;
         else if (shot.transition() > 0)
             alpha = MathHelper.clamp((double) shotTicks / shot.transition(), 0, 1);
