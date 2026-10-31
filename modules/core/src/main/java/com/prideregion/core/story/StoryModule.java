@@ -80,6 +80,9 @@ public final class StoryModule {
     // Disabled by default. Only OP4 staging previews may initiate a scene until
     // the verified native Cobblemon NPC + owner-only renderer adapter exists.
     private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
+    // Only explicitly validated Sequoia interactions are allowed to consume
+    // the scene's single-use native starter continuation. OP previews stay inert.
+    private static final Map<UUID, UUID> VERIFIED_LAB_SCENES = new HashMap<>();
 
     private StoryModule() {}
 
@@ -439,9 +442,11 @@ public final class StoryModule {
             // cutscene; no ghost projection may survive a world switch/logout.
             PRIVATE_SCENES.reapInvalid(owner -> {
                 ServerPlayerEntity participant = server.getPlayerManager().getPlayer(owner);
-                return participant == null ? null
+                return participant == null || !participant.isAlive() ? null
                     : participant.getWorld().getRegistryKey().getValue().toString();
             });
+            VERIFIED_LAB_SCENES.keySet().removeIf(owner ->
+                PRIVATE_SCENES.active(owner).isEmpty());
             for (var cue : PRIVATE_SCENES.tick()) {
                 ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(cue.owner());
                 if (viewer == null || !STORY_WORLDS.permits(
@@ -463,9 +468,17 @@ public final class StoryModule {
                 }
                 final boolean renderedVisual = hasVisualClient;
                 switch (cue.kind()) {
-                    case DIALOGUE -> viewer.sendMessage(
-                        Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
-                            .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
+                    case DIALOGUE -> {
+                        if (VERIFIED_LAB_SCENES.containsKey(cue.owner())) {
+                            // Screen-visible subtitle rather than cluttering native
+                            // Cobblemon chat. Client cinematic HUD is a separate
+                            // enhancement; vanilla title/subtitle works without it.
+                            viewer.sendMessage(Text.literal(cue.speaker() + ": " + cue.text())
+                                .formatted(Formatting.AQUA), true);
+                        } else viewer.sendMessage(
+                            Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
+                                .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
+                    }
                     case ACTOR_ENTER, ACTOR_MOVE, ACTOR_FACE -> {
                         if (!renderedVisual)
                             viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
@@ -474,10 +487,13 @@ public final class StoryModule {
                     case ACTOR_REMOVE ->
                         viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
                             .formatted(Formatting.GRAY), true);
-                    case OPEN_NATIVE_STARTER ->
-                        viewer.sendMessage(Text.literal(
+                    case OPEN_NATIVE_STARTER -> {
+                        if (VERIFIED_LAB_SCENES.containsKey(cue.owner()))
+                            completeVerifiedLabScene(server, viewer, cue);
+                        else viewer.sendMessage(Text.literal(
                             "[Scene preview] Original starter GUI would resume (not invoked).")
                             .formatted(Formatting.GRAY), false);
+                    }
                     case RESUME_STORY_DIALOGUE ->
                         viewer.sendMessage(Text.literal(
                             "[Scene preview] Original NPC dialogue would resume (not invoked).")
@@ -488,6 +504,7 @@ public final class StoryModule {
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
+            VERIFIED_LAB_SCENES.remove(handler.getPlayer().getUuid());
             DIALOGUE_ANCHORS.clear(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
@@ -508,6 +525,7 @@ public final class StoryModule {
         StoryBattleRosters.clearConfig();
         StoryPresentationConfig.reset();
         PRIVATE_SCENES.clear();
+        VERIFIED_LAB_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         BATTLE_PHASES.clear();
@@ -628,6 +646,7 @@ public final class StoryModule {
             finaleStore = null;
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
+        VERIFIED_LAB_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
@@ -644,6 +663,7 @@ public final class StoryModule {
             STORY_WORLDS = StoryDimensionGate.open();
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
+        VERIFIED_LAB_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
@@ -1554,6 +1574,9 @@ public final class StoryModule {
         // Battle outcomes and one-time rewards remain RCT/League-owned.
         story.then(CommandManager.literal("sync")
             .executes(ctx -> sync(ctx.getSource())));
+        story.then(CommandManager.literal("sequoia")
+            .then(CommandManager.literal("cinematic")
+                .executes(ctx -> startNativeSequoiaCinematic(ctx.getSource()))));
         story.then(CommandManager.literal("validate")
             .requires(source -> source.hasPermissionLevel(4))
             .executes(ctx -> validate(ctx.getSource())));
@@ -1685,6 +1708,96 @@ public final class StoryModule {
             LOGGER.warn("Story status load failed for {}", player.getUuid(), ex);
             source.sendError(Text.literal("Story profile unavailable; check server log"));
             return 0;
+        }
+    }
+
+    private static boolean physicalSequoiaNear(ServerPlayerEntity player) {
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0D),
+            e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
+                && e.getCommandTags().contains("pride_npc_professor_sequoia")
+                && e.getCommandTags().stream().filter(t -> t.startsWith(PREFIX)).count() == 1
+                && e.squaredDistanceTo(player) <= 36.0D)
+            .stream().findAny().isPresent();
+    }
+
+    /**
+     * Called by the original native Sequoia starter choice, as the actual
+     * player. A typed command cannot skip the real nearby NPC, Mom milestone,
+     * Cobblemon starter entitlement or configured scene requirements.
+     */
+    private static int startNativeSequoiaCinematic(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            ready(source.getServer());
+            String dimension = player.getWorld().getRegistryKey().getValue().toString();
+            if (!STORY_WORLDS.permits(dimension) || !physicalSequoiaNear(player))
+                throw new IllegalStateException("Speak to Professor Sequoia at the laboratory");
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            Set<String> legacy = LegacyOnboardingGate.filter(player.getCommandTags());
+            var scene = StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+            if (StoryPrivateSceneEligibility.evaluate(scene, profile.facts(), legacy)
+                    != StoryPrivateSceneEligibility.Availability.READY)
+                throw new IllegalStateException("Complete Mom's introduction first, or continue your existing journey");
+            if (PRIVATE_SCENES.active(player.getUuid()).isPresent())
+                return 1; // Duplicate native clicks do not restart or issue a second GUI.
+            if (!StorySceneVisualBridge.canRender(player, scene)) {
+                // Unsupported client, wrong area or disabled visuals: never strand
+                // new Trainers in an invisible, unskippable cutscene.
+                LOGGER.info("Rin cinematic unavailable for {}; using original starter UI",
+                    player.getUuid());
+                return openOriginalStarter(source.getServer(), player);
+            }
+            var started = PRIVATE_SCENES.beginVerified(
+                player.getUuid(), dimension, scene, profile.facts(), legacy);
+            if (!started.started() || started.session() == null)
+                throw new IllegalStateException("Rin's introduction is currently busy");
+            VERIFIED_LAB_SCENES.put(player.getUuid(), started.session());
+            return 1;
+        } catch (IOException | RuntimeException problem) {
+            LOGGER.warn("Native Sequoia cinematic refused for {}", player.getUuid(), problem);
+            source.sendError(Text.literal("Sequoia's introduction is not available: "
+                + safe(problem.getMessage())));
+            return 0;
+        }
+    }
+
+    /**
+     * Launches ONLY Cobblemon's own starter selection screen. This command
+     * remains the original mod's authority for already-selected starters.
+     * We never award a Pokémon, alter a starter flag, or impersonate a player.
+     */
+    private static int openOriginalStarter(MinecraftServer server, ServerPlayerEntity player) {
+        if (player.getCommandTags().contains("starter_chosen")
+                || player.getCommandTags().contains("pride_starter_chosen"))
+            return 0;
+        String username = player.getGameProfile().getName();
+        if (!username.matches("[A-Za-z0-9_]{1,16}"))
+            return 0;
+        return server.getCommandManager().executeWithPrefix(server.getCommandSource(),
+            "openstarterscreen " + username);
+    }
+
+    private static void completeVerifiedLabScene(MinecraftServer server,
+            ServerPlayerEntity player, StoryPrivateSceneDirector.Event cue) {
+        UUID verified = VERIFIED_LAB_SCENES.remove(player.getUuid());
+        if (verified == null || !verified.equals(cue.session())) return;
+        if (!PRIVATE_SCENES.claimContinuation(cue,
+                player.getWorld().getRegistryKey().getValue().toString())) return;
+        try {
+            String dimension = player.getWorld().getRegistryKey().getValue().toString();
+            if (!player.isAlive() || !STORY_WORLDS.permits(dimension)
+                    || !physicalSequoiaNear(player)) return;
+            var profile = PrideCoreMod.progression(server).orElseThrow()
+                .get(player.getUuid());
+            Set<String> legacy = LegacyOnboardingGate.filter(player.getCommandTags());
+            if (!StoryPrivateSceneEligibility.nativeStarterContinuationAllowed(
+                    cue, profile.facts(), legacy)) return;
+            openOriginalStarter(server, player);
+        } catch (IOException | RuntimeException problem) {
+            LOGGER.warn("Rin starter continuation blocked for {}", player.getUuid(), problem);
         }
     }
 
