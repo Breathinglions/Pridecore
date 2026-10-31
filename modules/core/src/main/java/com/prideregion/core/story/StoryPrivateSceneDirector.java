@@ -13,7 +13,7 @@ import java.util.*;
  */
 public final class StoryPrivateSceneDirector {
     public static final int MAX_ACTIVE = 64;
-    public static final int MAX_TICKS = 200;
+    public static final int MAX_TICKS = 390;
 
     public enum SceneId { RIN_LAB_INTRO, RIN_CANYON_REUNION, RIN_SUMMIT_REUNION }
     public enum Kind {
@@ -48,21 +48,21 @@ public final class StoryPrivateSceneDirector {
     private static final List<Cue> LAB = List.of(
         new Cue(0, Kind.DIALOGUE, "Professor Sequoia",
             "Before we begin, there's someone I'd like you to meet.", ""),
-        new Cue(18, Kind.ACTOR_ENTER, "Rin", "", "lab_entry"),
-        new Cue(38, Kind.ACTOR_MOVE, "Rin", "", "sequoia_desk"),
-        new Cue(52, Kind.ACTOR_FACE, "Rin", "", "player"),
-        new Cue(53, Kind.DIALOGUE, "Rin",
+        new Cue(0, Kind.ACTOR_ENTER, "Rin", "", "lab_entry"),
+        new Cue(37, Kind.ACTOR_MOVE, "Rin", "", "sequoia_desk"),
+        new Cue(75, Kind.ACTOR_FACE, "Rin", "", "player"),
+        new Cue(91, Kind.DIALOGUE, "Rin",
             "Oh! You're choosing your first Pokémon today too? I'm Rin!", ""),
-        new Cue(88, Kind.DIALOGUE, "Rin",
+        new Cue(156, Kind.DIALOGUE, "Rin",
             "I'm going to be Champion someday. Guess we'll see who gets there first!", ""),
-        new Cue(125, Kind.DIALOGUE, "Professor Sequoia",
+        new Cue(226, Kind.DIALOGUE, "Professor Sequoia",
             "Competition is healthy when you look after your partners. Now, both of you—choose wisely.", ""),
-        // Rin finishes speaking, turns toward the authored exit and visibly
-        // walks out instead of vanishing beside Sequoia. The 22-tick client
-        // movement finishes before the actor is removed at tick 165.
-        new Cue(138, Kind.ACTOR_MOVE, "Rin", "", "lab_exit"),
-        new Cue(165, Kind.ACTOR_REMOVE, "Rin", "", ""),
-        new Cue(165, Kind.OPEN_NATIVE_STARTER, "Professor Sequoia", "", "")
+        // Sequoia finishes his last line before Rin departs. The exit has
+        // 42 ticks for the 22-tick walk followed by a natural offscreen hold.
+        // The native starter selector opens only after the actor is removed.
+        new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit"),
+        new Cue(332, Kind.ACTOR_REMOVE, "Rin", "", ""),
+        new Cue(332, Kind.OPEN_NATIVE_STARTER, "Professor Sequoia", "", "")
     );
 
     private static final List<Cue> CANYON = List.of(

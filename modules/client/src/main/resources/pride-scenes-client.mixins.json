@@ -4,7 +4,8 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "CameraMixin",
-    "GameRendererMixin"
+    "GameRendererMixin",
+    "CinematicHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

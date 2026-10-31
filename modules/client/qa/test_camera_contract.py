@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile-independent fail-closed contract for Preview6's client-only camera."""
+"""Compile-independent fail-closed contract for Preview7's client-only camera."""
 from pathlib import Path
 import json
 
@@ -8,6 +8,8 @@ src=root/"src/main/java/com/prideregion/scenes/client"
 controller=(src/"RinCinematicCamera.java").read_text()
 camera=(src/"mixin/CameraMixin.java").read_text()
 hands=(src/"mixin/GameRendererMixin.java").read_text()
+hud=(src/"mixin/CinematicHudMixin.java").read_text()
+overlay=(src/"RinCinematicDialogueOverlay.java").read_text()
 mod=(src/"PrideScenesClientMod.java").read_text()
 projection=(src/"RinPreviewProjection.java").read_text()
 fabric=json.loads((root/"src/main/resources/fabric.mod.json").read_text())
@@ -16,7 +18,7 @@ mixins=json.loads((root/"src/main/resources/pride-scenes-client.mixins.json").re
 assert fabric["environment"] == "client"
 assert fabric["mixins"] == ["pride-scenes-client.mixins.json"]
 assert mixins["required"] is True
-assert mixins["client"] == ["CameraMixin", "GameRendererMixin"]
+assert mixins["client"] == ["CameraMixin", "GameRendererMixin", "CinematicHudMixin"]
 assert mixins["injectors"]["defaultRequire"] == 1
 assert "@Mixin(Camera.class)" in camera
 assert 'method = "update"' in camera
@@ -25,7 +27,18 @@ assert "PrideScenesClientMod.camera().renderPose(" in camera
 assert "setPos(pose.position().x, pose.position().y, pose.position().z)" in camera
 assert "setRotation(pose.yaw(), pose.pitch())" in camera
 assert '@Inject(method = "renderHand"' in hands
-assert "PrideScenesClientMod.camera().showingShot()" in hands
+assert "PrideScenesClientMod.camera().suppressHud(MinecraftClient.getInstance())" in hands
+assert "@Mixin(InGameHud.class)" in hud
+assert '@Inject(method = "render", at = @At("HEAD"), cancellable = true)' in hud
+assert "PrideScenesClientMod.camera().suppressHud(client)" in hud
+assert "PrideScenesClientMod.renderCinematicDialogue(client, context)" in hud
+assert "ci.cancel();" in hud
+assert "DIALOGUE.draw(client, context, true)" in mod
+assert "DIALOGUE_TICKS = 112" in overlay
+assert "client.options.hudHidden && !cinematic" in overlay
+assert "MAX_SCENE_TICKS = 400" in controller
+assert "professor.getRotationVec(1.0F)" in controller
+assert "professorFrontShot(client, professor, focus, playerEye)" in controller
 for phrase in [
     'resolve("pride_scenes_client").resolve("camera.properties")',
     'camera_enabled=true', 'reduced_motion=false',
@@ -59,4 +72,4 @@ assert "ClientTickEvents.END_CLIENT_TICK.register(CAMERA::tick)" in mod
 assert "CAMERA.clear();" in mod
 assert "public Vec3d actorPosition(UUID expectedSession)" in projection
 assert "public boolean hasActor(UUID expectedSession)" in projection
-print("PASS: Preview6 render-only owner-scoped camera, collision, opt-out, cleanup, no progression")
+print("PASS: Preview7 render-only owner-scoped camera, cinematic HUD, frontal Sequoia, cleanup, no progression")

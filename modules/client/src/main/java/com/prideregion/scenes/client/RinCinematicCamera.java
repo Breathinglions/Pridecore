@@ -46,7 +46,7 @@ public final class RinCinematicCamera {
 
     private static final int FADE_IN = 12;
     private static final int FADE_OUT = 12;
-    private static final int MAX_SCENE_TICKS = 210;
+    private static final int MAX_SCENE_TICKS = 400;
     private static final double MAX_VIEWER_DISTANCE = 9.0;
 
     public RinCinematicCamera(RinPreviewProjection projection) {
@@ -124,6 +124,12 @@ public final class RinCinematicCamera {
             shot = Shot.SEQUOIA;
     }
 
+    /** Hide vanilla UI/arms only for our private scene; preserve real F1 option. */
+    public boolean suppressHud(MinecraftClient client) {
+        return enabled && !reducedMotion && world != null && world == client.world
+            && session != null && client.player != null && client.currentScreen == null;
+    }
+
     public boolean showingShot() {
         return world != null && session != null && releaseTicks < 0
             && enabled && !reducedMotion;
@@ -147,7 +153,8 @@ public final class RinCinematicCamera {
         Vec3d rin = projection.actorPosition(session);
         if (rin == null) { clear(); return; }
         Vec3d rinFocus = rin.add(0, 1.45, 0);
-        Vec3d sequoia = sequoia(client);
+        Entity professor = sequoiaEntity(client);
+        Vec3d sequoia = professor == null ? null : professor.getPos().add(0, 1.48, 0);
         Vec3d focus;
         if (shot == Shot.RIN || shot == Shot.ENTRY || shot == Shot.EXIT)
             focus = rinFocus;
@@ -181,6 +188,11 @@ public final class RinCinematicCamera {
         };
         Vec3d desired = focus.add(front.multiply(distance))
             .add(side.multiply(orbit)).add(0, 0.48, 0);
+        if (shot == Shot.SEQUOIA && professor != null) {
+            // Frame Sequoia from the direction he faces, NOT from behind him.
+            Vec3d faceView = professorFrontShot(client, professor, focus, playerEye);
+            desired = faceView == null ? playerEye : faceView;
+        }
         // Camera is restricted to the viewer's currently loaded lab area.
         Vec3d fromViewer = desired.subtract(playerEye);
         if (fromViewer.lengthSquared() > MAX_VIEWER_DISTANCE * MAX_VIEWER_DISTANCE)
@@ -206,7 +218,7 @@ public final class RinCinematicCamera {
         lastTarget = focus;
     }
 
-    private Vec3d sequoia(MinecraftClient client) {
+    private Entity sequoiaEntity(MinecraftClient client) {
         if (client.world == null || client.player == null) return null;
         return client.world.getOtherEntities(client.player,
                 client.player.getBoundingBox().expand(10),
@@ -215,7 +227,31 @@ public final class RinCinematicCamera {
                         || e.getName().getString().toLowerCase(java.util.Locale.ROOT)
                             .contains("sequoia")))
             .stream().min(Comparator.comparingDouble(e -> e.squaredDistanceTo(client.player)))
-            .map(Entity::getPos).map(pos -> pos.add(0, 1.48, 0)).orElse(null);
+            .orElse(null);
+    }
+
+    /** Choose a collision-free view of the professor's FRONT side. */
+    private Vec3d professorFrontShot(MinecraftClient client, Entity professor,
+                                    Vec3d focus, Vec3d playerEye) {
+        Vec3d facing = professor.getRotationVec(1.0F);
+        Vec3d forward = new Vec3d(facing.x, 0, facing.z);
+        if (forward.lengthSquared() < 0.01) return null;
+        forward = forward.normalize();
+        Vec3d right = new Vec3d(-forward.z, 0, forward.x);
+        for (double side : new double[]{0.65, -0.65, 0.0, 1.2, -1.2}) {
+            for (double distance : new double[]{2.65, 2.1, 1.6}) {
+                Vec3d candidate = focus.add(forward.multiply(distance))
+                    .add(right.multiply(side)).add(0, 0.2, 0);
+                if (candidate.squaredDistanceTo(playerEye)
+                        > MAX_VIEWER_DISTANCE * MAX_VIEWER_DISTANCE) continue;
+                var hit = client.world.raycast(new RaycastContext(
+                    focus, candidate, RaycastContext.ShapeType.COLLIDER,
+                    RaycastContext.FluidHandling.NONE, client.player));
+                if (hit.getType() == HitResult.Type.MISS) return candidate;
+            }
+        }
+        // Room geometry has no unobstructed frontal angle: use viewer eye.
+        return null;
     }
 
     /**

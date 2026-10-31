@@ -11,7 +11,7 @@ The optional `modules/client` Fabric JAR is independent and strictly client-only
 ## Operator staging procedure
 
 1. Back up production. Use a separate staging server with the exact Fabric 1.21.1 and Cobblemon 1.8.1 modpack. Keep `story_enabled=false` on production.
-2. Install the Module 02 staging JAR on the staging server; install the optional `pride-scenes-client-0.1.0-preview1.jar` only in the test client's modpack.
+2. Install the Module 02 staging JAR on the staging server; install the optional `pride-scenes-client-0.1.0-preview7.jar` only in the test client's modpack.
 3. Set `story_allowed_dimensions` in staging to the exact intended test dimension. Copy the sample anchor config, replace each scene's dimension and three positions with actual builder-verified coordinates, enable visuals, and restart staging. Do not use guess coordinates.
 4. Stand within 96 blocks of the scene's entry anchor; an OP4 operator uses `/pridecore story admin preview-rin <player> lab` (or canyon/summit).
 5. Confirm only the named player sees the local villager placeholder, movement and dialogue. The second player standing beside the first must see **no** temporary actor. A player without Pride Scenes Client must still receive text preview and remain connected.
@@ -21,3 +21,10 @@ The optional `modules/client` Fabric JAR is independent and strictly client-only
 ## Explicit remaining work
 
 A final branded Rin model and animation/controller (not a villager), per-scene authored geometry and camera path, integrated Sequoia native dialogue/starter selector after authenticated one-use handoff, actual two-player staging run and shader/mod compatibility tests. Prototype visual packets must never be treated as storyline battle proof or a progression trigger.
+
+## Preview 7 polish (staging only)
+
+- Lab scene is ~16.6 seconds (332 ticks at 20 TPS): longer dialogue pauses and an unhurried exit before the one-use native starter handoff. **Update both the client JAR and the Module 02 server JAR**; client-only replacement leaves the server's original short timeline in place.
+- During a live private cinematic, client hides the hotbar, crosshair, chat and ordinary mod HUD without changing the F1 preference, while the Pride dialogue stays visible. First-person hands also remain hidden until camera fade-out completes; normal GUIs are unaffected.
+- Sequoia dialogue camera tries collision-free positions in front of the professor, using his facing direction, and avoids wall clipping when no frontal angle is available.
+- Check third-party shaders/HUD compatibility and the native starter handoff on staging before production rollout.

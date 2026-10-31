@@ -45,22 +45,22 @@ public final class StoryPrivateSceneDirectorTests {
         var next = director.begin(alice, "pride:staging",
             StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
         int opens = 0, entrances = 0, removals = 0, exits = 0;
-        for (int i = 0; i < 205; i++) {
+        for (int i = 0; i < 390; i++) {
             for (var event : director.tick()) {
                 ok(event.owner().equals(alice) && event.session().equals(next.session()));
                 if (event.kind() == StoryPrivateSceneDirector.Kind.OPEN_NATIVE_STARTER) {
                     opens++;
-                    ok(i == 165); // Resume only after the exit walk.
+                    ok(i == 332); // Resume only after the exit walk.
                 }
                 if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_ENTER) entrances++;
                 if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_MOVE
                         && "lab_exit".equals(event.anchor())) {
                     exits++;
-                    ok(i == 138); // 27 ticks until disappearance, enough for gait.
+                    ok(i == 290); // 42 ticks until disappearance and natural hold.
                 }
                 if (event.kind() == StoryPrivateSceneDirector.Kind.ACTOR_REMOVE) {
                     removals++;
-                    ok(i == 165);
+                    ok(i == 332);
                 }
             }
         }

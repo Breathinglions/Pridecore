@@ -39,7 +39,7 @@ public final class RinCinematicDialogueOverlay {
     private String line = "";
     private ClientWorld world;
     private int ticksLeft;
-    private static final int DIALOGUE_TICKS = 68;
+    private static final int DIALOGUE_TICKS = 112;
 
     public void accept(MinecraftClient client, ClientSceneSubtitlePayload packet) {
         if (client.world == null || client.player == null) return;
@@ -69,9 +69,9 @@ public final class RinCinematicDialogueOverlay {
         if (sceneSession != null && sceneSession.equals(this.session)) clear();
     }
 
-    public void draw(MinecraftClient client, DrawContext ctx) {
+    public void draw(MinecraftClient client, DrawContext ctx, boolean cinematic) {
         if (world == null || client.world != world || ticksLeft <= 0
-                || client.options.hudHidden) return;
+                || (client.options.hudHidden && !cinematic)) return;
 
         TextRenderer font = client.textRenderer;
         int screenWidth = ctx.getScaledWindowWidth();

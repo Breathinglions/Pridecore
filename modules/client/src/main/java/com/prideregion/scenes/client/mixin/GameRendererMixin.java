@@ -20,6 +20,6 @@ public abstract class GameRendererMixin {
     private void pride$noFirstPersonHands(Camera camera, float tickDelta,
                                          Matrix4f matrix, CallbackInfo ci) {
         if (MinecraftClient.getInstance().currentScreen == null
-            && PrideScenesClientMod.camera().showingShot()) ci.cancel();
+            && PrideScenesClientMod.camera().suppressHud(MinecraftClient.getInstance())) ci.cancel();
     }
 }

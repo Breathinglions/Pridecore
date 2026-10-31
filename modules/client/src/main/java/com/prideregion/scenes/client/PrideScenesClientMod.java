@@ -1,6 +1,8 @@
 package com.prideregion.scenes.client;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -20,6 +22,11 @@ public final class PrideScenesClientMod implements ClientModInitializer {
     private static final RinCinematicCamera CAMERA = new RinCinematicCamera(PROJECTION);
 
     public static RinCinematicCamera camera() { return CAMERA; }
+
+    /** Draw Pride dialogue even with vanilla HUD suppressed for cinema. */
+    public static void renderCinematicDialogue(MinecraftClient client, DrawContext context) {
+        DIALOGUE.draw(client, context, true);
+    }
 
     @Override public void onInitializeClient() {
         PayloadTypeRegistry.playS2C().register(
@@ -49,7 +56,7 @@ public final class PrideScenesClientMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(CAMERA::tick);
         ClientTickEvents.END_CLIENT_TICK.register(DIALOGUE::tick);
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
-            DIALOGUE.draw(net.minecraft.client.MinecraftClient.getInstance(), drawContext));
+            DIALOGUE.draw(MinecraftClient.getInstance(), drawContext, false));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
             client.execute(() -> {
                 PROJECTION.clear();

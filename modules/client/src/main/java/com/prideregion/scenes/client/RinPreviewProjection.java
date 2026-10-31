@@ -28,7 +28,7 @@ public final class RinPreviewProjection {
     private static final float MAX_TURN_PER_TICK = 15.0F;
     private int silenceTicks;
     private int nextVirtualId = -2_000_000;
-    private static final int MAX_SILENCE_TICKS = 220;
+    private static final int MAX_SILENCE_TICKS = 420;
 
     public void accept(MinecraftClient client, ClientSceneVisualPayload packet) {
         if (client.world == null || client.player == null) { clear(); return; }
