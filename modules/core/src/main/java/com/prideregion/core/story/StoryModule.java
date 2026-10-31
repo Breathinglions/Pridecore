@@ -486,9 +486,13 @@ public final class StoryModule {
                             viewer.sendMessage(Text.literal("[Scene preview] " + cue.kind()
                                 + " at " + cue.anchor()).formatted(Formatting.GRAY), true);
                     }
-                    case ACTOR_REMOVE ->
-                        viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
-                            .formatted(Formatting.GRAY), true);
+                    case ACTOR_REMOVE -> {
+                        // Real Sequoia onboarding must not show OP rehearsal
+                        // labels; the actor removal is entirely visual.
+                        if (!VERIFIED_LAB_SCENES.containsKey(cue.owner()))
+                            viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
+                                .formatted(Formatting.GRAY), true);
+                    }
                     case OPEN_NATIVE_STARTER -> {
                         if (VERIFIED_LAB_SCENES.containsKey(cue.owner()))
                             completeVerifiedLabScene(server, viewer, cue);
