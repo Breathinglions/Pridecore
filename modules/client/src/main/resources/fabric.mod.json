@@ -3,7 +3,7 @@
   "id": "pride_scenes_client",
   "version": "${version}",
   "name": "Pride Scenes Client (Staging Preview)",
-  "description": "Optional Rin scene player-skin actor, native-style subtitles, and private client-only camera choreography.",
+  "description": "Optional Rin scene player-skin actor, native-style subtitles, and configurable private client-only camera choreography.",
   "authors": [
     "Pride Region"
   ],

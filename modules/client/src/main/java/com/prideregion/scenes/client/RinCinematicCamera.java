@@ -46,6 +46,9 @@ public final class RinCinematicCamera {
     private Vec3d lastTarget;
     private boolean labFixedShot;
     private Vec3d labCameraPosition;
+    private RinCameraSettings labSettings;
+    private Vec3d settleFromPos;
+    private Vec3d settleFromLook;
     private Boolean originalHudHidden;
 
     // Coordinates are the standing BLOCK specified by the builder, not the
@@ -97,6 +100,9 @@ public final class RinCinematicCamera {
         if (packet.action() == ClientSceneVisualPayload.Action.ENTER) {
             if (!projection.hasActor(packet.session())) return;
             clear();
+            // Live reload allows creators to tune camera.properties between
+            // staging replays, without touching the server or rebuilding JARs.
+            labSettings = RinCameraSettings.load();
             if (client.player.squaredDistanceTo(packet.x(), packet.y(), packet.z()) > 12 * 12)
                 return; // never drag a distant viewer's camera into another area
             world = client.world;
@@ -104,8 +110,10 @@ public final class RinCinematicCamera {
             shot = Shot.ENTRY;
             entryPos = client.player.getPos();
             Vec3d actorEntry = new Vec3d(packet.x(), packet.y(), packet.z());
-            labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0
-                && actorEntry.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0;
+            Vec3d configuredLab = labConfiguredEye();
+            labFixedShot = labSettings.labEnabled()
+                && entryPos.squaredDistanceTo(configuredLab) < 28.0 * 28.0
+                && actorEntry.squaredDistanceTo(configuredLab) < 28.0 * 28.0;
             // Validate the fixed camera before activating it. If the authored
             // location is blocked by lab furniture, use a nearby clear point.
             // Never render inside blocks or move the real player.
@@ -118,6 +126,26 @@ public final class RinCinematicCamera {
             previousLook = eye.add(client.player.getRotationVec(1.0F).multiply(4.0));
             currentLook = previousLook;
             lastTarget = new Vec3d(packet.x(), packet.y() + 1.3, packet.z());
+            if (labFixedShot && labCameraPosition != null) {
+                Vec3d rin = projection.actorPosition(session);
+                Vec3d initial = rin == null ? null : followCandidate(client, rin);
+                if (initial != null && labSettings.followEnabled()) {
+                    // Begin with a side view of Rin, then follow his entrance.
+                    // If the interpolated route crosses blocks, use a clean
+                    // camera cut instead of flying through walls.
+                    if (!segmentClear(client, eye, initial)) {
+                        currentPos = initial;
+                        previousPos = initial;
+                    }
+                    currentLook = rin.add(0, 1.45, 0);
+                    previousLook = currentLook;
+                } else {
+                    currentPos = labCameraPosition;
+                    previousPos = labCameraPosition;
+                    currentLook = labFinalLook();
+                    previousLook = currentLook;
+                }
+            }
             activeTicks = 0;
             releaseTicks = -1;
             moves = 0;
@@ -176,6 +204,10 @@ public final class RinCinematicCamera {
 
         Vec3d rin = projection.actorPosition(session);
         if (rin == null) { clear(); return; }
+        if (labFixedShot && labCameraPosition != null) {
+            tickLabTracking(client, rin);
+            return;
+        }
         Vec3d rinFocus = rin.add(0, 1.45, 0);
         Entity professor = sequoiaEntity(client);
         Vec3d sequoia = professor == null ? null : professor.getPos().add(0, 1.48, 0);
@@ -242,12 +274,86 @@ public final class RinCinematicCamera {
         lastTarget = focus;
     }
 
-    /**
-     * Respect the authored west-facing lab shot but never let the camera sit
-     * inside terrain. In particular Y=102 is a FEET/block coordinate: using
-     * it literally as a camera-eye coordinate cuts through the floor.
-     * Scan only nearby positions, with no runtime camera orbit or wall lerp.
-     */
+    private Vec3d labConfiguredEye() {
+        if (labSettings == null) return LAB_CAMERA;
+        return new Vec3d(labSettings.cameraX() + 0.5,
+            labSettings.cameraY() + labSettings.eyeHeight(),
+            labSettings.cameraZ() + 0.5);
+    }
+
+    private Vec3d labFinalLook() {
+        if (labCameraPosition == null) return null;
+        double yaw = Math.toRadians(labSettings.yaw());
+        double pitch = Math.toRadians(labSettings.pitch());
+        return labCameraPosition.add(
+            -Math.sin(yaw) * Math.cos(pitch) * 5.0,
+            -Math.sin(pitch) * 5.0,
+            Math.cos(yaw) * Math.cos(pitch) * 5.0);
+    }
+
+    /** Candidate view is anchored to Rin's position, not the player's body. */
+    private Vec3d followCandidate(MinecraftClient client, Vec3d rin) {
+        if (rin == null || client.player == null || labCameraPosition == null)
+            return null;
+        Vec3d target = rin.add(labSettings.followOffsetX(),
+            labSettings.followOffsetY(), labSettings.followOffsetZ());
+        if (target.squaredDistanceTo(labCameraPosition) > 10 * 10
+                || target.squaredDistanceTo(client.player.getEyePos()) > 15 * 15
+                || !cameraPositionClear(client, target))
+            return null;
+        // The tracked actor must remain visible from the proposed camera.
+        var hit = client.world.raycast(new RaycastContext(
+            target, rin.add(0, 1.45, 0), RaycastContext.ShapeType.COLLIDER,
+            RaycastContext.FluidHandling.NONE, client.player));
+        return hit.getType() == HitResult.Type.MISS ? target : null;
+    }
+
+    /** No wall-crossing lerps: walk camera positions through clear geometry only. */
+    private boolean segmentClear(MinecraftClient client, Vec3d from, Vec3d to) {
+        if (from == null || to == null || client.world == null || client.player == null)
+            return false;
+        var hit = client.world.raycast(new RaycastContext(
+            from, to, RaycastContext.ShapeType.COLLIDER,
+            RaycastContext.FluidHandling.NONE, client.player));
+        return hit.getType() == HitResult.Type.MISS && cameraPositionClear(client, to);
+    }
+
+    private void tickLabTracking(MinecraftClient client, Vec3d rin) {
+        previousPos = currentPos;
+        previousLook = currentLook;
+        int followEnd = labSettings.followEnabled() ? labSettings.followTicks() : 0;
+        int settleEnd = followEnd + labSettings.settleTicks();
+        if (activeTicks <= followEnd) {
+            Vec3d wanted = followCandidate(client, rin);
+            if (wanted != null) {
+                Vec3d candidate = currentPos.lerp(wanted, labSettings.followSmooth());
+                if (segmentClear(client, currentPos, candidate))
+                    currentPos = candidate;
+            }
+            Vec3d focus = rin.add(0, 1.45, 0);
+            currentLook = currentLook.lerp(focus, 0.28);
+        } else if (activeTicks <= settleEnd) {
+            if (settleFromPos == null) {
+                settleFromPos = currentPos;
+                settleFromLook = currentLook;
+            }
+            double t = (double) (activeTicks - followEnd)
+                / Math.max(1, labSettings.settleTicks());
+            t = MathHelper.clamp(t, 0.0, 1.0);
+            t = t * t * (3.0 - 2.0 * t); // smoothstep ease-in/ease-out
+            Vec3d next = settleFromPos.lerp(labCameraPosition, t);
+            if (segmentClear(client, currentPos, next))
+                currentPos = next;
+            else
+                currentPos = labCameraPosition; // safe cut; never fly through wall
+            currentLook = settleFromLook.lerp(labFinalLook(), t);
+        } else {
+            currentPos = labCameraPosition;
+            currentLook = labFinalLook();
+        }
+    }
+
+    /** Test the creator's standing-block camera at actual eye height. */
     private Vec3d findSafeLabCamera(MinecraftClient client) {
         if (client.world == null || client.player == null) return null;
         double[][] offsets = {
@@ -256,36 +362,40 @@ public final class RinCinematicCamera {
             {0.5, 0, 0.5}, {0.5, 0, -0.5}, {-0.5, 0, 0.5}, {-0.5, 0, -0.5},
             {0, 0.7, 0}, {0, 0, 1.0}, {0, 0, -1.0}
         };
+        Vec3d configured = labConfiguredEye();
         for (double[] offset : offsets) {
-            Vec3d candidate = LAB_CAMERA.add(offset[0], offset[1], offset[2]);
+            Vec3d candidate = configured.add(offset[0], offset[1], offset[2]);
             if (candidate.squaredDistanceTo(client.player.getEyePos()) > 15 * 15)
                 continue;
             if (cameraSpaceClear(client, candidate)) return candidate;
         }
         org.slf4j.LoggerFactory.getLogger("PrideScenesCamera")
-            .warn("Fixed Lab camera in block {} has no unobstructed west view; "
-                + "keeping player's vanilla camera for this scene", LAB_CAMERA_BLOCK);
+            .warn("No clear Lab shot near ({},{},{}); using ordinary camera",
+                labSettings.cameraX(), labSettings.cameraY(), labSettings.cameraZ());
         return null;
     }
 
-    private boolean cameraSpaceClear(MinecraftClient client, Vec3d point) {
+    private boolean cameraPositionClear(MinecraftClient client, Vec3d point) {
         if (client.world == null) return false;
-        // Reject positions touching blocks (including furniture and wall
-        // edges). The point alone may be clear even when its near plane clips.
-        for (double x : new double[]{-0.22, 0.22}) {
-            for (double y : new double[]{-0.2, 0.2}) {
+        for (double x : new double[]{-0.22, 0.22})
+            for (double y : new double[]{-0.2, 0.2})
                 for (double z : new double[]{-0.22, 0.22}) {
                     BlockPos block = BlockPos.ofFloored(point.add(x, y, z));
                     if (!client.world.getBlockState(block)
-                        .getCollisionShape(client.world, block).isEmpty()) return false;
+                        .getCollisionShape(client.world, block).isEmpty())
+                        return false;
                 }
-            }
-        }
-        // Check the first two blocks WEST, exactly where the camera points.
-        // A blocked sightline should not produce a giant wall close-up.
+        return true;
+    }
+
+    private boolean cameraSpaceClear(MinecraftClient client, Vec3d point) {
+        if (!cameraPositionClear(client, point)) return false;
+        double yaw = Math.toRadians(labSettings.yaw());
+        double pitch = Math.toRadians(labSettings.pitch());
+        Vec3d ahead = point.add(-Math.sin(yaw) * Math.cos(pitch) * 2.0,
+            -Math.sin(pitch) * 2.0, Math.cos(yaw) * Math.cos(pitch) * 2.0);
         var hit = client.world.raycast(new RaycastContext(
-            point, point.add(-2.0, 0, 0),
-            RaycastContext.ShapeType.COLLIDER,
+            point, ahead, RaycastContext.ShapeType.COLLIDER,
             RaycastContext.FluidHandling.NONE, client.player));
         return hit.getType() == HitResult.Type.MISS;
     }
@@ -341,11 +451,16 @@ public final class RinCinematicCamera {
         weight = weight * weight * (3 - 2 * weight);
         if (weight <= 0.001) return null;
         if (labFixedShot) {
-            // Never interpolate through lab walls/floor. Use a clean cut into
-            // a collision-tested shot, and instantly restore vanilla view on
-            // REMOVE; no actual player move or orientation change is made.
             if (releaseTicks >= 0 || labCameraPosition == null) return null;
-            return new Pose(labCameraPosition, LAB_YAW_WEST, LAB_PITCH);
+            Vec3d position = previousPos.lerp(currentPos, partial);
+            Vec3d focus = previousLook.lerp(currentLook, partial);
+            Vec3d aim = focus.subtract(position);
+            if (aim.lengthSquared() < 0.04)
+                return new Pose(position, labSettings.yaw(), labSettings.pitch());
+            float yaw = (float) (Math.toDegrees(Math.atan2(aim.z, aim.x)) - 90.0);
+            float pitch = (float) -Math.toDegrees(Math.atan2(aim.y,
+                Math.sqrt(aim.x * aim.x + aim.z * aim.z)));
+            return new Pose(position, yaw, MathHelper.clamp(pitch, -70.0F, 70.0F));
         }
         Vec3d position = previousPos.lerp(currentPos, partial);
         Vec3d focus = previousLook.lerp(currentLook, partial);
@@ -376,6 +491,9 @@ public final class RinCinematicCamera {
         }
         labFixedShot = false;
         labCameraPosition = null;
+        labSettings = null;
+        settleFromPos = null;
+        settleFromLook = null;
         world = null;
         session = null;
         entryPos = null;

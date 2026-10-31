@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Compile-independent fail-closed contract for Preview9's client-only camera."""
+"""Compile-independent fail-closed contract for Preview10's client-only camera."""
 from pathlib import Path
 import json
 
 root=Path(__file__).resolve().parents[1]
 src=root/"src/main/java/com/prideregion/scenes/client"
 controller=(src/"RinCinematicCamera.java").read_text()
+settings=(src/"RinCameraSettings.java").read_text()
 camera=(src/"mixin/CameraMixin.java").read_text()
 hands=(src/"mixin/GameRendererMixin.java").read_text()
 hud=(src/"mixin/CinematicHudMixin.java").read_text()
@@ -42,15 +43,32 @@ assert "MAX_SCENE_TICKS = 400" in controller
 assert "LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195)" in controller
 assert "LAB_CAMERA = new Vec3d(-53.5, 103.62, 3195.5)" in controller
 assert "LAB_YAW_WEST = 90.0F" in controller
-assert "labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA)" in controller
-assert "return new Pose(labCameraPosition, LAB_YAW_WEST, LAB_PITCH)" in controller
+assert "labFixedShot = labSettings.labEnabled()" in controller
+assert "labSettings = RinCameraSettings.load()" in controller
+assert "labSettings.followEnabled()" in controller
+assert "return new Pose(position, yaw, MathHelper.clamp(pitch, -70.0F, 70.0F))" in controller
+assert "tickLabTracking(client, rin)" in controller
+assert "followCandidate(client, rin)" in controller
+assert "settleFromPos.lerp(labCameraPosition, t)" in controller
+assert "segmentClear(client, currentPos, next)" in controller
+assert "labFinalLook()" in controller
+assert "Rin's position" in controller
 assert "if (releaseTicks >= 0 || labCameraPosition == null) return null;" in controller
 assert "findSafeLabCamera(client)" in controller
 assert "cameraSpaceClear(client, candidate)" in controller
 assert "getCollisionShape(client.world, block).isEmpty()" in controller
-assert "point.add(-2.0, 0, 0)" in controller
+assert "cameraPositionClear(client, point)" in controller
+assert "point, ahead" in controller
 assert "labCameraPosition = null" in controller
 assert "vanilla.getPos().lerp(LAB_CAMERA, weight)" not in controller
+assert 'resolve("pride_scenes_client").resolve("camera.properties")' in settings
+assert '"lab_follow_enabled", "true"' in settings
+assert '"lab_follow_ticks", "88"' in settings
+assert '"lab_settle_ticks", "26"' in settings
+assert '"lab_camera_y", "102"' in settings
+assert 'StandardOpenOption.APPEND' in settings
+assert 'Double.isFinite(n)' in settings
+assert 'Files.newInputStream(path)' in settings
 assert "originalHudHidden = client.options.hudHidden" in controller
 assert "client.options.hudHidden = true" in controller
 assert "client.options.hudHidden = originalHudHidden" in controller
@@ -100,4 +118,4 @@ director=(root.parent/"core/src/main/java/com/prideregion/core/story/StoryPrivat
 assert "MAX_TICKS = 390" in director
 assert 'new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit")' in director
 assert 'new Cue(332, Kind.OPEN_NATIVE_STARTER' in director
-print("PASS: Preview9 west lab eye-height, collision-safe fixed shot, no through-wall lerp, native return")
+print("PASS: Preview10 configurable client follow-Rin camera, eased safe settle, HUD and return")
