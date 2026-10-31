@@ -158,6 +158,16 @@ public final class RinPreviewProjection {
         actor.setHeadYaw(smooth);
     }
 
+    /** Read-only camera anchor, scoped to the current private scene token. */
+    public boolean hasActor(UUID expectedSession) {
+        return expectedSession != null && expectedSession.equals(session)
+            && actor != null && actor.isAlive() && world != null;
+    }
+
+    public Vec3d actorPosition(UUID expectedSession) {
+        return hasActor(expectedSession) ? actor.getPos() : null;
+    }
+
     public void clear() {
         if (actor != null && world != null)
             world.removeEntity(actor.getId(), Entity.RemovalReason.DISCARDED);
