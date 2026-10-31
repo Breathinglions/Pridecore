@@ -95,22 +95,16 @@ def rewrite_lab(league_data: dict[str, bytes]) -> dict[str, bytes]:
             original_starter_action = list(commands)
         elif original_starter_action != commands:
             raise ValueError("Original starter paths differ; cannot safely unify")
-        c["action"] = "q.dialogue.set_page('rin_starter_intro');"
-    if any(p.get("id") == "rin_starter_intro" for p in sequoia["pages"]):
-        raise ValueError("Native Rin intro already exists; refusing double injection")
-    sequoia["pages"].append({
-        "id": "rin_starter_intro", "speaker": "professor",
-        "lines": [
-            "Before you choose, there's someone else I'd like you to meet. Rin, come in!",
-            "Rin: Oh, you're choosing your first Pokémon today too? I'm Rin!",
-            "Rin: I'm going to become Champion someday. Guess we'll see who gets there first!",
-            "Professor Sequoia: A little rivalry can be wonderful. Look after your partners, and remember where you started."
-        ],
-        "input": {"type": "option", "vertical": True, "options": [
-            {"text": "Choose my first partner.", "value": "choose_with_rin", "action": original_starter_action},
-            {"text": "I need a moment.", "value": "back", "action": "q.dialogue.set_page('main');"}
-        ]}
-    })
+        # Keep the original meet-Sequoia function, original player data and
+        # tags, and native Cobblemon starter entitlement. Replace only the
+        # immediate starter GUI open with a server-verified cinematic command.
+        # Both original starter buttons use the exact same safe sequence.
+        c["action"] = [
+            x for x in original_starter_action if "openstarterscreen " not in x
+        ] + ["q.player.run_command('pridecore story sequoia cinematic');"]
+    # No scripted 'Rin:' text-only duplicate and no extra starter button.
+    # On success the native dialogue closes, Rin enters privately and Cobblemon
+    # opens its own unchanged selector once the exit animation completes.
     add_sync(sequoia, "starter_done", "theo", "pride_starter_chosen")
 
     theo = lab["technician_theo"]
@@ -306,7 +300,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
         "player_data_changed": False, "ftb_quest_ids_changed": False,
         "story_npc_duplicates_removed": ["thorn", "rin_canyon", "rin_summit", "ranger_epilogue"],
         "limitations": ["NOT game-tested", "Do not install standalone League or Native Story ZIPs with this JAR",
-                        "Rin native cinematic/start UI auto-handoff not connected; Professor text introduction preserved",
+                        "Rin native cinematic is routed through the server-verified staging adapter; live starter handoff requires in-game testing",
                         "Actual player-onboarding GUI, FTB Quest files and world actor bindings require staging validation"],
         "resource_sha256": {k:digest(v) for k,v in sorted(resources.items())},
     }
