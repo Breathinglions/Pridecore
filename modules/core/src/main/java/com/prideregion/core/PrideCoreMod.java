@@ -39,6 +39,7 @@ public final class PrideCoreMod implements ModInitializer {
 
     @Override public void onInitialize() {
         StorySceneVisualBridge.register();
+        StorySceneSubtitleBridge.register();
         StoryModule.registerHooks();
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
