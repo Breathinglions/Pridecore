@@ -56,17 +56,21 @@ public final class RinCinematicDialogueOverlay {
         TextRenderer font = client.textRenderer;
         int screenWidth = ctx.getScaledWindowWidth();
         int screenHeight = ctx.getScaledWindowHeight();
-        int panelWidth = Math.min(screenWidth - 24, 590);
+        // Keep the dialogue ABOVE the vanilla chat pane. At large GUI
+        // scales a bottom-centred 590px panel can fill the entire HUD,
+        // while vanilla chat still draws on top of it (observed in-game).
+        // Top-left also avoids the two characters at the laboratory desk.
+        int panelWidth = Math.min(screenWidth - 32, 380);
         if (panelWidth < 160) return;
 
         List<String> lines = wrap(font, line, panelWidth - 34);
         int lineHeight = font.fontHeight + 4;
         int panelHeight = 32 + lines.size() * lineHeight;
-        int x = (screenWidth - panelWidth) / 2;
-        int y = screenHeight - panelHeight - 38;
-        if (y < 8) return;
+        int x = 16;
+        int y = 22;
+        if (y + panelHeight > screenHeight - 12) return;
 
-        // Deep teal Pokemon-style presentation rather than chat spam.
+        // Deep teal Pokemon-style presentation, clearly separated from chat.
         ctx.fill(x, y, x + panelWidth, y + panelHeight, 0xDC0A1A24);
         ctx.fill(x, y, x + 4, y + panelHeight, 0xFF53D8CA);
         ctx.fill(x + 4, y, x + panelWidth, y + 2, 0xFF297F86);
@@ -93,6 +97,9 @@ public final class RinCinematicDialogueOverlay {
         }
         if (!line.isEmpty()) result.add(line.toString());
         if (result.isEmpty()) result.add("");
-        return result.size() <= 4 ? result : result.subList(0,4);
+        // Lines are server-limited to 512 characters; give the subtitles
+        // enough rows to remain readable at higher GUI scales instead of
+        // silently cutting off the end of a character's sentence.
+        return result.size() <= 6 ? result : result.subList(0,6);
     }
 }
