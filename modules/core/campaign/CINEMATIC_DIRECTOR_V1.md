@@ -50,3 +50,22 @@ for development and requires access to the matching staging server.
 Deployment: install ONLY ONE server PrideCore JAR, keeping the unified RCT
 League/NPC assets from the original staging build. Replace Preview 10 client
 with Preview 11 client. Never install the companion visual mod on the server.
+
+## Reusable event binding and external NPC integration
+
+The server automatically creates `sequoia_lab.json` with `"trigger":"RIN_LAB_INTRO"` and `"dimension":"*"` so it works in the built lab's current world. Capturing the first shot converts that wildcard to its actual world ID. Other story scenes can bind their events:
+
+```mcfunction
+/pridecore cinema bind rin_canyon RIN_CANYON_REUNION
+/pridecore cinema bind rin_summit RIN_SUMMIT_REUNION
+/pridecore cinema bind sequoia_lab RIN_LAB_INTRO
+/pridecore cinema bind sequoia_lab none
+```
+
+To play a scene for a specific online player from a trusted admin command, command block, or server-side NPC integration:
+
+```mcfunction
+/pridecore cinema play example_scene Blions
+```
+
+This requires OP level 4 and does not alter quests or the NPC story. For a non-operator NPC trigger, configure the server/NPC integration to execute the command with server authority; don't grant players an OP-only command. A trigger for a new future story type may require wiring its original story event, but the camera engine and shot rendering need no redesign.

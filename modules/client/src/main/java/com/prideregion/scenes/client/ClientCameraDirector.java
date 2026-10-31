@@ -53,7 +53,8 @@ public final class ClientCameraDirector {
         try {
             JsonObject root = JsonParser.parseString(packet.sceneJson()).getAsJsonObject();
             String requiredWorld = root.get("dimension").getAsString();
-            if (!requiredWorld.equals(client.world.getRegistryKey().getValue().toString()))
+            if (!requiredWorld.equals("*")
+                    && !requiredWorld.equals(client.world.getRegistryKey().getValue().toString()))
                 return;
             JsonArray list = root.getAsJsonArray("shots");
             if (list == null || list.isEmpty() || list.size() > 32) return;

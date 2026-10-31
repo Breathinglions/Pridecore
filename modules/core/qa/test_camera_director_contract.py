@@ -22,7 +22,7 @@ assert "CameraDirectorModule.register();" in init
 assert "CameraDirectorModule.start(server);" in init
 assert "CameraDirectorModule.stop();" in init
 assert "CameraDirectorModule.commands()" in init
-for literal in ('"capture"','"preview"','"list"','"timing"','"follow"','"static"','"delete-shot"'):
+for literal in ('"capture"','"preview"','"play"','"bind"','"list"','"timing"','"follow"','"static"','"delete-shot"'):
     assert literal in core,literal
 assert '.requires(s -> s.hasPermissionLevel(4))' in core
 assert 'resolve("data").resolve("pride_core").resolve("cinematics")' in core
@@ -37,9 +37,13 @@ assert 'viewer.getWorld().getRegistryKey().getValue().toString()' in core
 assert 'viewer.getX() - first.get("x").getAsDouble()' in core
 assert 'new CameraDirectorPayload(session, false, JSON.toJson(scene))' in core
 assert 'new CameraDirectorPayload(session, true, "")' in core
-assert 'CameraDirectorModule.startLabScene(viewer, cue.session())' in bridge
-assert 'CameraDirectorModule.endLabScene(viewer, cue.session())' in bridge
-assert 'cue.scene() == StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO' in bridge
+assert 'CameraDirectorModule.startBoundScene(viewer, cue.session(), cue.scene().name())' in bridge
+assert 'CameraDirectorModule.endBoundScene(viewer, cue.session())' in bridge
+assert 'scene.addProperty("trigger", "RIN_LAB_INTRO")' in core
+assert 'scene.addProperty("trigger", event)' in core
+assert 'JsonObject scene = load(name);' in core
+assert 'if (!"*".equals(scene.get("dimension").getAsString())' in core
+assert 'if (!requiredWorld.equals("*")' in renderer
 assert 'ClientPlayNetworking.registerGlobalReceiver(ClientCameraDirectorPayload.ID' in mod
 assert 'PayloadTypeRegistry.playS2C().register(' in mod
 assert 'DIRECTOR.clear()' in mod

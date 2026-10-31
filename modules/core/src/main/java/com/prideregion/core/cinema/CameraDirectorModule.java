@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -39,7 +40,8 @@ public final class CameraDirectorModule {
         Files.createDirectories(directory);
         Path sample = scenePath(DEFAULT_SCENE);
         if (!Files.exists(sample)) {
-            JsonObject scene = newScene(DEFAULT_SCENE, "minecraft:overworld");
+            JsonObject scene = newScene(DEFAULT_SCENE, "*");
+            scene.addProperty("trigger", "RIN_LAB_INTRO");
             JsonArray shots = scene.getAsJsonArray("shots");
             // Long-form laboratory scene: follow Rin from the door, settle
             // into the approved west-facing camera and keep it for dialogue.
@@ -69,6 +71,18 @@ public final class CameraDirectorModule {
         root.then(CommandManager.literal("preview")
             .then(CommandManager.argument("scene", StringArgumentType.word())
             .executes(c -> preview(c.getSource(), StringArgumentType.getString(c, "scene")))));
+        root.then(CommandManager.literal("play")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("player", EntityArgumentType.player())
+            .executes(c -> play(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                EntityArgumentType.getPlayer(c, "player"))))));
+        root.then(CommandManager.literal("bind")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("event", StringArgumentType.word())
+            .executes(c -> bind(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "event"))))));
         root.then(CommandManager.literal("list")
             .then(CommandManager.argument("scene", StringArgumentType.word())
             .executes(c -> list(c.getSource(), StringArgumentType.getString(c, "scene")))));
@@ -105,18 +119,38 @@ public final class CameraDirectorModule {
         return root;
     }
 
-    /** Called only when an actual, owner-validated Rin lab actor ENTER is emitted. */
-    public static void startLabScene(ServerPlayerEntity viewer, UUID session) {
-        try {
-            send(viewer, DEFAULT_SCENE, session);
-        } catch (IOException | IllegalArgumentException ex) {
-            // Fallback is the already-working client scene, not an NPC/progression change.
+    /**
+     * Bind ANY current trusted story private-scene actor ENTER to an authored
+     * JSON cinematic. Existing dialogue, NPC actor and progress remain owned
+     * by StoryModule; this is only an optional owner-local camera overlay.
+     */
+    public static void startBoundScene(ServerPlayerEntity viewer, UUID session,
+                                       String storyEvent) {
+        if (directory == null || activeServer == null
+                || !ServerPlayNetworking.canSend(viewer, CameraDirectorPayload.ID))
+            return;
+        try (var entries = Files.list(directory)) {
+            for (Path file : entries.filter(p -> p.getFileName().toString().endsWith(".json"))
+                    .sorted().limit(128).toList()) {
+                String name = file.getFileName().toString().replaceFirst("\\.json$", "");
+                try {
+                    JsonObject scene = load(name);
+                    if (!scene.get("trigger").getAsString().equals(storyEvent)) continue;
+                    send(viewer, name, session);
+                    return; // one scene per verified story event and viewer
+                } catch (IOException | RuntimeException ex) {
+                    org.slf4j.LoggerFactory.getLogger("PrideCameraDirector")
+                        .warn("Cinematic {} not usable for event {}: {}",
+                            name, storyEvent, ex.toString());
+                }
+            }
+        } catch (IOException ex) {
             org.slf4j.LoggerFactory.getLogger("PrideCameraDirector")
-                .warn("Lab cinematic overlay unavailable: {}", ex.toString());
+                .warn("Camera directory not readable: {}", ex.toString());
         }
     }
 
-    public static void endLabScene(ServerPlayerEntity viewer, UUID session) {
+    public static void endBoundScene(ServerPlayerEntity viewer, UUID session) {
         if (ServerPlayNetworking.canSend(viewer, CameraDirectorPayload.ID))
             ServerPlayNetworking.send(viewer, new CameraDirectorPayload(session, true, ""));
     }
@@ -127,7 +161,8 @@ public final class CameraDirectorModule {
             throw new IOException("Client Camera Director channel unavailable");
         JsonObject scene = load(name);
         String world = viewer.getWorld().getRegistryKey().getValue().toString();
-        if (!world.equals(scene.get("dimension").getAsString()))
+        if (!"*".equals(scene.get("dimension").getAsString())
+                && !world.equals(scene.get("dimension").getAsString()))
             throw new IOException("Scene dimension " + scene.get("dimension").getAsString()
                 + " differs from your current world " + world);
         JsonArray shots = scene.getAsJsonArray("shots");
@@ -149,8 +184,10 @@ public final class CameraDirectorModule {
             ServerPlayerEntity player = source.getPlayerOrThrow();
             String dimension = player.getWorld().getRegistryKey().getValue().toString();
             JsonObject scene = Files.exists(scenePath(name)) ? load(name) : newScene(name, dimension);
-            if (!dimension.equals(scene.get("dimension").getAsString()))
+            String boundWorld = scene.get("dimension").getAsString();
+            if (!dimension.equals(boundWorld) && !boundWorld.equals("*"))
                 throw new IOException("Scene is in a different dimension");
+            if (boundWorld.equals("*")) scene.addProperty("dimension", dimension);
             JsonObject captured = shot(id,
                 player.getX(), player.getEyeY(), player.getZ(),
                 player.getYaw(), player.getPitch(), 60, 20);
@@ -167,6 +204,28 @@ public final class CameraDirectorModule {
             save(name, scene);
             return ok(source, "Captured shot " + name + "/" + id
                 + " (" + (found ? "replaced" : "appended") + "). Preview: /pridecore cinema preview " + name);
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int play(ServerCommandSource source, String name,
+                            ServerPlayerEntity viewer) {
+        try {
+            send(viewer, name, UUID.randomUUID());
+            return ok(source, "Playing " + name + " privately for "
+                + viewer.getName().getString() + " (camera only)");
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int bind(ServerCommandSource source, String name, String event) {
+        try {
+            if (!event.equals("none") && !Set.of("RIN_LAB_INTRO",
+                    "RIN_CANYON_REUNION", "RIN_SUMMIT_REUNION").contains(event))
+                throw new IllegalArgumentException("Unknown story event. Use RIN_LAB_INTRO, "
+                    + "RIN_CANYON_REUNION, RIN_SUMMIT_REUNION or none");
+            JsonObject scene = load(name);
+            scene.addProperty("trigger", event);
+            save(name, scene);
+            return ok(source, "Bound scene " + name + " to verified event " + event);
         } catch (Exception ex) { return error(source, ex); }
     }
 
@@ -239,6 +298,7 @@ public final class CameraDirectorModule {
         scene.addProperty("schema", 1);
         scene.addProperty("name", name);
         scene.addProperty("dimension", dimension);
+        scene.addProperty("trigger", "none");
         scene.add("shots", new JsonArray());
         return scene;
     }
@@ -306,8 +366,13 @@ public final class CameraDirectorModule {
         if (!name.equals(scene.get("name").getAsString()))
             throw new IllegalArgumentException("Scene name does not match file");
         String dim = scene.get("dimension").getAsString();
-        if (!dim.matches("[a-z0-9_./-]+:[a-z0-9_./-]+") || dim.length() > 100)
+        if ((!dim.equals("*") && !dim.matches("[a-z0-9_./-]+:[a-z0-9_./-]+"))
+                || dim.length() > 100)
             throw new IllegalArgumentException("Invalid scene dimension");
+        String trigger = scene.has("trigger") ? scene.get("trigger").getAsString() : "none";
+        if (!Set.of("none", "RIN_LAB_INTRO", "RIN_CANYON_REUNION",
+                "RIN_SUMMIT_REUNION").contains(trigger))
+            throw new IllegalArgumentException("Invalid automatic story event binding");
         JsonArray shots = scene.getAsJsonArray("shots");
         if (shots == null || shots.size() > 32)
             throw new IllegalArgumentException("Maximum 32 camera shots");

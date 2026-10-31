@@ -120,14 +120,12 @@ public final class StorySceneVisualBridge {
         };
         ServerPlayNetworking.send(viewer, new StorySceneVisualPayload(cue.session(), action,
             point.x(), point.y(), point.z()));
-        // Camera Director overlays ONLY the validated private Lab scene.
-        // Native Rin actor and starter handoff remain the original authority.
-        if (cue.scene() == StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO) {
-            if (action == StorySceneVisualPayload.Action.ENTER)
-                CameraDirectorModule.startLabScene(viewer, cue.session());
-            else if (action == StorySceneVisualPayload.Action.REMOVE)
-                CameraDirectorModule.endLabScene(viewer, cue.session());
-        }
+        // All verified existing private-story events can bind editable scenes.
+        // No NPC movement, dialogue, starter, battle or story facts are changed.
+        if (action == StorySceneVisualPayload.Action.ENTER)
+            CameraDirectorModule.startBoundScene(viewer, cue.session(), cue.scene().name());
+        else if (action == StorySceneVisualPayload.Action.REMOVE)
+            CameraDirectorModule.endBoundScene(viewer, cue.session());
         return true;
     }
 }
