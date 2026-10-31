@@ -1776,8 +1776,9 @@ public final class StoryModule {
         String username = player.getGameProfile().getName();
         if (!username.matches("[A-Za-z0-9_]{1,16}"))
             return 0;
-        return server.getCommandManager().executeWithPrefix(server.getCommandSource(),
+        server.getCommandManager().executeWithPrefix(server.getCommandSource(),
             "openstarterscreen " + username);
+        return 1;
     }
 
     private static void completeVerifiedLabScene(MinecraftServer server,
