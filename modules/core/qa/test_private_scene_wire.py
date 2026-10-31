@@ -74,10 +74,10 @@ server_sub, client_sub = SERVER_SUBTITLE.read_text(), CLIENT_SUBTITLE.read_text(
 for code in (server_sub, client_sub):
     assert 'Identifier.of("pridecore", "scene_subtitle_v1")' in code
     write = code.split("private void write(RegistryByteBuf buf)",1)[1].split("}",1)[0]
-    assert tuple(re.findall(r"buf\\.write(\\w+)\\(",write)) == ("Uuid","String","String")
+    assert tuple(re.findall(r"buf\.write(\w+)\(",write)) == ("Uuid","String","String")
     read_method = "StorySceneSubtitlePayload" if code == server_sub else "ClientSceneSubtitlePayload"
     read = code.split("private "+read_method+"(RegistryByteBuf buf)",1)[1].split("}",1)[0]
-    assert tuple(re.findall(r"buf\\.read(\\w+)\\(",read)) == ("Uuid","String","String")
+    assert tuple(re.findall(r"buf\.read(\w+)\(",read)) == ("Uuid","String","String")
 assert "viewer.getUuid().equals(cue.owner())" in SUBTITLE_BRIDGE.read_text()
 assert "ServerPlayNetworking.send(viewer," in SUBTITLE_BRIDGE.read_text()
 assert "ClientPlayNetworking.registerGlobalReceiver(ClientSceneSubtitlePayload.ID" in receiver
