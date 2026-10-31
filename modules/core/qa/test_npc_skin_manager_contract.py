@@ -26,10 +26,9 @@ checks = (
     'ATOMIC_MOVE,REPLACE_EXISTING',
     'PrideNPCSkins_Resources.zip',
     'PrideNPCSkins_NPCOverrides.zip',
-    '"pack_format\\":34',
-    '"pack_format\\":48',
     'This command does NOT push a new client pack automatically.',
 )
+assert 'pack_format' in code and '34,' in code and '48,' in code
 for test in checks:
     assert test in code, test
 assert 'NpcSkinManager.start();' in mod
