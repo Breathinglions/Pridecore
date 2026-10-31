@@ -15,7 +15,7 @@ import java.util.List;
  */
 public final class CinematicFlythroughPath {
     public record Keyframe(Vec3d position, float yaw, float pitch) {}
-    public record Sample(Vec3d position, float yaw, float pitch) {}
+    public record Sample(Vec3d position, float yaw, float pitch, int segment) {}
     private record Marker(double distance, int segment, double t) {}
 
     private static final int MIN_SAMPLES_PER_SEGMENT = 32;
@@ -23,11 +23,17 @@ public final class CinematicFlythroughPath {
     private static final double END_RAMP = 0.10;
 
     private final List<Keyframe> points;
+    private final boolean precise;
     private final double[] continuousYaw;
     private final List<Marker> markers;
     private final double length;
 
     public CinematicFlythroughPath(List<Keyframe> waypoints) {
+        this(waypoints, false);
+    }
+
+    public CinematicFlythroughPath(List<Keyframe> waypoints, boolean precise) {
+        this.precise = precise;
         if (waypoints == null || waypoints.size() < 2 || waypoints.size() > 32)
             throw new IllegalArgumentException("Flythrough needs 2-32 waypoints");
         this.points = List.copyOf(waypoints);
@@ -70,6 +76,15 @@ public final class CinematicFlythroughPath {
     }
 
     public double distanceBlocks() { return length; }
+    public int segmentCount() { return points.size() - 1; }
+    public boolean precise() { return precise; }
+
+    /** Preflight geometry checks can identify the exact obstructed segment. */
+    public Sample alongSegment(int segment, double t) {
+        if (segment < 0 || segment >= points.size() - 1)
+            throw new IllegalArgumentException("Invalid camera path segment");
+        return frame(segment, t);
+    }
 
     /** Deterministic path frame for 0..1 progress in time. */
     public Sample sample(double fraction) {
@@ -98,17 +113,24 @@ public final class CinematicFlythroughPath {
         int n = points.size();
         int i = Math.min(Math.max(0, segment), n - 2);
         double u = MathHelper.clamp(t, 0, 1);
-        double yaw = scalar(continuousYaw, i, u);
+        double yaw = precise ? MathHelper.lerp(u, continuousYaw[i], continuousYaw[i + 1])
+            : scalar(continuousYaw, i, u);
         double[] pitch = new double[n];
         for (int k = 0; k < n; k++) pitch[k] = points.get(k).pitch();
         return new Sample(position(i, u), (float) yaw,
-            MathHelper.clamp((float) scalar(pitch, i, u), -85, 85));
+            MathHelper.clamp((float) (precise
+                ? MathHelper.lerp(u, pitch[i], pitch[i + 1])
+                : scalar(pitch, i, u)), -85, 85), i);
     }
 
     /** Cubic Hermite path with continuous tangents and reduced corner overshoot. */
     private Vec3d position(int segment, double t) {
         Vec3d a = points.get(segment).position();
         Vec3d b = points.get(segment + 1).position();
+        // Precise/corridor routing goes through every captured camera point
+        // on exact line segments. Unlike curved tangents, it cannot cut
+        // corners where a wall separates adjacent corridors.
+        if (precise) return a.lerp(b, t);
         Vec3d m0 = tangent(segment);
         Vec3d m1 = tangent(segment + 1);
         double t2 = t * t, t3 = t2 * t;

@@ -64,6 +64,10 @@ public final class ClientCameraDirector {
                 throw new IllegalArgumentException("Unknown cinematic playback");
             int requestedFlightTicks = root.has("flythroughTicks")
                 ? root.get("flythroughTicks").getAsInt() : 240;
+            String pathStyle = root.has("pathStyle")
+                ? root.get("pathStyle").getAsString() : "auto";
+            if (!Set.of("auto", "smooth", "precise").contains(pathStyle))
+                throw new IllegalArgumentException("Invalid flythrough pathStyle");
             if (requestedFlightTicks < 20 || requestedFlightTicks > 2400)
                 throw new IllegalArgumentException("Invalid flythrough length");
             JsonArray list = root.getAsJsonArray("shots");
@@ -80,7 +84,8 @@ public final class ClientCameraDirector {
                 if (duration < 1 || duration > 1200 || transition < 0 || transition > duration)
                     throw new IllegalArgumentException("Invalid shot timing");
                 total += duration;
-                if (total > 2400) throw new IllegalArgumentException("Long camera sequence");
+                if (playback.equals("shots") && total > 2400)
+                    throw new IllegalArgumentException("Long camera sequence");
                 String target = s.get("target").getAsString();
                 if (target.length() > 48) throw new IllegalArgumentException("Invalid camera target");
                 Shot shot = new Shot(s.get("id").getAsString(), point,
@@ -103,7 +108,32 @@ public final class ClientCameraDirector {
                     keyframes.add(new CinematicFlythroughPath.Keyframe(
                         shot.pos(), shot.yaw(), shot.pitch()));
                 }
-                candidatePath = new CinematicFlythroughPath(keyframes);
+                // First try the smooth curved track. If it cuts a gym wall,
+                // automatically use the exact captured waypoint corridor route.
+                // Never skip a blocked section or teleport through geometry.
+                CinematicFlythroughPath smooth = new CinematicFlythroughPath(keyframes);
+                CinematicFlythroughPath precise =
+                    new CinematicFlythroughPath(keyframes, true);
+                if (pathStyle.equals("precise")) candidatePath = precise;
+                else if (pathStyle.equals("smooth")) candidatePath = smooth;
+                else {
+                    int blocked = firstObstructedSegment(client, smooth);
+                    if (blocked >= 0) {
+                        LOG.info("Flythrough curved track blocked between {} and {}; "
+                            + "using precise corridor path", loaded.get(blocked).id(),
+                            loaded.get(blocked + 1).id());
+                        candidatePath = precise;
+                    } else candidatePath = smooth;
+                }
+                int blocked = firstObstructedSegment(client, candidatePath);
+                if (blocked >= 0) {
+                    String message = "Flythrough path blocked between "
+                        + loaded.get(blocked).id() + " and "
+                        + loaded.get(blocked + 1).id()
+                        + ". Add an intermediate camera waypoint through the doorway.";
+                    notifyViewer(client, message);
+                    throw new IllegalArgumentException(message);
+                }
             }
             Vec3d eye = client.player.getEyePos();
             if (loaded.getFirst().pos().squaredDistanceTo(eye) > 128 * 128) return;
@@ -126,8 +156,9 @@ public final class ClientCameraDirector {
                 if (!spaceClear(client, initial.pos()))
                     throw new IllegalArgumentException(
                         "Flythrough starts inside a block. Recapture first waypoint.");
-                LOG.info("Playing continuous cinematic flythrough: {} waypoints, {} blocks, {} ticks",
-                    shots.size(), flythroughPath.distanceBlocks(), flythroughTicks);
+                LOG.info("Playing continuous cinematic flythrough: {} waypoints, {} blocks, "
+                    + "{} ticks, geometry={}", shots.size(), flythroughPath.distanceBlocks(),
+                    flythroughTicks, flythroughPath.precise() ? "precise" : "smooth");
             } else {
                 initial = frameFor(client, first, null);
                 if (!spaceClear(client, initial.pos())) initial = viewerFrame(client);
@@ -144,8 +175,12 @@ public final class ClientCameraDirector {
     public void tick(MinecraftClient client) {
         if (session == null) return;
         if (world != client.world || client.player == null
-                || !client.player.isAlive() || originalPlayerPos == null
-                || client.player.getPos().squaredDistanceTo(originalPlayerPos) > 32 * 32) {
+                || !client.player.isAlive() || originalPlayerPos == null) {
+            clear(); return;
+        }
+        if (client.player.getPos().squaredDistanceTo(originalPlayerPos) > 32 * 32) {
+            if (flythroughPath != null) notifyViewer(client,
+                "Tour stopped: your player moved over 32 blocks during playback.");
             clear(); return;
         }
         client.options.hudHidden = true;
@@ -203,13 +238,53 @@ public final class ClientCameraDirector {
         // Never snap, teleport, or bypass collision to complete the camera.
         // Ask the builder to capture intermediate corridor/doorway points.
         if (!segmentClear(client, currentFrame.pos(), destination)) {
-            LOG.warn("Cinematic flythrough cannot safely travel through this section. "
-                + "Recapture camera points through the doorway, not through walls.");
+            int segment = Math.min(sample.segment(), shots.size() - 2);
+            String message = "Flythrough stopped at "
+                + (int) (elapsed * 100.0 / flythroughTicks)
+                + "%: path obstructed between "
+                + shots.get(segment).id() + " and " + shots.get(segment + 1).id()
+                + ". Add a doorway/corner waypoint.";
+            LOG.warn(message);
+            notifyViewer(client, message);
             clear();
             return;
         }
         currentFrame = new Frame(destination, sample.yaw(), sample.pitch());
         elapsed++;
+    }
+
+    /**
+     * A geometry pass before playback avoids the frustrating experience of
+     * a cinematic unexpectedly stopping before its final waypoint.
+     * Each segment is checked separately so the error names exact shot IDs.
+     */
+    private static int firstObstructedSegment(MinecraftClient client,
+                                               CinematicFlythroughPath path) {
+        int segments = path == null ? 0 : pathWaypoints(path);
+        for (int i = 0; i < segments; i++) {
+            Vec3d last = path.alongSegment(i, 0).position();
+            Vec3d end = path.alongSegment(i, 1).position();
+            double chord = last.distanceTo(end);
+            // Cap checks per segment while testing short corners more closely.
+            int steps = (int) MathHelper.clamp(Math.ceil(chord * 4) + 8, 12, 200);
+            if (!spaceClear(client, last)) return i;
+            for (int j = 1; j <= steps; j++) {
+                Vec3d next = path.alongSegment(i, (double) j / steps).position();
+                if (!segmentClear(client, last, next)) return i;
+                last = next;
+            }
+        }
+        return -1;
+    }
+
+    private static int pathWaypoints(CinematicFlythroughPath path) {
+        return path.segmentCount();
+    }
+
+    private static void notifyViewer(MinecraftClient client, String message) {
+        if (client.player != null)
+            client.player.sendMessage(net.minecraft.text.Text.literal(
+                "[PrideCore Camera] " + message), false);
     }
 
     private Frame frameFor(MinecraftClient client, Shot shot, Frame fallback) {

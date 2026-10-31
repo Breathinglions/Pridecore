@@ -69,6 +69,19 @@ assert 'private Vec3d tangent(int index)' in flight
 assert 'measured.add(new Marker(traversed, segment, t))' in flight
 assert 'MathHelper.wrapDegrees(' in flight
 assert 'MathHelper.clamp(fraction, 0.0, 1.0)' in flight
+# Preview 15: geometry preflight and corridor-safe exact waypoint fallback.
+assert 'public CinematicFlythroughPath(List<Keyframe> waypoints, boolean precise)' in flight
+assert 'if (precise) return a.lerp(b, t);' in flight
+assert 'public Sample alongSegment(int segment, double t)' in flight
+assert 'public int segmentCount()' in flight
+assert 'firstObstructedSegment(client, smooth)' in director
+assert 'candidatePath = precise;' in director
+assert 'firstObstructedSegment(client, candidatePath)' in director
+assert 'if (playback.equals("shots") && total > 2400)' in director
+assert 'Set.of("auto", "smooth", "precise")' in director
+assert 'notifyViewer(client, message)' in director
+assert '"Flythrough path blocked between "' in director
+assert '"Flythrough stopped at "' in director
 assert 'JsonParser.parseString(packet.sceneJson())' in director
 assert 'client.options.hudHidden = originalHudHidden' in director
 assert "LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195)" in controller
