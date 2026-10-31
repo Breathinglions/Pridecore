@@ -25,7 +25,7 @@ assert 'captured.add(key, existing.get(key).deepCopy())' in core
 assert 'out.append(" | lab camera ")' in core
 assert "CameraDirectorModule.stop();" in init
 assert "CameraDirectorModule.commands()" in init
-for literal in ('"capture"','"preview"','"play"','"bind"','"list"','"timing"','"follow"','"static"','"move-after"','"move-first"','"delete-shot"'):
+for literal in ('"capture"','"preview"','"play"','"bind"','"list"','"timing"','"follow"','"static"','"move-after"','"move-first"','"playback"','"flight-time"','"delete-shot"'):
     assert literal in core,literal
 assert '.requires(s -> s.hasPermissionLevel(4))' in core
 assert 'resolve("data").resolve("pride_core").resolve("cinematics")' in core
@@ -62,3 +62,9 @@ for forbidden in ('setCameraEntity(', 'requestTeleport(', 'ClientPlayNetworking.
 assert 'client.options.hudHidden = originalHudHidden' in renderer
 assert 'originalPlayerPos' in renderer
 print("PASS: server-authoritative Cinematic Director captures/preview, validated private wire, return safety")
+
+assert '"playback", "shots"' in core
+assert 'if (playback.equals("flythrough") && shots.size() < 2)' in core
+assert 'if (playback.equals("flythrough") && !mode.equals("static"))' in core
+assert 'duration = flightTicks(scene);' in core
+assert 'Set.of("shots", "flythrough")' in core

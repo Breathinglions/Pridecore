@@ -59,6 +59,16 @@ assert 'PrideScenesClientMod.directorPose(' in camera
 assert 'DIRECTOR.active(client) || CAMERA.suppressHud(client)' in mod
 assert 'cameraPositionClear' in controller or 'cameraSpaceClear' in controller
 assert 'segmentClear(client, currentFrame.pos(), point)' in director
+flight=(src/"CinematicFlythroughPath.java").read_text()
+assert 'new CinematicFlythroughPath(keyframes)' in director
+assert 'flythroughPath.sample((elapsed + 1.0) / flythroughTicks)' in director
+assert 'if (!segmentClear(client, currentFrame.pos(), destination))' in director
+assert 'if (flythroughPath != null)' in director
+assert 'easeAtEndsOnly(time) * length' in flight
+assert 'private Vec3d tangent(int index)' in flight
+assert 'measured.add(new Marker(traversed, segment, t))' in flight
+assert 'MathHelper.wrapDegrees(' in flight
+assert 'MathHelper.clamp(fraction, 0.0, 1.0)' in flight
 assert 'JsonParser.parseString(packet.sceneJson())' in director
 assert 'client.options.hudHidden = originalHudHidden' in director
 assert "LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195)" in controller

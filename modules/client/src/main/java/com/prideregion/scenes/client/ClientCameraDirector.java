@@ -27,6 +27,8 @@ public final class ClientCameraDirector {
     private Vec3d originalPlayerPos;
     private Boolean originalHudHidden;
     private List<Shot> shots = List.of();
+    private CinematicFlythroughPath flythroughPath;
+    private int flythroughTicks;
     private int index;
     private int shotTicks;
     private int elapsed;
@@ -56,6 +58,14 @@ public final class ClientCameraDirector {
             if (!requiredWorld.equals("*")
                     && !requiredWorld.equals(client.world.getRegistryKey().getValue().toString()))
                 return;
+            String playback = root.has("playback")
+                ? root.get("playback").getAsString() : "shots";
+            if (!playback.equals("shots") && !playback.equals("flythrough"))
+                throw new IllegalArgumentException("Unknown cinematic playback");
+            int requestedFlightTicks = root.has("flythroughTicks")
+                ? root.get("flythroughTicks").getAsInt() : 240;
+            if (requestedFlightTicks < 20 || requestedFlightTicks > 2400)
+                throw new IllegalArgumentException("Invalid flythrough length");
             JsonArray list = root.getAsJsonArray("shots");
             if (list == null || list.isEmpty() || list.size() > 32) return;
             ArrayList<Shot> loaded = new ArrayList<>();
@@ -80,9 +90,26 @@ public final class ClientCameraDirector {
                         s.get("offsetY").getAsDouble(), s.get("offsetZ").getAsDouble()));
                 loaded.add(shot);
             }
+            CinematicFlythroughPath candidatePath = null;
+            if (playback.equals("flythrough")) {
+                if (loaded.size() < 2)
+                    throw new IllegalArgumentException("Flythrough needs at least two waypoints");
+                ArrayList<CinematicFlythroughPath.Keyframe> keyframes =
+                    new ArrayList<>();
+                for (Shot shot : loaded) {
+                    if (!shot.mode().equals("static"))
+                        throw new IllegalArgumentException(
+                            "Flythrough requires static captured waypoints");
+                    keyframes.add(new CinematicFlythroughPath.Keyframe(
+                        shot.pos(), shot.yaw(), shot.pitch()));
+                }
+                candidatePath = new CinematicFlythroughPath(keyframes);
+            }
             Vec3d eye = client.player.getEyePos();
             if (loaded.getFirst().pos().squaredDistanceTo(eye) > 128 * 128) return;
             shots = List.copyOf(loaded);
+            flythroughPath = candidatePath;
+            flythroughTicks = requestedFlightTicks;
             session = packet.session();
             world = client.world;
             originalPlayerPos = client.player.getPos();
@@ -92,8 +119,19 @@ public final class ClientCameraDirector {
             // For the first shot use its safe authored position rather than
             // orbiting through walls from the actual player camera.
             Shot first = shots.getFirst();
-            Frame initial = frameFor(client, first, null);
-            if (!spaceClear(client, initial.pos())) initial = viewerFrame(client);
+            Frame initial;
+            if (flythroughPath != null) {
+                CinematicFlythroughPath.Sample start = flythroughPath.sample(0);
+                initial = new Frame(start.position(), start.yaw(), start.pitch());
+                if (!spaceClear(client, initial.pos()))
+                    throw new IllegalArgumentException(
+                        "Flythrough starts inside a block. Recapture first waypoint.");
+                LOG.info("Playing continuous cinematic flythrough: {} waypoints, {} blocks, {} ticks",
+                    shots.size(), flythroughPath.distanceBlocks(), flythroughTicks);
+            } else {
+                initial = frameFor(client, first, null);
+                if (!spaceClear(client, initial.pos())) initial = viewerFrame(client);
+            }
             currentFrame = initial;
             previousFrame = initial;
             fromFrame = initial;
@@ -111,6 +149,10 @@ public final class ClientCameraDirector {
             clear(); return;
         }
         client.options.hudHidden = true;
+        if (flythroughPath != null) {
+            tickFlythrough(client);
+            return;
+        }
         if (index >= shots.size()) { clear(); return; }
         Shot shot = shots.get(index);
         previousFrame = currentFrame;
@@ -149,6 +191,25 @@ public final class ClientCameraDirector {
             shotTicks = 0;
             fromFrame = currentFrame;
         }
+    }
+
+    /** One uninterrupted flight through the complete authored path. */
+    private void tickFlythrough(MinecraftClient client) {
+        if (elapsed >= flythroughTicks) { clear(); return; }
+        previousFrame = currentFrame;
+        var sample = flythroughPath.sample((elapsed + 1.0) / flythroughTicks);
+        Vec3d destination = sample.position();
+        // A waypoint path can be incorrectly authored through a wall.
+        // Never snap, teleport, or bypass collision to complete the camera.
+        // Ask the builder to capture intermediate corridor/doorway points.
+        if (!segmentClear(client, currentFrame.pos(), destination)) {
+            LOG.warn("Cinematic flythrough cannot safely travel through this section. "
+                + "Recapture camera points through the doorway, not through walls.");
+            clear();
+            return;
+        }
+        currentFrame = new Frame(destination, sample.yaw(), sample.pitch());
+        elapsed++;
     }
 
     private Frame frameFor(MinecraftClient client, Shot shot, Frame fallback) {
@@ -237,6 +298,8 @@ public final class ClientCameraDirector {
         originalPlayerPos = null;
         originalHudHidden = null;
         shots = List.of();
+        flythroughPath = null;
+        flythroughTicks = 0;
         index = 0; shotTicks = 0; elapsed = 0;
         currentFrame = null; previousFrame = null; fromFrame = null;
     }

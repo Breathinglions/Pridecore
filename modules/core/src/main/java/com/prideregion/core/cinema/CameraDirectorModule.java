@@ -106,6 +106,18 @@ public final class CameraDirectorModule {
             .executes(c -> bind(c.getSource(),
                 StringArgumentType.getString(c, "scene"),
                 StringArgumentType.getString(c, "event"))))));
+        root.then(CommandManager.literal("playback")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("mode", StringArgumentType.word())
+            .executes(ctx -> playback(ctx.getSource(),
+                StringArgumentType.getString(ctx, "scene"),
+                StringArgumentType.getString(ctx, "mode"))))));
+        root.then(CommandManager.literal("flight-time")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("ticks", IntegerArgumentType.integer(20, 2400))
+            .executes(ctx -> flightTime(ctx.getSource(),
+                StringArgumentType.getString(ctx, "scene"),
+                IntegerArgumentType.getInteger(ctx, "ticks"))))));
         root.then(CommandManager.literal("list")
             .then(CommandManager.argument("scene", StringArgumentType.word())
             .executes(c -> list(c.getSource(), StringArgumentType.getString(c, "scene")))));
@@ -217,10 +229,50 @@ public final class CameraDirectorModule {
         ServerPlayNetworking.send(viewer,
             new CameraDirectorPayload(session, false, JSON.toJson(scene)));
         int duration = 0;
-        for (JsonElement e : shots)
-            duration += e.getAsJsonObject().get("durationTicks").getAsInt();
+        if ("flythrough".equals(playbackMode(scene))) {
+            duration = flightTicks(scene);
+        } else {
+            for (JsonElement e : shots)
+                duration += e.getAsJsonObject().get("durationTicks").getAsInt();
+        }
         activeCameras.put(viewer.getUuid(),
             new SceneLease(session, activeServer.getTicks() + duration + 10L));
+    }
+
+    private static String playbackMode(JsonObject scene) {
+        return scene.has("playback") ? scene.get("playback").getAsString() : "shots";
+    }
+    private static int flightTicks(JsonObject scene) {
+        return scene.has("flythroughTicks") ? scene.get("flythroughTicks").getAsInt() : 240;
+    }
+
+    /** Scene-wide flythrough is opt-in. Legacy lab/actor shots remain unchanged. */
+    private static int playback(ServerCommandSource source, String name, String mode) {
+        try {
+            if (!mode.equals("shots") && !mode.equals("flythrough"))
+                throw new IllegalArgumentException("Playback must be shots or flythrough");
+            JsonObject scene = load(name);
+            scene.addProperty("playback", mode);
+            if (mode.equals("flythrough") && !scene.has("flythroughTicks"))
+                scene.addProperty("flythroughTicks", 240);
+            save(name, scene);
+            return ok(source, name + " playback=" + mode + (mode.equals("flythrough")
+                ? " (" + flightTicks(scene)
+                    + " ticks for the ENTIRE continuous flight)"
+                : " (individual shots and holds)") + ". Preview to test.");
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    /** Total flight duration, not a separate stop/hold at every waypoint. */
+    private static int flightTime(ServerCommandSource source, String name, int ticks) {
+        try {
+            JsonObject scene = load(name);
+            scene.addProperty("flythroughTicks", ticks);
+            save(name, scene);
+            return ok(source, name + " flythrough total=" + ticks
+                + " ticks (" + String.format(Locale.ROOT, "%.1f", ticks / 20.0)
+                + "s at 20TPS). No waypoint pauses.");
+        } catch (Exception ex) { return error(source, ex); }
     }
 
     private static int capture(ServerCommandSource source, String name, String id) {
@@ -355,7 +407,11 @@ public final class CameraDirectorModule {
         try {
             JsonObject scene = load(name);
             StringBuilder out = new StringBuilder(name + " ["
-                + scene.get("dimension").getAsString() + "]: ");
+                + scene.get("dimension").getAsString() + "] playback="
+                + playbackMode(scene)
+                + ("flythrough".equals(playbackMode(scene))
+                    ? "(" + flightTicks(scene) + "t total)" : "")
+                + ": ");
             for (JsonElement shot : scene.getAsJsonArray("shots")) {
                 JsonObject s = shot.getAsJsonObject();
                 out.append(s.get("id").getAsString()).append("(")
@@ -387,6 +443,7 @@ public final class CameraDirectorModule {
         scene.addProperty("name", name);
         scene.addProperty("dimension", dimension);
         scene.addProperty("trigger", "none");
+        scene.addProperty("playback", "shots"); // backward-compatible lab and NPC scenes
         scene.add("shots", new JsonArray());
         return scene;
     }
@@ -461,9 +518,19 @@ public final class CameraDirectorModule {
         if (!Set.of("none", "RIN_LAB_INTRO", "RIN_CANYON_REUNION",
                 "RIN_SUMMIT_REUNION").contains(trigger))
             throw new IllegalArgumentException("Invalid automatic story event binding");
+        String playback = playbackMode(scene);
+        if (!Set.of("shots", "flythrough").contains(playback))
+            throw new IllegalArgumentException("Invalid playback; use shots or flythrough");
+        if (scene.has("flythroughTicks")) {
+            int flightTicks = scene.get("flythroughTicks").getAsInt();
+            if (flightTicks < 20 || flightTicks > 2400)
+                throw new IllegalArgumentException("Flythrough duration must be 20-2400 ticks");
+        }
         JsonArray shots = scene.getAsJsonArray("shots");
         if (shots == null || shots.size() > 32)
             throw new IllegalArgumentException("Maximum 32 camera shots");
+        if (playback.equals("flythrough") && shots.size() < 2)
+            throw new IllegalArgumentException("Flythrough needs at least two captured waypoints");
         HashSet<String> ids = new HashSet<>();
         int total = 0;
         for (JsonElement item : shots) {
@@ -487,6 +554,9 @@ public final class CameraDirectorModule {
             String mode = s.get("mode").getAsString();
             if (!mode.equals("follow") && !mode.equals("static"))
                 throw new IllegalArgumentException("Camera mode must be static or follow");
+            if (playback.equals("flythrough") && !mode.equals("static"))
+                throw new IllegalArgumentException("Flythrough waypoints must be static; "
+                    + "run /pridecore cinema static <scene> <shot> first");
             if (s.get("target").getAsString().length() > 48)
                 throw new IllegalArgumentException("Camera target too long");
         }
