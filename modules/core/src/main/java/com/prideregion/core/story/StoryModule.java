@@ -470,11 +470,13 @@ public final class StoryModule {
                 switch (cue.kind()) {
                     case DIALOGUE -> {
                         if (VERIFIED_LAB_SCENES.containsKey(cue.owner())) {
-                            // Screen-visible subtitle rather than cluttering native
-                            // Cobblemon chat. Client cinematic HUD is a separate
-                            // enhancement; vanilla title/subtitle works without it.
-                            viewer.sendMessage(Text.literal(cue.speaker() + ": " + cue.text())
-                                .formatted(Formatting.AQUA), true);
+                            // Prefer the private cinematic dialogue overlay.
+                            // Older clients receive a discreet actionbar fallback,
+                            // never a second transcript in the native GUI.
+                            if (!StorySceneSubtitleBridge.emit(viewer, cue))
+                                viewer.sendMessage(Text.literal(
+                                    cue.speaker() + ": " + cue.text())
+                                    .formatted(Formatting.AQUA), true);
                         } else viewer.sendMessage(
                             Text.literal(cue.speaker() + ": ").formatted(Formatting.AQUA)
                                 .append(Text.literal(cue.text()).formatted(Formatting.WHITE)), false);
