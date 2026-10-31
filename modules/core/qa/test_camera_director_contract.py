@@ -20,9 +20,12 @@ for p in (sp,cp):
     assert "buf.writeString(sceneJson, 24_000)" in p
 assert "CameraDirectorModule.register();" in init
 assert "CameraDirectorModule.start(server);" in init
+assert 'private static int moveShot(' in core
+assert 'captured.add(key, existing.get(key).deepCopy())' in core
+assert 'out.append(" | lab camera ")' in core
 assert "CameraDirectorModule.stop();" in init
 assert "CameraDirectorModule.commands()" in init
-for literal in ('"capture"','"preview"','"play"','"bind"','"list"','"timing"','"follow"','"static"','"delete-shot"'):
+for literal in ('"capture"','"preview"','"play"','"bind"','"list"','"timing"','"follow"','"static"','"move-after"','"move-first"','"delete-shot"'):
     assert literal in core,literal
 assert '.requires(s -> s.hasPermissionLevel(4))' in core
 assert 'resolve("data").resolve("pride_core").resolve("cinematics")' in core

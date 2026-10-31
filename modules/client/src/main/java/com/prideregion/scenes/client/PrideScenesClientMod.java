@@ -19,10 +19,12 @@ public final class PrideScenesClientMod implements ClientModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("PrideScenesClient");
     private static final RinPreviewProjection PROJECTION = new RinPreviewProjection();
     private static final RinCinematicDialogueOverlay DIALOGUE = new RinCinematicDialogueOverlay();
+    private static final CinematicHudPresentation HUD = new CinematicHudPresentation();
     private static final RinCinematicCamera CAMERA = new RinCinematicCamera(PROJECTION);
     private static final ClientCameraDirector DIRECTOR = new ClientCameraDirector(PROJECTION);
 
     public static RinCinematicCamera camera() { return CAMERA; }
+    public static CinematicHudPresentation hudPresentation() { return HUD; }
     public static boolean cinematicActive(MinecraftClient client) {
         return DIRECTOR.active(client) || CAMERA.suppressHud(client);
     }
@@ -32,6 +34,7 @@ public final class PrideScenesClientMod implements ClientModInitializer {
 
     /** Draw Pride dialogue even with vanilla HUD suppressed for cinema. */
     public static void renderCinematicDialogue(MinecraftClient client, DrawContext context) {
+        HUD.drawBars(context);
         DIALOGUE.draw(client, context, true);
     }
 
@@ -70,6 +73,7 @@ public final class PrideScenesClientMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(CAMERA::tick);
         ClientTickEvents.END_CLIENT_TICK.register(DIRECTOR::tick);
         ClientTickEvents.END_CLIENT_TICK.register(DIALOGUE::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(HUD::tick);
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
             DIALOGUE.draw(MinecraftClient.getInstance(), drawContext, false));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->

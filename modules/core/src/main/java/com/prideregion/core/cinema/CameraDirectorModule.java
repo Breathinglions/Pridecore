@@ -133,6 +133,20 @@ public final class CameraDirectorModule {
             .executes(c -> follow(c.getSource(),
                 StringArgumentType.getString(c, "scene"),
                 StringArgumentType.getString(c, "shot"), "none")))));
+        root.then(CommandManager.literal("move-after")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .then(CommandManager.argument("anchor", StringArgumentType.word())
+            .executes(c -> moveShot(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"),
+                StringArgumentType.getString(c, "anchor")))))));
+        root.then(CommandManager.literal("move-first")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .executes(c -> moveShot(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"), null)))));
         root.then(CommandManager.literal("delete-shot")
             .then(CommandManager.argument("scene", StringArgumentType.word())
             .then(CommandManager.argument("shot", StringArgumentType.word())
@@ -227,6 +241,12 @@ public final class CameraDirectorModule {
             boolean found = false;
             for (JsonElement s : shots) {
                 if (s.getAsJsonObject().get("id").getAsString().equals(id)) {
+                    // Re-capturing an angle only updates its position and look.
+                    // Preserve timing, transition, tracking and shot order.
+                    JsonObject existing = s.getAsJsonObject();
+                    for (String key : List.of("durationTicks", "transitionTicks",
+                            "mode", "target", "offsetX", "offsetY", "offsetZ"))
+                        captured.add(key, existing.get(key).deepCopy());
                     replaced.add(captured); found = true;
                 } else replaced.add(s);
             }
@@ -286,6 +306,36 @@ public final class CameraDirectorModule {
         } catch (Exception ex) { return error(source, ex); }
     }
 
+    /** Move a captured shot without hand-editing array order in JSON. */
+    private static int moveShot(ServerCommandSource source, String sceneName,
+                                String shotName, String after) {
+        try {
+            JsonObject scene = load(sceneName);
+            validateId(shotName);
+            if (after != null) {
+                validateId(after);
+                if (after.equals(shotName))
+                    throw new IllegalArgumentException("A shot cannot follow itself");
+            }
+            JsonObject selected = requireShot(scene, shotName);
+            if (after != null) requireShot(scene, after);
+            JsonArray reordered = new JsonArray();
+            if (after == null) reordered.add(selected);
+            for (JsonElement element : scene.getAsJsonArray("shots")) {
+                JsonObject next = element.getAsJsonObject();
+                String id = next.get("id").getAsString();
+                if (id.equals(shotName)) continue;
+                reordered.add(next);
+                if (after != null && id.equals(after)) reordered.add(selected);
+            }
+            scene.add("shots", reordered);
+            save(sceneName, scene);
+            return ok(source, "Moved " + shotName
+                + (after == null ? " to first shot" : " after " + after)
+                + " in " + sceneName);
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
     private static int delete(ServerCommandSource source, String name, String id) {
         try {
             JsonObject scene = load(name);
@@ -311,6 +361,13 @@ public final class CameraDirectorModule {
                 out.append(s.get("id").getAsString()).append("(")
                    .append(s.get("durationTicks").getAsInt()).append("t,")
                    .append(s.get("mode").getAsString()).append(") ");
+            }
+            if ("sequoia_lab".equals(name)) {
+                int total = 0;
+                for (JsonElement shot : scene.getAsJsonArray("shots"))
+                    total += shot.getAsJsonObject().get("durationTicks").getAsInt();
+                out.append(" | lab camera ").append(total).append("/332 ticks");
+                if (total > 332) out.append(" (WARNING: live Rin scene ends at 332)");
             }
             return ok(source, out.toString());
         } catch (Exception ex) { return error(source, ex); }

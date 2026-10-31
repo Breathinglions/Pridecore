@@ -38,6 +38,16 @@ assert "PrideScenesClientMod.renderCinematicDialogue(client, context)" in hud
 assert "ci.cancel();" in hud
 assert "DIALOGUE.draw(client, context, true)" in mod
 assert "DIALOGUE_TICKS = 112" in overlay
+presentation=(src/"CinematicHudPresentation.java").read_text()
+assert 'resolve("pride_scenes_client").resolve("hud.properties")' in presentation
+assert 'defaults.put("letterbox_bars", "true")' in presentation
+assert 'defaults.put("dialogue_position", "bottom")' in presentation
+assert 'HUD.drawBars(context)' in mod
+assert 'ClientTickEvents.END_CLIENT_TICK.register(HUD::tick)' in mod
+assert 'if (rinPortrait)' in overlay
+assert 'drawPortrait(ctx, portraitX, portraitY)' in overlay
+assert 'drawCenteredTextWithShadow(font,' not in overlay
+assert 'PrideScenesClientMod.hudPresentation().settings()' in overlay
 assert "client.options.hudHidden && !cinematic" in overlay
 assert "MAX_SCENE_TICKS = 400" in controller
 director=(src/"ClientCameraDirector.java").read_text()

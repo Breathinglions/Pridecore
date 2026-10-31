@@ -77,17 +77,24 @@ public final class RinCinematicDialogueOverlay {
         int screenWidth = ctx.getScaledWindowWidth();
         int screenHeight = ctx.getScaledWindowHeight();
 
-        // Never fill the entire screen at GUI scale 4. Keep this anchored in
-        // the upper portion, clear of Minecraft chat and the bottom party HUD.
-        int width = Math.min(292, screenWidth - 74);
+        // The speaker page stays the same dialogue, but uses a compact,
+        // configurable frame. During a cinematic the rest of the HUD is gone.
+        var style = PrideScenesClientMod.hudPresentation().settings();
+        boolean rinPortrait = "Rin".equalsIgnoreCase(speaker);
+        int leftAllowance = rinPortrait ? 74 : 24;
+        int width = Math.min(style.dialogueWidth(), screenWidth - leftAllowance);
         if (width < 154) return;
-        int x = Math.max(55, (screenWidth - width) / 2);
-        int y = 22;
-
-        List<String> wrapped = wrap(font, line, width - 23);
+        int x = Math.max(rinPortrait ? 52 : 12, (screenWidth - width) / 2);
+        List<String> wrapped = wrap(font, line, width - 28);
         int rowHeight = font.fontHeight + 4;
-        int height = Math.max(55, 33 + rowHeight * wrapped.size());
-        if (y + height + 3 > screenHeight - 12) return;
+        int height = Math.max(55, 35 + rowHeight * wrapped.size());
+        int letterbox = cinematic && style.bars()
+            ? Math.max(7, (int) Math.round(screenHeight * style.barHeight()))
+            : 0;
+        int y = cinematic && style.dialoguePosition().equals("bottom")
+            ? screenHeight - letterbox - height - 12
+            : letterbox + 14;
+        if (y < 8 || y + height + 3 > screenHeight - 7) return;
 
         // The Cobblemon-like page: dark keyline, gray bevel, solid white card.
         rect(ctx, x + 3, y + 4, width, height, FRAME_SHADOW);
@@ -95,32 +102,36 @@ public final class RinCinematicDialogueOverlay {
         rect(ctx, x + 2, y + 2, width - 4, height - 4, FRAME_GRAY);
         rect(ctx, x + 4, y + 4, width - 8, height - 8, PANEL_WHITE);
         rect(ctx, x + 4, y + 4, width - 8, 1, FRAME_HIGHLIGHT);
+        // A small Cobblemon-inspired teal detail unifies the speaker page and
+        // letterbox; it is presentation only, not a second dialogue system.
+        rect(ctx, x + 5, y + 5, 3, height - 10, PORTRAIT_TEAL);
 
-        // Portrait projects beyond the left edge like the Cobblemon NPC face
-        // container. It never obscures the text or consumes click events.
-        int portrait = 39;
-        int portraitX = x - portrait + 2;
-        int portraitY = y - 6;
-        rect(ctx, portraitX + 2, portraitY + 3,
-            portrait, portrait, FRAME_SHADOW);
-        rect(ctx, portraitX, portraitY,
-            portrait, portrait, FRAME_EDGE);
-        rect(ctx, portraitX + 2, portraitY + 2,
-            portrait - 4, portrait - 4, FRAME_GRAY);
-        rect(ctx, portraitX + 4, portraitY + 4,
-            portrait - 8, portrait - 8, PORTRAIT_TEAL);
-        drawPortrait(ctx, font, portraitX, portraitY, portrait, speaker);
-
-        // Tiny interlocking pointer joins the portrait to the dialogue page.
-        rect(ctx, x - 1, y + 13, 8, 11, FRAME_EDGE);
-        rect(ctx, x + 1, y + 15, 6, 7, FRAME_GRAY);
-        rect(ctx, x + 3, y + 17, 3, 3, PANEL_WHITE);
+        if (rinPortrait) {
+            // Rin has a real bundled skin. The Professor's actual in-world
+            // Cobblemon NPC already has his own skin: do NOT fabricate a
+            // different portrait for him or render a placeholder "S".
+            int portrait = 39;
+            int portraitX = x - portrait + 2;
+            int portraitY = y - 6;
+            rect(ctx, portraitX + 2, portraitY + 3,
+                portrait, portrait, FRAME_SHADOW);
+            rect(ctx, portraitX, portraitY,
+                portrait, portrait, FRAME_EDGE);
+            rect(ctx, portraitX + 2, portraitY + 2,
+                portrait - 4, portrait - 4, FRAME_GRAY);
+            rect(ctx, portraitX + 4, portraitY + 4,
+                portrait - 8, portrait - 8, PORTRAIT_TEAL);
+            drawPortrait(ctx, portraitX, portraitY);
+            rect(ctx, x - 1, y + 13, 8, 11, FRAME_EDGE);
+            rect(ctx, x + 1, y + 15, 6, 7, FRAME_GRAY);
+            rect(ctx, x + 3, y + 17, 3, 3, PANEL_WHITE);
+        }
 
         String name = speaker.length() > 32 ? speaker.substring(0, 32) : speaker;
-        ctx.drawTextWithShadow(font, name, x + 12, y + 9, TEXT_SECONDARY);
+        ctx.drawText(font, name, x + 15, y + 10, TEXT_SECONDARY, false);
         int rowY = y + 24;
         for (String part : wrapped) {
-            ctx.drawText(font, part, x + 12, rowY, TEXT_DARK, false);
+            ctx.drawText(font, part, x + 15, rowY, TEXT_DARK, false);
             rowY += rowHeight;
         }
 
@@ -131,23 +142,15 @@ public final class RinCinematicDialogueOverlay {
                 y + height - 15, FRAME_GRAY, false);
     }
 
-    private static void drawPortrait(DrawContext ctx, TextRenderer font,
-                                     int x, int y, int size, String speakerName) {
-        if ("Rin".equalsIgnoreCase(speakerName)) {
-            // Real 64x64 skin head + outer hat layer at 4x pixel scale.
-            ctx.getMatrices().push();
-            ctx.getMatrices().translate(x + 4, y + 4, 0);
-            ctx.getMatrices().scale(3.875F, 3.875F, 1.0F);
-            ctx.drawTexture(RIN_SKIN, 0, 0, 8, 8, 8, 8, 64, 64);
-            ctx.drawTexture(RIN_SKIN, 0, 0, 40, 8, 8, 8, 64, 64);
-            ctx.getMatrices().pop();
-        } else {
-            // Native NPC head rendering needs a Cobblemon client model
-            // binding. Avoid fabricating Sequoia's likeness: a clear initial
-            // identifies the speaker until a real portrait is supplied.
-            ctx.drawCenteredTextWithShadow(font,
-                "S", x + size / 2, y + size / 2 - 4, TEXT_DARK);
-        }
+    private static void drawPortrait(DrawContext ctx, int x, int y) {
+        // Real Rin 64x64 skin head and hat layer; Sequoia stays the genuine
+        // skinned native NPC rendered in the world, not a generated head icon.
+        ctx.getMatrices().push();
+        ctx.getMatrices().translate(x + 4, y + 4, 0);
+        ctx.getMatrices().scale(3.875F, 3.875F, 1.0F);
+        ctx.drawTexture(RIN_SKIN, 0, 0, 8, 8, 8, 8, 64, 64);
+        ctx.drawTexture(RIN_SKIN, 0, 0, 40, 8, 8, 8, 64, 64);
+        ctx.getMatrices().pop();
     }
 
     private static void rect(DrawContext ctx, int x, int y,
