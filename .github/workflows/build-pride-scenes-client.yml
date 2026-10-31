@@ -20,6 +20,8 @@ jobs:
         with: { gradle-version: '8.12.1' }
       - name: Verify optional private-scene wire contract
         run: python3 modules/core/qa/test_private_scene_wire.py
+      - name: Verify render-only cinematic camera contract
+        run: python3 modules/client/qa/test_camera_contract.py
       - name: Compile optional Fabric client preview JAR
         working-directory: modules/client
         run: gradle --no-daemon clean build
@@ -35,6 +37,7 @@ jobs:
           jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinCinematicDialogueOverlay.class
           jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinCinematicCamera.class
           jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/mixin/CameraMixin.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/mixin/GameRendererMixin.class
           jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx pride-scenes-client.mixins.json
       - uses: actions/upload-artifact@v4
         with:
