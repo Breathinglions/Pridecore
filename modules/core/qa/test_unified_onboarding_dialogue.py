@@ -49,16 +49,17 @@ for name in module.LAB:
             check(old_choice.get('isVisible')==new_choice.get('isVisible'),name+": visibility")
             if (name,old_page['id'],old_choice['value']) in (
                 ('professor_sequoia','main','starter'),('professor_sequoia','region','starter_from_region')):
-                check(new_choice['action']=="q.dialogue.set_page('rin_starter_intro');",'starter reroute')
+                expected=[x for x in old_choice['action'] if 'openstarterscreen ' not in x] + ["q.player.run_command('pridecore story sequoia cinematic');"]
+                check(new_choice['action']==expected,'both native starter paths hand off to scene, preserving original meeting action')
+                check('openstarterscreen' not in str(new_choice['action']),'no early starter GUI before animation')
             elif (name,old_page['id'],old_choice['value']) in (
                 ('professor_sequoia','starter_done','theo'),('technician_theo','main','register'),('avery','kit','take_kit')):
                 check(new_choice['action']==old_choice['action']+["q.player.run_command('pridecore story sync');"],name+": original service and one sync")
             else:
                 check(new_choice['action']==old_choice['action'],name+": other choice unchanged")
     check(any('Hearthleaf' in json.dumps(page) for page in after['pages']),name+": Hearthleaf prologue")
-start=module.choice(transformed['data/pride_region/dialogues/professor_sequoia.json'],"rin_starter_intro","choose_with_rin")
-check('openstarterscreen' in str(start['action']),'existing Cobblemon starter selector retained')
-check(len(transformed['data/pride_region/dialogues/professor_sequoia.json']['pages'])==4,'single Rin intro injected')
+check(len(transformed['data/pride_region/dialogues/professor_sequoia.json']['pages'])==3,
+      'no text-only Rin duplicate page; real cinematic triggered from native starter choices')
 story_sample={}
 for name in ['mom','ranger']:
     path=f'data/pride_story/dialogues/{name}.json'
