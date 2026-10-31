@@ -3,16 +3,23 @@
   "id": "pride_scenes_client",
   "version": "${version}",
   "name": "Pride Scenes Client (Staging Preview)",
-  "description": "Optional owner-only temporary Rin scene projection prototype. Not a finished Rin character model.",
-  "authors": ["Pride Region"],
+  "description": "Optional Rin scene player-skin actor, native-style subtitles, and private client-only camera choreography.",
+  "authors": [
+    "Pride Region"
+  ],
   "environment": "client",
   "entrypoints": {
-    "client": ["com.prideregion.scenes.client.PrideScenesClientMod"]
+    "client": [
+      "com.prideregion.scenes.client.PrideScenesClientMod"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.16.10",
     "minecraft": "~1.21.1",
     "java": ">=21",
     "fabric-api": "*"
-  }
+  },
+  "mixins": [
+    "pride-scenes-client.mixins.json"
+  ]
 }
