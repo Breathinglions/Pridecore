@@ -21,7 +21,7 @@ public final class StoryPrivateSceneDirectorTests {
             StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO);
         ok(b.started() && !a.session().equals(b.session()));
         var starts = director.tick();
-        ok(starts.size() == 2);
+        ok(starts.size() == 4); // each owner receives dialogue AND entry at tick zero
         ok(starts.stream().anyMatch(x -> x.owner().equals(alice)
             && x.session().equals(a.session())
             && x.kind() == StoryPrivateSceneDirector.Kind.DIALOGUE));

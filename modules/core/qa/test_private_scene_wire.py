@@ -82,7 +82,7 @@ assert "viewer.getUuid().equals(cue.owner())" in SUBTITLE_BRIDGE.read_text()
 assert "ServerPlayNetworking.send(viewer," in SUBTITLE_BRIDGE.read_text()
 assert "ClientPlayNetworking.registerGlobalReceiver(ClientSceneSubtitlePayload.ID" in receiver
 assert "HudRenderCallback.EVENT.register(" in receiver
-assert "void draw(MinecraftClient client, DrawContext ctx)" in SUBTITLE_OVERLAY.read_text()
+assert "void draw(MinecraftClient client, DrawContext ctx, boolean cinematic)" in SUBTITLE_OVERLAY.read_text()
 assert "ClientPlayNetworking.send(" not in receiver
 for source in (receiver, projection):
     assert "ServerPlayNetworking.send" not in source
