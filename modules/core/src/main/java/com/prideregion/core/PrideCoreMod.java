@@ -3,6 +3,7 @@ package com.prideregion.core;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.story.StoryModule;
 import com.prideregion.core.cinema.CameraDirectorModule;
+import com.prideregion.core.cinema.LocationCinematicTriggerModule;
 import com.prideregion.core.story.StorySceneVisualBridge;
 import com.prideregion.core.story.StorySceneSubtitleBridge;
 import net.fabricmc.api.ModInitializer;
@@ -41,6 +42,7 @@ public final class PrideCoreMod implements ModInitializer {
 
     @Override public void onInitialize() {
         CameraDirectorModule.register();
+        LocationCinematicTriggerModule.registerHooks();
         StorySceneVisualBridge.register();
         StorySceneSubtitleBridge.register();
         StoryModule.registerHooks();
@@ -59,6 +61,7 @@ public final class PrideCoreMod implements ModInitializer {
                 LOGGER.info("Pride Core Module 01 service online. Admin writes enabled: {}",
                     config.allowAdminMutations());
                 CameraDirectorModule.start(server);
+                LocationCinematicTriggerModule.start(server);
                 StoryModule.start(server);
             } catch (IOException ex) {
                 activeServer = null;
@@ -69,6 +72,7 @@ public final class PrideCoreMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             StoryModule.stop(server);
+            LocationCinematicTriggerModule.stop();
             CameraDirectorModule.stop();
             if (activeServer == server) {
                 activeServer = null;

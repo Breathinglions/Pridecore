@@ -26,6 +26,8 @@ public final class CameraDirectorModule {
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
     private static Path directory;
     private static MinecraftServer activeServer;
+    private record SceneLease(UUID session, long untilTick) {}
+    private static final Map<UUID, SceneLease> activeCameras = new HashMap<>();
     private static final String DEFAULT_SCENE = "sequoia_lab";
     private CameraDirectorModule() {}
 
@@ -57,11 +59,32 @@ public final class CameraDirectorModule {
         }
     }
 
-    public static void stop() { activeServer = null; directory = null; }
+    public static void stop() {
+        activeCameras.clear();
+        activeServer = null;
+        directory = null;
+    }
+
+    /** Auto-triggers never interrupt an existing cinematic or admin preview. */
+    public static boolean cameraBusy(ServerPlayerEntity viewer) {
+        SceneLease lease = activeCameras.get(viewer.getUuid());
+        return lease != null && activeServer != null
+            && activeServer.getTicks() <= lease.untilTick();
+    }
+
+    /** Non-OP location triggers call this on the server thread, never through commands. */
+    public static boolean playFromLocation(ServerPlayerEntity viewer, String sceneName)
+            throws IOException {
+        if (cameraBusy(viewer)) return false;
+        send(viewer, sceneName, UUID.randomUUID());
+        return true;
+    }
+
 
     public static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> commands() {
         var root = CommandManager.literal("cinema")
             .requires(s -> s.hasPermissionLevel(4));
+        root.then(LocationCinematicTriggerModule.commands());
         root.then(CommandManager.literal("capture")
             .then(CommandManager.argument("scene", StringArgumentType.word())
             .then(CommandManager.argument("shot", StringArgumentType.word())
@@ -151,6 +174,9 @@ public final class CameraDirectorModule {
     }
 
     public static void endBoundScene(ServerPlayerEntity viewer, UUID session) {
+        SceneLease lease = activeCameras.get(viewer.getUuid());
+        if (lease != null && lease.session().equals(session))
+            activeCameras.remove(viewer.getUuid());
         if (ServerPlayNetworking.canSend(viewer, CameraDirectorPayload.ID))
             ServerPlayNetworking.send(viewer, new CameraDirectorPayload(session, true, ""));
     }
@@ -176,6 +202,11 @@ public final class CameraDirectorModule {
             throw new IOException("Viewer too far from first authored camera shot");
         ServerPlayNetworking.send(viewer,
             new CameraDirectorPayload(session, false, JSON.toJson(scene)));
+        int duration = 0;
+        for (JsonElement e : shots)
+            duration += e.getAsJsonObject().get("durationTicks").getAsInt();
+        activeCameras.put(viewer.getUuid(),
+            new SceneLease(session, activeServer.getTicks() + duration + 10L));
     }
 
     private static int capture(ServerCommandSource source, String name, String id) {
