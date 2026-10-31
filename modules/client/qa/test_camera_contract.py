@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile-independent fail-closed contract for Preview7's client-only camera."""
+"""Compile-independent fail-closed contract for Preview8's client-only camera."""
 from pathlib import Path
 import json
 
@@ -9,6 +9,8 @@ controller=(src/"RinCinematicCamera.java").read_text()
 camera=(src/"mixin/CameraMixin.java").read_text()
 hands=(src/"mixin/GameRendererMixin.java").read_text()
 hud=(src/"mixin/CinematicHudMixin.java").read_text()
+held=(src/"mixin/HeldItemRendererMixin.java").read_text()
+chat=(src/"mixin/ChatHudMixin.java").read_text()
 overlay=(src/"RinCinematicDialogueOverlay.java").read_text()
 mod=(src/"PrideScenesClientMod.java").read_text()
 projection=(src/"RinPreviewProjection.java").read_text()
@@ -18,7 +20,7 @@ mixins=json.loads((root/"src/main/resources/pride-scenes-client.mixins.json").re
 assert fabric["environment"] == "client"
 assert fabric["mixins"] == ["pride-scenes-client.mixins.json"]
 assert mixins["required"] is True
-assert mixins["client"] == ["CameraMixin", "GameRendererMixin", "CinematicHudMixin"]
+assert mixins["client"] == ["CameraMixin", "GameRendererMixin", "CinematicHudMixin", "HeldItemRendererMixin", "ChatHudMixin"]
 assert mixins["injectors"]["defaultRequire"] == 1
 assert "@Mixin(Camera.class)" in camera
 assert 'method = "update"' in camera
@@ -37,6 +39,18 @@ assert "DIALOGUE.draw(client, context, true)" in mod
 assert "DIALOGUE_TICKS = 112" in overlay
 assert "client.options.hudHidden && !cinematic" in overlay
 assert "MAX_SCENE_TICKS = 400" in controller
+assert "LAB_CAMERA = new Vec3d(-54.0, 102.0, 3195.0)" in controller
+assert "LAB_YAW_WEST = 90.0F" in controller
+assert "labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA)" in controller
+assert "vanilla.getPos().lerp(LAB_CAMERA, weight)" in controller
+assert "originalHudHidden = client.options.hudHidden" in controller
+assert "client.options.hudHidden = true" in controller
+assert "client.options.hudHidden = originalHudHidden" in controller
+assert "@Mixin(HeldItemRenderer.class)" in held
+assert "renderItem(FLnet/minecraft/client/util/math/MatrixStack;" in held
+assert "@Mixin(ChatHud.class)" in chat
+assert "pride$hideChatDuringScene" in chat
+assert "ci.cancel();" in held and "ci.cancel();" in chat
 assert "professor.getRotationVec(1.0F)" in controller
 assert "professorFrontShot(client, professor, focus, playerEye)" in controller
 for phrase in [
@@ -78,4 +92,4 @@ director=(root.parent/"core/src/main/java/com/prideregion/core/story/StoryPrivat
 assert "MAX_TICKS = 390" in director
 assert 'new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit")' in director
 assert 'new Cue(332, Kind.OPEN_NATIVE_STARTER' in director
-print("PASS: Preview7 render-only owner-scoped camera, cinematic HUD, frontal Sequoia, cleanup, no progression")
+print("PASS: Preview8 authored west-facing lab view, temporary F1, hand/chat suppression, safe restore")

@@ -5,7 +5,9 @@
   "client": [
     "CameraMixin",
     "GameRendererMixin",
-    "CinematicHudMixin"
+    "CinematicHudMixin",
+    "HeldItemRendererMixin",
+    "ChatHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

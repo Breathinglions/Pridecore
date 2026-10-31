@@ -43,6 +43,13 @@ public final class RinCinematicCamera {
     private Vec3d previousLook;
     private Vec3d currentLook;
     private Vec3d lastTarget;
+    private boolean labFixedShot;
+    private Boolean originalHudHidden;
+
+    // Authored Hearthleaf laboratory view. Minecraft yaw +90 faces WEST.
+    private static final Vec3d LAB_CAMERA = new Vec3d(-54.0, 102.0, 3195.0);
+    private static final float LAB_YAW_WEST = 90.0F;
+    private static final float LAB_PITCH = 0.0F;
 
     private static final int FADE_IN = 12;
     private static final int FADE_OUT = 12;
@@ -91,6 +98,11 @@ public final class RinCinematicCamera {
             session = packet.session();
             shot = Shot.ENTRY;
             entryPos = client.player.getPos();
+            Vec3d actorEntry = new Vec3d(packet.x(), packet.y(), packet.z());
+            labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0
+                && actorEntry.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0;
+            originalHudHidden = client.options.hudHidden;
+            client.options.hudHidden = true;
             Vec3d eye = client.player.getEyePos();
             previousPos = eye;
             currentPos = eye;
@@ -137,6 +149,9 @@ public final class RinCinematicCamera {
 
     public void tick(MinecraftClient client) {
         if (world == null || session == null) return;
+        // Some HUD mods update their visibility on a different tick: reapply
+        // the temporary F1 state until the private scene has fully faded out.
+        if (!client.options.hudHidden) client.options.hudHidden = true;
         if (client.world != world || client.player == null
             || !client.player.isAlive() || !projection.hasActor(session)
                && releaseTicks < 0 || entryPos == null
@@ -268,6 +283,17 @@ public final class RinCinematicCamera {
             : MathHelper.clamp((activeTicks - 1 + partial) / FADE_IN, 0, 1);
         weight = weight * weight * (3 - 2 * weight);
         if (weight <= 0.001) return null;
+        if (labFixedShot) {
+            // Fixed camera is render-only: NEVER teleport or rotate the real player.
+            // After REMOVE, weight fades to zero and vanilla resumes the original
+            // player location and orientation automatically.
+            Vec3d blended = vanilla.getPos().lerp(LAB_CAMERA, weight);
+            float blendedYaw = MathHelper.lerpAngleDegrees((float) weight,
+                vanilla.getYaw(), LAB_YAW_WEST);
+            float blendedPitch = MathHelper.lerp((float) weight,
+                vanilla.getPitch(), LAB_PITCH);
+            return new Pose(blended, blendedYaw, blendedPitch);
+        }
         Vec3d position = previousPos.lerp(currentPos, partial);
         Vec3d focus = previousLook.lerp(currentLook, partial);
         Vec3d aim = focus.subtract(position);
@@ -288,6 +314,14 @@ public final class RinCinematicCamera {
     }
 
     public void clear() {
+        // The cinematic must never leave F1 forced on after a disconnect,
+        // dimension swap, camera timeout or native GUI handoff.
+        if (originalHudHidden != null) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null) client.options.hudHidden = originalHudHidden;
+            originalHudHidden = null;
+        }
+        labFixedShot = false;
         world = null;
         session = null;
         entryPos = null;
