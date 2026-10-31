@@ -54,6 +54,9 @@ for entry in data["encounters"]:
         assert set(pokemon) == {"species", "level"}, "No physical combat on Pokémon team members"
         assert re.fullmatch(r"[a-z0-9_-]+", pokemon["species"])
         assert isinstance(pokemon["level"], int) and 1 <= pokemon["level"] <= 100
+# Opening rival battle is one starter, not a midgame 2-Pokemon level-9 fight.
+rin_first = next(e for e in data["encounters"] if e["id"] == "rin_route1")
+assert rin_first["team"] == [{"species": "sprigatito", "level": 6}]
 # Rival continuity: single character, growing team, increasing progression gate.
 rivals = [next(e for e in data["encounters"] if e["id"] == battle)
           for battle in ("rin_route1", "rin_canyon", "rin_summit")]
