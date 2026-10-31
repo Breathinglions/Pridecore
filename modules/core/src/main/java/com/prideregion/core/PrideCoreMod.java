@@ -3,6 +3,7 @@ package com.prideregion.core;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.story.StoryModule;
 import com.prideregion.core.story.StorySceneVisualBridge;
+import com.prideregion.core.story.StorySceneSubtitleBridge;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
