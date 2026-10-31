@@ -25,16 +25,19 @@ jobs:
         run: gradle --no-daemon clean build
       - name: Validate client entrypoint and protocol class
         run: |
-          test -s modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx fabric.mod.json
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx com/prideregion/scenes/client/RinPreviewProjection.class
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx com/prideregion/scenes/client/ClientSceneVisualPayload.class
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx com/prideregion/scenes/client/RinPreviewPlayerEntity.class
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx assets/pride_scenes_client/textures/entity/rin.png
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx com/prideregion/scenes/client/ClientSceneSubtitlePayload.class
-          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar | grep -Fx com/prideregion/scenes/client/RinCinematicDialogueOverlay.class
+          test -s modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx fabric.mod.json
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinPreviewProjection.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/ClientSceneVisualPayload.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinPreviewPlayerEntity.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx assets/pride_scenes_client/textures/entity/rin.png
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/ClientSceneSubtitlePayload.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinCinematicDialogueOverlay.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/RinCinematicCamera.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx com/prideregion/scenes/client/mixin/CameraMixin.class
+          jar tf modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar | grep -Fx pride-scenes-client.mixins.json
       - uses: actions/upload-artifact@v4
         with:
           name: Pride-Scenes-Client-Staging-Fabric-1.21.1
-          path: modules/client/build/libs/pride-scenes-client-0.1.0-preview5.jar
+          path: modules/client/build/libs/pride-scenes-client-0.1.0-preview6.jar
           if-no-files-found: error
