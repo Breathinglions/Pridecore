@@ -4,6 +4,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.hit.HitResult;
@@ -44,10 +45,14 @@ public final class RinCinematicCamera {
     private Vec3d currentLook;
     private Vec3d lastTarget;
     private boolean labFixedShot;
+    private Vec3d labCameraPosition;
     private Boolean originalHudHidden;
 
-    // Authored Hearthleaf laboratory view. Minecraft yaw +90 faces WEST.
-    private static final Vec3d LAB_CAMERA = new Vec3d(-54.0, 102.0, 3195.0);
+    // Coordinates are the standing BLOCK specified by the builder, not the
+    // camera's eye position. Render at eye-height in that block, at its center.
+    // +90 yaw is west in Minecraft's coordinate system.
+    private static final BlockPos LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195);
+    private static final Vec3d LAB_CAMERA = new Vec3d(-53.5, 103.62, 3195.5);
     private static final float LAB_YAW_WEST = 90.0F;
     private static final float LAB_PITCH = 0.0F;
 
@@ -101,6 +106,10 @@ public final class RinCinematicCamera {
             Vec3d actorEntry = new Vec3d(packet.x(), packet.y(), packet.z());
             labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0
                 && actorEntry.squaredDistanceTo(LAB_CAMERA) < 28.0 * 28.0;
+            // Validate the fixed camera before activating it. If the authored
+            // location is blocked by lab furniture, use a nearby clear point.
+            // Never render inside blocks or move the real player.
+            labCameraPosition = labFixedShot ? findSafeLabCamera(client) : null;
             originalHudHidden = client.options.hudHidden;
             client.options.hudHidden = true;
             Vec3d eye = client.player.getEyePos();
@@ -233,6 +242,54 @@ public final class RinCinematicCamera {
         lastTarget = focus;
     }
 
+    /**
+     * Respect the authored west-facing lab shot but never let the camera sit
+     * inside terrain. In particular Y=102 is a FEET/block coordinate: using
+     * it literally as a camera-eye coordinate cuts through the floor.
+     * Scan only nearby positions, with no runtime camera orbit or wall lerp.
+     */
+    private Vec3d findSafeLabCamera(MinecraftClient client) {
+        if (client.world == null || client.player == null) return null;
+        double[][] offsets = {
+            {0, 0, 0}, {0, 0.35, 0}, {0, -0.35, 0},
+            {0, 0, 0.5}, {0, 0, -0.5}, {0.5, 0, 0}, {-0.5, 0, 0},
+            {0.5, 0, 0.5}, {0.5, 0, -0.5}, {-0.5, 0, 0.5}, {-0.5, 0, -0.5},
+            {0, 0.7, 0}, {0, 0, 1.0}, {0, 0, -1.0}
+        };
+        for (double[] offset : offsets) {
+            Vec3d candidate = LAB_CAMERA.add(offset[0], offset[1], offset[2]);
+            if (candidate.squaredDistanceTo(client.player.getEyePos()) > 15 * 15)
+                continue;
+            if (cameraSpaceClear(client, candidate)) return candidate;
+        }
+        org.slf4j.LoggerFactory.getLogger("PrideScenesCamera")
+            .warn("Fixed Lab camera in block {} has no unobstructed west view; "
+                + "keeping player's vanilla camera for this scene", LAB_CAMERA_BLOCK);
+        return null;
+    }
+
+    private boolean cameraSpaceClear(MinecraftClient client, Vec3d point) {
+        if (client.world == null) return false;
+        // Reject positions touching blocks (including furniture and wall
+        // edges). The point alone may be clear even when its near plane clips.
+        for (double x : new double[]{-0.22, 0.22}) {
+            for (double y : new double[]{-0.2, 0.2}) {
+                for (double z : new double[]{-0.22, 0.22}) {
+                    BlockPos block = BlockPos.ofFloored(point.add(x, y, z));
+                    if (!client.world.getBlockState(block)
+                        .getCollisionShape(client.world, block).isEmpty()) return false;
+                }
+            }
+        }
+        // Check the first two blocks WEST, exactly where the camera points.
+        // A blocked sightline should not produce a giant wall close-up.
+        var hit = client.world.raycast(new RaycastContext(
+            point, point.add(-2.0, 0, 0),
+            RaycastContext.ShapeType.COLLIDER,
+            RaycastContext.FluidHandling.NONE, client.player));
+        return hit.getType() == HitResult.Type.MISS;
+    }
+
     private Entity sequoiaEntity(MinecraftClient client) {
         if (client.world == null || client.player == null) return null;
         return client.world.getOtherEntities(client.player,
@@ -284,15 +341,11 @@ public final class RinCinematicCamera {
         weight = weight * weight * (3 - 2 * weight);
         if (weight <= 0.001) return null;
         if (labFixedShot) {
-            // Fixed camera is render-only: NEVER teleport or rotate the real player.
-            // After REMOVE, weight fades to zero and vanilla resumes the original
-            // player location and orientation automatically.
-            Vec3d blended = vanilla.getPos().lerp(LAB_CAMERA, weight);
-            float blendedYaw = MathHelper.lerpAngleDegrees((float) weight,
-                vanilla.getYaw(), LAB_YAW_WEST);
-            float blendedPitch = MathHelper.lerp((float) weight,
-                vanilla.getPitch(), LAB_PITCH);
-            return new Pose(blended, blendedYaw, blendedPitch);
+            // Never interpolate through lab walls/floor. Use a clean cut into
+            // a collision-tested shot, and instantly restore vanilla view on
+            // REMOVE; no actual player move or orientation change is made.
+            if (releaseTicks >= 0 || labCameraPosition == null) return null;
+            return new Pose(labCameraPosition, LAB_YAW_WEST, LAB_PITCH);
         }
         Vec3d position = previousPos.lerp(currentPos, partial);
         Vec3d focus = previousLook.lerp(currentLook, partial);
@@ -322,6 +375,7 @@ public final class RinCinematicCamera {
             originalHudHidden = null;
         }
         labFixedShot = false;
+        labCameraPosition = null;
         world = null;
         session = null;
         entryPos = null;

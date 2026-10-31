@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile-independent fail-closed contract for Preview8's client-only camera."""
+"""Compile-independent fail-closed contract for Preview9's client-only camera."""
 from pathlib import Path
 import json
 
@@ -39,10 +39,18 @@ assert "DIALOGUE.draw(client, context, true)" in mod
 assert "DIALOGUE_TICKS = 112" in overlay
 assert "client.options.hudHidden && !cinematic" in overlay
 assert "MAX_SCENE_TICKS = 400" in controller
-assert "LAB_CAMERA = new Vec3d(-54.0, 102.0, 3195.0)" in controller
+assert "LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195)" in controller
+assert "LAB_CAMERA = new Vec3d(-53.5, 103.62, 3195.5)" in controller
 assert "LAB_YAW_WEST = 90.0F" in controller
 assert "labFixedShot = entryPos.squaredDistanceTo(LAB_CAMERA)" in controller
-assert "vanilla.getPos().lerp(LAB_CAMERA, weight)" in controller
+assert "return new Pose(labCameraPosition, LAB_YAW_WEST, LAB_PITCH)" in controller
+assert "if (releaseTicks >= 0 || labCameraPosition == null) return null;" in controller
+assert "findSafeLabCamera(client)" in controller
+assert "cameraSpaceClear(client, candidate)" in controller
+assert "getCollisionShape(client.world, block).isEmpty()" in controller
+assert "point.add(-2.0, 0, 0)" in controller
+assert "labCameraPosition = null" in controller
+assert "vanilla.getPos().lerp(LAB_CAMERA, weight)" not in controller
 assert "originalHudHidden = client.options.hudHidden" in controller
 assert "client.options.hudHidden = true" in controller
 assert "client.options.hudHidden = originalHudHidden" in controller
@@ -92,4 +100,4 @@ director=(root.parent/"core/src/main/java/com/prideregion/core/story/StoryPrivat
 assert "MAX_TICKS = 390" in director
 assert 'new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit")' in director
 assert 'new Cue(332, Kind.OPEN_NATIVE_STARTER' in director
-print("PASS: Preview8 authored west-facing lab view, temporary F1, hand/chat suppression, safe restore")
+print("PASS: Preview9 west lab eye-height, collision-safe fixed shot, no through-wall lerp, native return")
