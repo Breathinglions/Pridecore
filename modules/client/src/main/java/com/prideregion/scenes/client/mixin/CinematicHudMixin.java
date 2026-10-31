@@ -18,7 +18,7 @@ public abstract class CinematicHudMixin {
     private void pride$cinematicHud(DrawContext context, RenderTickCounter ticks,
                                     CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!PrideScenesClientMod.camera().suppressHud(client)) return;
+        if (!PrideScenesClientMod.cinematicActive(client)) return;
         PrideScenesClientMod.renderCinematicDialogue(client, context);
         ci.cancel();
     }

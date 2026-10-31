@@ -20,8 +20,15 @@ public final class PrideScenesClientMod implements ClientModInitializer {
     private static final RinPreviewProjection PROJECTION = new RinPreviewProjection();
     private static final RinCinematicDialogueOverlay DIALOGUE = new RinCinematicDialogueOverlay();
     private static final RinCinematicCamera CAMERA = new RinCinematicCamera(PROJECTION);
+    private static final ClientCameraDirector DIRECTOR = new ClientCameraDirector(PROJECTION);
 
     public static RinCinematicCamera camera() { return CAMERA; }
+    public static boolean cinematicActive(MinecraftClient client) {
+        return DIRECTOR.active(client) || CAMERA.suppressHud(client);
+    }
+    public static RinCinematicCamera.Pose directorPose(MinecraftClient client, float partial) {
+        return DIRECTOR.renderPose(client, partial);
+    }
 
     /** Draw Pride dialogue even with vanilla HUD suppressed for cinema. */
     public static void renderCinematicDialogue(MinecraftClient client, DrawContext context) {
@@ -29,6 +36,13 @@ public final class PrideScenesClientMod implements ClientModInitializer {
     }
 
     @Override public void onInitializeClient() {
+        PayloadTypeRegistry.playS2C().register(
+            ClientCameraDirectorPayload.ID, ClientCameraDirectorPayload.CODEC);
+        ClientPlayNetworking.registerGlobalReceiver(ClientCameraDirectorPayload.ID,
+            (payload, context) -> context.client().execute(() -> {
+                if (!payload.stop()) CAMERA.clear();
+                DIRECTOR.accept(context.client(), payload);
+            }));
         PayloadTypeRegistry.playS2C().register(
             ClientSceneVisualPayload.ID, ClientSceneVisualPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(
@@ -54,6 +68,7 @@ public final class PrideScenesClientMod implements ClientModInitializer {
             ClientSceneVisualPayload.ID, receiverRegistered);
         ClientTickEvents.END_CLIENT_TICK.register(PROJECTION::tick);
         ClientTickEvents.END_CLIENT_TICK.register(CAMERA::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(DIRECTOR::tick);
         ClientTickEvents.END_CLIENT_TICK.register(DIALOGUE::tick);
         HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
             DIALOGUE.draw(MinecraftClient.getInstance(), drawContext, false));
@@ -62,6 +77,7 @@ public final class PrideScenesClientMod implements ClientModInitializer {
                 PROJECTION.clear();
                 DIALOGUE.clear();
                 CAMERA.clear();
+                DIRECTOR.clear();
             }));
     }
 }

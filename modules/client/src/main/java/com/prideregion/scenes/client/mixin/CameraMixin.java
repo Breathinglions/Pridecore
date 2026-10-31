@@ -26,8 +26,10 @@ public abstract class CameraMixin {
                               boolean thirdPerson, boolean inverseView,
                               float tickDelta, CallbackInfo ci) {
         Camera original = (Camera)(Object)this;
-        var pose = PrideScenesClientMod.camera().renderPose(
-            MinecraftClient.getInstance(), original, tickDelta);
+        var pose = PrideScenesClientMod.directorPose(MinecraftClient.getInstance(), tickDelta);
+        if (pose == null)
+            pose = PrideScenesClientMod.camera().renderPose(
+                MinecraftClient.getInstance(), original, tickDelta);
         if (pose == null) return;
         setPos(pose.position().x, pose.position().y, pose.position().z);
         setRotation(pose.yaw(), pose.pitch());

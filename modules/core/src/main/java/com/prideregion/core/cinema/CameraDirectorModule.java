@@ -1,0 +1,350 @@
+package com.prideregion.core.cinema;
+
+import com.google.gson.*;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.CommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.minecraft.util.WorldSavePath;
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.*;
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+
+/**
+ * Server-owned scene authoring and playback. No commands mutate profiles,
+ * inventories, NPCs, battles or real player camera positions.
+ */
+public final class CameraDirectorModule {
+    private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
+    private static Path directory;
+    private static MinecraftServer activeServer;
+    private static final String DEFAULT_SCENE = "sequoia_lab";
+    private CameraDirectorModule() {}
+
+    public static void register() {
+        PayloadTypeRegistry.playS2C().register(CameraDirectorPayload.ID, CameraDirectorPayload.CODEC);
+    }
+
+    public static void start(MinecraftServer server) throws IOException {
+        activeServer = server;
+        directory = server.getSavePath(WorldSavePath.ROOT)
+            .resolve("data").resolve("pride_core").resolve("cinematics");
+        Files.createDirectories(directory);
+        Path sample = scenePath(DEFAULT_SCENE);
+        if (!Files.exists(sample)) {
+            JsonObject scene = newScene(DEFAULT_SCENE, "minecraft:overworld");
+            JsonArray shots = scene.getAsJsonArray("shots");
+            // Long-form laboratory scene: follow Rin from the door, settle
+            // into the approved west-facing camera and keep it for dialogue.
+            JsonObject entrance = shot("rin_entrance", -53.5, 103.62, 3195.5, 90, 0, 88, 0);
+            entrance.addProperty("target", "rin");
+            entrance.addProperty("mode", "follow");
+            entrance.addProperty("offsetX", 1.5);
+            entrance.addProperty("offsetY", 1.6);
+            entrance.addProperty("offsetZ", 2.0);
+            shots.add(entrance);
+            shots.add(shot("sequoia_dialogue", -53.5, 103.62, 3195.5, 90, 0, 244, 26));
+            save(DEFAULT_SCENE, scene);
+        }
+    }
+
+    public static void stop() { activeServer = null; directory = null; }
+
+    public static com.mojang.brigadier.builder.LiteralArgumentBuilder<ServerCommandSource> commands() {
+        var root = CommandManager.literal("cinema")
+            .requires(s -> s.hasPermissionLevel(4));
+        root.then(CommandManager.literal("capture")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .executes(c -> capture(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"))))));
+        root.then(CommandManager.literal("preview")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .executes(c -> preview(c.getSource(), StringArgumentType.getString(c, "scene")))));
+        root.then(CommandManager.literal("list")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .executes(c -> list(c.getSource(), StringArgumentType.getString(c, "scene")))));
+        root.then(CommandManager.literal("timing")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .then(CommandManager.argument("duration", IntegerArgumentType.integer(1, 1200))
+            .then(CommandManager.argument("transition", IntegerArgumentType.integer(0, 120))
+            .executes(c -> timing(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"),
+                IntegerArgumentType.getInteger(c, "duration"),
+                IntegerArgumentType.getInteger(c, "transition"))))))));
+        root.then(CommandManager.literal("follow")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .then(CommandManager.argument("target", StringArgumentType.word())
+            .executes(c -> follow(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"),
+                StringArgumentType.getString(c, "target")))))));
+        root.then(CommandManager.literal("static")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .executes(c -> follow(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"), "none")))));
+        root.then(CommandManager.literal("delete-shot")
+            .then(CommandManager.argument("scene", StringArgumentType.word())
+            .then(CommandManager.argument("shot", StringArgumentType.word())
+            .executes(c -> delete(c.getSource(),
+                StringArgumentType.getString(c, "scene"),
+                StringArgumentType.getString(c, "shot"))))));
+        return root;
+    }
+
+    /** Called only when an actual, owner-validated Rin lab actor ENTER is emitted. */
+    public static void startLabScene(ServerPlayerEntity viewer, UUID session) {
+        try {
+            send(viewer, DEFAULT_SCENE, session);
+        } catch (IOException | IllegalArgumentException ex) {
+            // Fallback is the already-working client scene, not an NPC/progression change.
+            org.slf4j.LoggerFactory.getLogger("PrideCameraDirector")
+                .warn("Lab cinematic overlay unavailable: {}", ex.toString());
+        }
+    }
+
+    public static void endLabScene(ServerPlayerEntity viewer, UUID session) {
+        if (ServerPlayNetworking.canSend(viewer, CameraDirectorPayload.ID))
+            ServerPlayNetworking.send(viewer, new CameraDirectorPayload(session, true, ""));
+    }
+
+    private static void send(ServerPlayerEntity viewer, String name, UUID session)
+            throws IOException {
+        if (activeServer == null || !ServerPlayNetworking.canSend(viewer, CameraDirectorPayload.ID))
+            throw new IOException("Client Camera Director channel unavailable");
+        JsonObject scene = load(name);
+        String world = viewer.getWorld().getRegistryKey().getValue().toString();
+        if (!world.equals(scene.get("dimension").getAsString()))
+            throw new IOException("Scene dimension " + scene.get("dimension").getAsString()
+                + " differs from your current world " + world);
+        JsonArray shots = scene.getAsJsonArray("shots");
+        if (shots.isEmpty()) throw new IOException("Scene has no shots");
+        // Require a nearby operator/viewer; no silent distant surveillance camera.
+        JsonObject first = shots.get(0).getAsJsonObject();
+        double dx = viewer.getX() - first.get("x").getAsDouble();
+        double dy = viewer.getEyeY() - first.get("y").getAsDouble();
+        double dz = viewer.getZ() - first.get("z").getAsDouble();
+        if (dx * dx + dy * dy + dz * dz > 128 * 128)
+            throw new IOException("Viewer too far from first authored camera shot");
+        ServerPlayNetworking.send(viewer,
+            new CameraDirectorPayload(session, false, JSON.toJson(scene)));
+    }
+
+    private static int capture(ServerCommandSource source, String name, String id) {
+        try {
+            validateId(name); validateId(id);
+            ServerPlayerEntity player = source.getPlayerOrThrow();
+            String dimension = player.getWorld().getRegistryKey().getValue().toString();
+            JsonObject scene = Files.exists(scenePath(name)) ? load(name) : newScene(name, dimension);
+            if (!dimension.equals(scene.get("dimension").getAsString()))
+                throw new IOException("Scene is in a different dimension");
+            JsonObject captured = shot(id,
+                player.getX(), player.getEyeY(), player.getZ(),
+                player.getYaw(), player.getPitch(), 60, 20);
+            JsonArray shots = scene.getAsJsonArray("shots");
+            JsonArray replaced = new JsonArray();
+            boolean found = false;
+            for (JsonElement s : shots) {
+                if (s.getAsJsonObject().get("id").getAsString().equals(id)) {
+                    replaced.add(captured); found = true;
+                } else replaced.add(s);
+            }
+            if (!found) replaced.add(captured);
+            scene.add("shots", replaced);
+            save(name, scene);
+            return ok(source, "Captured shot " + name + "/" + id
+                + " (" + (found ? "replaced" : "appended") + "). Preview: /pridecore cinema preview " + name);
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int timing(ServerCommandSource source, String name, String id,
+                              int duration, int transition) {
+        try {
+            JsonObject scene = load(name);
+            JsonObject s = requireShot(scene, id);
+            s.addProperty("durationTicks", duration);
+            s.addProperty("transitionTicks", Math.min(transition, duration));
+            save(name, scene);
+            return ok(source, name + "/" + id + " duration=" + duration
+                + " ticks, transition=" + Math.min(transition, duration) + " ticks");
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int follow(ServerCommandSource source, String name, String id, String target) {
+        try {
+            JsonObject scene = load(name);
+            JsonObject s = requireShot(scene, id);
+            if (target.length() > 48 || !target.matches("[A-Za-z0-9_:-]+"))
+                throw new IllegalArgumentException("Target must be an entity name, tag:... or rin");
+            s.addProperty("mode", target.equals("none") ? "static" : "follow");
+            s.addProperty("target", target);
+            save(name, scene);
+            return ok(source, name + "/" + id + " camera target=" + target);
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int delete(ServerCommandSource source, String name, String id) {
+        try {
+            JsonObject scene = load(name);
+            JsonArray replaced = new JsonArray();
+            for (JsonElement s : scene.getAsJsonArray("shots"))
+                if (!s.getAsJsonObject().get("id").getAsString().equals(id))
+                    replaced.add(s);
+            if (replaced.size() == scene.getAsJsonArray("shots").size())
+                throw new IllegalArgumentException("Unknown shot " + id);
+            scene.add("shots", replaced);
+            save(name, scene);
+            return ok(source, "Removed " + id + " from " + name);
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int list(ServerCommandSource source, String name) {
+        try {
+            JsonObject scene = load(name);
+            StringBuilder out = new StringBuilder(name + " ["
+                + scene.get("dimension").getAsString() + "]: ");
+            for (JsonElement shot : scene.getAsJsonArray("shots")) {
+                JsonObject s = shot.getAsJsonObject();
+                out.append(s.get("id").getAsString()).append("(")
+                   .append(s.get("durationTicks").getAsInt()).append("t,")
+                   .append(s.get("mode").getAsString()).append(") ");
+            }
+            return ok(source, out.toString());
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static int preview(ServerCommandSource source, String name) {
+        try {
+            ServerPlayerEntity viewer = source.getPlayerOrThrow();
+            send(viewer, name, UUID.randomUUID());
+            return ok(source, "Previewing " + name + " privately. No progression/rewards modified.");
+        } catch (Exception ex) { return error(source, ex); }
+    }
+
+    private static JsonObject newScene(String name, String dimension) {
+        JsonObject scene = new JsonObject();
+        scene.addProperty("schema", 1);
+        scene.addProperty("name", name);
+        scene.addProperty("dimension", dimension);
+        scene.add("shots", new JsonArray());
+        return scene;
+    }
+
+    private static JsonObject shot(String id, double x, double y, double z,
+                                   double yaw, double pitch, int duration, int transition) {
+        JsonObject s = new JsonObject();
+        s.addProperty("id", id);
+        s.addProperty("x", x);
+        s.addProperty("y", y);
+        s.addProperty("z", z);
+        s.addProperty("yaw", yaw);
+        s.addProperty("pitch", pitch);
+        s.addProperty("durationTicks", duration);
+        s.addProperty("transitionTicks", transition);
+        s.addProperty("mode", "static");
+        s.addProperty("target", "none");
+        s.addProperty("offsetX", 1.5);
+        s.addProperty("offsetY", 1.6);
+        s.addProperty("offsetZ", 2.0);
+        return s;
+    }
+
+    private static JsonObject requireShot(JsonObject scene, String id) {
+        validateId(id);
+        for (JsonElement s : scene.getAsJsonArray("shots"))
+            if (s.getAsJsonObject().get("id").getAsString().equals(id))
+                return s.getAsJsonObject();
+        throw new IllegalArgumentException("Unknown shot " + id);
+    }
+
+    private static Path scenePath(String name) {
+        validateId(name);
+        if (directory == null) throw new IllegalStateException("Camera Director not started");
+        return directory.resolve(name + ".json");
+    }
+
+    private static void validateId(String name) {
+        if (name == null || !name.matches("[a-z0-9_-]{1,48}"))
+            throw new IllegalArgumentException("Use lowercase a-z, 0-9, _ or -, maximum 48 characters");
+    }
+
+    private static JsonObject load(String name) throws IOException {
+        Path file = scenePath(name);
+        if (!Files.isRegularFile(file)) throw new IOException("Unknown scene " + name);
+        JsonObject scene;
+        try { scene = JsonParser.parseString(Files.readString(file)).getAsJsonObject(); }
+        catch (RuntimeException ex) { throw new IOException("Invalid scene JSON", ex); }
+        validate(name, scene);
+        return scene;
+    }
+
+    private static void save(String name, JsonObject scene) throws IOException {
+        validate(name, scene);
+        Path file = scenePath(name);
+        Path tmp = Files.createTempFile(directory, name + "-", ".tmp");
+        try {
+            Files.writeString(tmp, JSON.toJson(scene));
+            try { Files.move(tmp, file, ATOMIC_MOVE, REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException ex) { Files.move(tmp, file, REPLACE_EXISTING); }
+        } finally { Files.deleteIfExists(tmp); }
+    }
+
+    private static void validate(String name, JsonObject scene) {
+        if (!name.equals(scene.get("name").getAsString()))
+            throw new IllegalArgumentException("Scene name does not match file");
+        String dim = scene.get("dimension").getAsString();
+        if (!dim.matches("[a-z0-9_./-]+:[a-z0-9_./-]+") || dim.length() > 100)
+            throw new IllegalArgumentException("Invalid scene dimension");
+        JsonArray shots = scene.getAsJsonArray("shots");
+        if (shots == null || shots.size() > 32)
+            throw new IllegalArgumentException("Maximum 32 camera shots");
+        HashSet<String> ids = new HashSet<>();
+        int total = 0;
+        for (JsonElement item : shots) {
+            JsonObject s = item.getAsJsonObject();
+            validateId(s.get("id").getAsString());
+            if (!ids.add(s.get("id").getAsString()))
+                throw new IllegalArgumentException("Duplicate camera shot");
+            for (String field : List.of("x", "y", "z", "yaw", "pitch", "offsetX", "offsetY", "offsetZ"))
+                if (!Double.isFinite(s.get(field).getAsDouble()))
+                    throw new IllegalArgumentException("Non-finite camera field " + field);
+            if (Math.abs(s.get("x").getAsDouble()) > 29_999_984
+                || Math.abs(s.get("z").getAsDouble()) > 29_999_984
+                || s.get("y").getAsDouble() < -64 || s.get("y").getAsDouble() > 1024)
+                throw new IllegalArgumentException("Camera coordinates outside world");
+            int duration = s.get("durationTicks").getAsInt();
+            int transition = s.get("transitionTicks").getAsInt();
+            if (duration < 1 || duration > 1200 || transition < 0 || transition > duration)
+                throw new IllegalArgumentException("Invalid shot timing");
+            total += duration;
+            if (total > 2400) throw new IllegalArgumentException("Maximum scene duration 120 seconds");
+            String mode = s.get("mode").getAsString();
+            if (!mode.equals("follow") && !mode.equals("static"))
+                throw new IllegalArgumentException("Camera mode must be static or follow");
+            if (s.get("target").getAsString().length() > 48)
+                throw new IllegalArgumentException("Camera target too long");
+        }
+        if (JSON.toJson(scene).length() > 24_000)
+            throw new IllegalArgumentException("Scene file too large");
+    }
+
+    private static int ok(ServerCommandSource source, String text) {
+        source.sendFeedback(() -> Text.literal(text), false); return 1;
+    }
+    private static int error(ServerCommandSource source, Exception ex) {
+        source.sendError(Text.literal("Cinematic Director: " + ex.getMessage())); return 0;
+    }
+}

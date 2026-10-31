@@ -1,5 +1,7 @@
 package com.prideregion.core.story;
 
+import com.prideregion.core.cinema.CameraDirectorModule;
+
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -118,6 +120,14 @@ public final class StorySceneVisualBridge {
         };
         ServerPlayNetworking.send(viewer, new StorySceneVisualPayload(cue.session(), action,
             point.x(), point.y(), point.z()));
+        // Camera Director overlays ONLY the validated private Lab scene.
+        // Native Rin actor and starter handoff remain the original authority.
+        if (cue.scene() == StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO) {
+            if (action == StorySceneVisualPayload.Action.ENTER)
+                CameraDirectorModule.startLabScene(viewer, cue.session());
+            else if (action == StorySceneVisualPayload.Action.REMOVE)
+                CameraDirectorModule.endLabScene(viewer, cue.session());
+        }
         return true;
     }
 }

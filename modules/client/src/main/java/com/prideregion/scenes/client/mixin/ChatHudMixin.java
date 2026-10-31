@@ -15,7 +15,7 @@ public abstract class ChatHudMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void pride$hideChatDuringScene(DrawContext context, int tick,
             int mouseX, int mouseY, boolean focused, CallbackInfo ci) {
-        if (PrideScenesClientMod.camera().suppressHud(MinecraftClient.getInstance()))
+        if (PrideScenesClientMod.cinematicActive(MinecraftClient.getInstance()))
             ci.cancel();
     }
 }

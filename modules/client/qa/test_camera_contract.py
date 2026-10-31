@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile-independent fail-closed contract for Preview10's client-only camera."""
+"""Compile-independent fail-closed contract for Preview11's client-only camera."""
 from pathlib import Path
 import json
 
@@ -30,16 +30,27 @@ assert "PrideScenesClientMod.camera().renderPose(" in camera
 assert "setPos(pose.position().x, pose.position().y, pose.position().z)" in camera
 assert "setRotation(pose.yaw(), pose.pitch())" in camera
 assert '@Inject(method = "renderHand"' in hands
-assert "PrideScenesClientMod.camera().suppressHud(MinecraftClient.getInstance())" in hands
+assert "PrideScenesClientMod.cinematicActive(MinecraftClient.getInstance())" in hands
 assert "@Mixin(InGameHud.class)" in hud
 assert '@Inject(method = "render", at = @At("HEAD"), cancellable = true)' in hud
-assert "PrideScenesClientMod.camera().suppressHud(client)" in hud
+assert "PrideScenesClientMod.cinematicActive(client)" in hud
 assert "PrideScenesClientMod.renderCinematicDialogue(client, context)" in hud
 assert "ci.cancel();" in hud
 assert "DIALOGUE.draw(client, context, true)" in mod
 assert "DIALOGUE_TICKS = 112" in overlay
 assert "client.options.hudHidden && !cinematic" in overlay
 assert "MAX_SCENE_TICKS = 400" in controller
+director=(src/"ClientCameraDirector.java").read_text()
+packet=(src/"ClientCameraDirectorPayload.java").read_text()
+assert 'Identifier.of("pridecore", "camera_director_v1")' in packet
+assert 'DIRECTOR.accept(context.client(), payload)' in mod
+assert 'ClientTickEvents.END_CLIENT_TICK.register(DIRECTOR::tick)' in mod
+assert 'PrideScenesClientMod.directorPose(' in camera
+assert 'DIRECTOR.active(client) || CAMERA.suppressHud(client)' in mod
+assert 'cameraPositionClear' in controller or 'cameraSpaceClear' in controller
+assert 'segmentClear(client, currentFrame.pos(), point)' in director
+assert 'JsonParser.parseString(packet.sceneJson())' in director
+assert 'client.options.hudHidden = originalHudHidden' in director
 assert "LAB_CAMERA_BLOCK = new BlockPos(-54, 102, 3195)" in controller
 assert "LAB_CAMERA = new Vec3d(-53.5, 103.62, 3195.5)" in controller
 assert "LAB_YAW_WEST = 90.0F" in controller
@@ -118,4 +129,4 @@ director=(root.parent/"core/src/main/java/com/prideregion/core/story/StoryPrivat
 assert "MAX_TICKS = 390" in director
 assert 'new Cue(290, Kind.ACTOR_MOVE, "Rin", "", "lab_exit")' in director
 assert 'new Cue(332, Kind.OPEN_NATIVE_STARTER' in director
-print("PASS: Preview10 configurable client follow-Rin camera, eased safe settle, HUD and return")
+print("PASS: Preview11 scene Director, client-owned safe camera, legacy follow-Rin, HUD")

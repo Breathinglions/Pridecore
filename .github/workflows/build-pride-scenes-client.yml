@@ -22,6 +22,8 @@ jobs:
         run: python3 modules/core/qa/test_private_scene_wire.py
       - name: Verify render-only cinematic camera contract
         run: python3 modules/client/qa/test_camera_contract.py
+      - name: Verify server/client Cinematic Director packet and safety
+        run: python3 modules/core/qa/test_camera_director_contract.py
       - name: Compile optional Fabric client preview JAR
         working-directory: modules/client
         run: gradle --no-daemon clean build

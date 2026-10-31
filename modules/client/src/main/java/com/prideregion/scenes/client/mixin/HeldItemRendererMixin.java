@@ -20,7 +20,7 @@ public abstract class HeldItemRendererMixin {
     private void pride$hideFirstPersonItem(float tickDelta, MatrixStack matrices,
             VertexConsumerProvider.Immediate consumers, ClientPlayerEntity player,
             int light, CallbackInfo ci) {
-        if (PrideScenesClientMod.camera().suppressHud(MinecraftClient.getInstance()))
+        if (PrideScenesClientMod.cinematicActive(MinecraftClient.getInstance()))
             ci.cancel();
     }
 }
