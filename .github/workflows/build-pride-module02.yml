@@ -46,6 +46,8 @@ jobs:
         run: python3 modules/core/qa/test_staging_sequoia_demo.py
       - name: Validate authored Module 02 encounter rosters
         run: python3 modules/core/qa/test_story_battle_rosters.py
+      - name: Verify secure NPC skin resource-pack export contract
+        run: python3 modules/core/qa/test_npc_skin_manager_contract.py
       - name: Compile, test config upgrades and remap Fabric mod
         working-directory: modules/core
         run: gradle --no-daemon clean build
@@ -63,6 +65,7 @@ jobs:
           jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'fabric.mod.json'
           jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'com/prideregion/core/story/StoryModule.class'
           jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'com/prideregion/core/cinema/LocationCinematicTriggerModule.class'
+          jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'com/prideregion/core/npc/NpcSkinManager.class'
           jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'story/default.json'
           jar tf modules/core/build/libs/pride-core-0.4.3-rc1.jar | grep -Fx 'com/prideregion/core/story/NativeNpcIdentity.class'
       - uses: actions/upload-artifact@v4

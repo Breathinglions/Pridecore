@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.prideregion.core.story.StoryModule;
 import com.prideregion.core.cinema.CameraDirectorModule;
 import com.prideregion.core.cinema.LocationCinematicTriggerModule;
+import com.prideregion.core.npc.NpcSkinManager;
 import com.prideregion.core.story.StorySceneVisualBridge;
 import com.prideregion.core.story.StorySceneSubtitleBridge;
 import net.fabricmc.api.ModInitializer;
@@ -62,6 +63,7 @@ public final class PrideCoreMod implements ModInitializer {
                     config.allowAdminMutations());
                 CameraDirectorModule.start(server);
                 LocationCinematicTriggerModule.start(server);
+                NpcSkinManager.start();
                 StoryModule.start(server);
             } catch (IOException ex) {
                 activeServer = null;
@@ -72,6 +74,7 @@ public final class PrideCoreMod implements ModInitializer {
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             StoryModule.stop(server);
+            NpcSkinManager.stop();
             LocationCinematicTriggerModule.stop();
             CameraDirectorModule.stop();
             if (activeServer == server) {
@@ -133,7 +136,7 @@ public final class PrideCoreMod implements ModInitializer {
                 .then(CommandManager.literal("reload")
                     .requires(source -> source.hasPermissionLevel(4))
                     .executes(ctx -> reloadOnboarding(ctx.getSource()))));
-            dispatcher.register(root.then(admin).then(StoryModule.commands()).then(CameraDirectorModule.commands()));
+            dispatcher.register(root.then(admin).then(StoryModule.commands()).then(CameraDirectorModule.commands()).then(NpcSkinManager.commands()));
         });
     }
 
