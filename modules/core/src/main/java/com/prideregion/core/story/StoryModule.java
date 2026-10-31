@@ -83,6 +83,14 @@ public final class StoryModule {
     // Only explicitly validated Sequoia interactions are allowed to consume
     // the scene's single-use native starter continuation. OP previews stay inert.
     private static final Map<UUID, UUID> VERIFIED_LAB_SCENES = new HashMap<>();
+    // Admin-only, non-mutating Lab demonstration. This is deliberately NOT a
+    // genuine onboarding session: no native starter continuation may execute.
+    private static final Map<UUID, UUID> STAGING_LAB_TEST_SCENES = new HashMap<>();
+
+    private static boolean hasCinematicLab(UUID owner) {
+        return VERIFIED_LAB_SCENES.containsKey(owner)
+            || STAGING_LAB_TEST_SCENES.containsKey(owner);
+    }
 
     private StoryModule() {}
 
@@ -447,6 +455,8 @@ public final class StoryModule {
             });
             VERIFIED_LAB_SCENES.keySet().removeIf(owner ->
                 PRIVATE_SCENES.active(owner).isEmpty());
+            STAGING_LAB_TEST_SCENES.keySet().removeIf(owner ->
+                PRIVATE_SCENES.active(owner).isEmpty());
             for (var cue : PRIVATE_SCENES.tick()) {
                 ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(cue.owner());
                 if (viewer == null || !STORY_WORLDS.permits(
@@ -469,7 +479,7 @@ public final class StoryModule {
                 final boolean renderedVisual = hasVisualClient;
                 switch (cue.kind()) {
                     case DIALOGUE -> {
-                        if (VERIFIED_LAB_SCENES.containsKey(cue.owner())) {
+                        if (hasCinematicLab(cue.owner())) {
                             // Prefer the private cinematic dialogue overlay.
                             // Older clients receive a discreet actionbar fallback,
                             // never a second transcript in the native GUI.
@@ -489,14 +499,23 @@ public final class StoryModule {
                     case ACTOR_REMOVE -> {
                         // Real Sequoia onboarding must not show OP rehearsal
                         // labels; the actor removal is entirely visual.
-                        if (!VERIFIED_LAB_SCENES.containsKey(cue.owner()))
+                        if (!hasCinematicLab(cue.owner()))
                             viewer.sendMessage(Text.literal("[Scene preview] Rin exits.")
                                 .formatted(Formatting.GRAY), true);
                     }
                     case OPEN_NATIVE_STARTER -> {
                         if (VERIFIED_LAB_SCENES.containsKey(cue.owner()))
                             completeVerifiedLabScene(server, viewer, cue);
-                        else viewer.sendMessage(Text.literal(
+                        else if (cue.session().equals(STAGING_LAB_TEST_SCENES.remove(cue.owner()))) {
+                            // Never send openstarterscreen during a demo.
+                            // Consume the inert continuation to prevent a stale
+                            // one-use ticket from lingering after the scene.
+                            PRIVATE_SCENES.claimContinuation(cue,
+                                viewer.getWorld().getRegistryKey().getValue().toString());
+                            viewer.sendMessage(Text.literal(
+                                "[Pride Region] Sequoia cinematic demo complete. Starter selection was intentionally skipped. Your Pokémon and progress are unchanged.")
+                                .formatted(Formatting.GREEN), false);
+                        } else viewer.sendMessage(Text.literal(
                             "[Scene preview] Original starter GUI would resume (not invoked).")
                             .formatted(Formatting.GRAY), false);
                     }
@@ -511,6 +530,7 @@ public final class StoryModule {
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             VERIFIED_LAB_SCENES.remove(handler.getPlayer().getUuid());
+            STAGING_LAB_TEST_SCENES.remove(handler.getPlayer().getUuid());
             DIALOGUE_ANCHORS.clear(handler.getPlayer().getUuid());
             BATTLE_PHASES.cancelPlayer(handler.getPlayer().getUuid());
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
@@ -532,6 +552,7 @@ public final class StoryModule {
         StoryPresentationConfig.reset();
         PRIVATE_SCENES.clear();
         VERIFIED_LAB_SCENES.clear();
+        STAGING_LAB_TEST_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         BATTLE_PHASES.clear();
@@ -653,6 +674,7 @@ public final class StoryModule {
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
         VERIFIED_LAB_SCENES.clear();
+        STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
@@ -670,6 +692,7 @@ public final class StoryModule {
             CINEMATICS.clear();
         PRIVATE_SCENES.clear();
         VERIFIED_LAB_SCENES.clear();
+        STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
@@ -1404,6 +1427,8 @@ public final class StoryModule {
             BATTLE_RETRIES.cancelPlayer(target.getUuid());
             CINEMATICS.cancel(target.getUuid());
             PRIVATE_SCENES.cancel(target.getUuid());
+            VERIFIED_LAB_SCENES.remove(target.getUuid());
+            STAGING_LAB_TEST_SCENES.remove(target.getUuid());
             if (finale != null) finale.disconnect(target.getUuid());
             if (finaleStore != null) finaleStore.delete(target.getUuid());
             LOGGER.warn("Operator {} reset Module 02 campaign for player {} to unstarted",
@@ -1658,6 +1683,10 @@ public final class StoryModule {
                         EntityArgumentType.getPlayer(ctx, "player"))))));
         story.then(CommandManager.literal("admin")
             .requires(source -> source.hasPermissionLevel(4))
+            .then(CommandManager.literal("test-onboarding")
+                .then(CommandManager.argument("player", EntityArgumentType.player())
+                    .executes(ctx -> testSequoiaOnboarding(
+                        ctx.getSource(), EntityArgumentType.getPlayer(ctx, "player")))))
             .then(CommandManager.literal("preview-rin")
                 .then(CommandManager.argument("player", EntityArgumentType.player())
                     .then(CommandManager.argument("scene", StringArgumentType.word())
@@ -2164,6 +2193,45 @@ public final class StoryModule {
     }
 
     /**
+     * One command for a repeatable, non-destructive owner-only Lab demonstration.
+     * Calls the SAME server scene coordinator, visual transport and subtitle
+     * display as the native Sequoia flow, but NEVER asks Cobblemon for a
+     * starter and NEVER mutates any saved profile, party or onboarding tags.
+     */
+    private static int testSequoiaOnboarding(ServerCommandSource source,
+                                             ServerPlayerEntity target) {
+        try {
+            ready(source.getServer());
+            if (!source.getServer().isOnThread())
+                throw new IllegalStateException("Must run on the server thread");
+            String dimension = target.getWorld().getRegistryKey().getValue().toString();
+            if (!STORY_WORLDS.permits(dimension))
+                throw new IllegalStateException("Only enabled story staging dimensions can run this demo");
+            if (!physicalSequoiaNear(target))
+                throw new IllegalStateException("Stand within six blocks of the original Professor Sequoia NPC");
+            var lab = StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+            if (!StorySceneVisualBridge.canRender(target, lab))
+                throw new IllegalStateException("Visual client or lab anchors not ready; run rin-visual-status");
+            if (PRIVATE_SCENES.active(target.getUuid()).isPresent())
+                throw new IllegalStateException("A Rin scene is already playing for this player");
+            var started = PRIVATE_SCENES.begin(target.getUuid(), dimension, lab);
+            if (!started.started() || started.session() == null)
+                throw new IllegalStateException("The cinematic scene pool is full");
+            STAGING_LAB_TEST_SCENES.put(target.getUuid(), started.session());
+            LOGGER.info("OP4 {} started non-destructive Sequoia cinematic demo for {}",
+                source.getName(), target.getUuid());
+            return message(source, "Started full Rin cinematic demo for "
+                + target.getName().getString()
+                + ". Starter selector deliberately disabled; Pokémon, League, quests, profile, tags and story facts untouched.");
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Sequoia cinematic admin test refused for {}",
+                target.getUuid(), ex);
+            source.sendError(Text.literal("Cannot test Sequoia cinematic: " + safe(ex.getMessage())));
+            return 0;
+        }
+    }
+
+    /**
      * OP4-only script rehearsal, isolated from native Sequoia and RCT NPCs.
      * The actual starter/dialogue continuation is NEVER invoked in preview.
      */
@@ -2195,6 +2263,8 @@ public final class StoryModule {
     private static int cancelRinPreview(ServerCommandSource source,
                                         ServerPlayerEntity target) {
         var removed = PRIVATE_SCENES.cancel(target.getUuid());
+        VERIFIED_LAB_SCENES.remove(target.getUuid());
+        STAGING_LAB_TEST_SCENES.remove(target.getUuid());
         removed.ifPresent(cue -> {
             try { StorySceneVisualBridge.emit(target, cue); }
             catch (RuntimeException packetError) {
