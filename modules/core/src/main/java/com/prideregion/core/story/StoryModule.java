@@ -1773,9 +1773,15 @@ public final class StoryModule {
                 .get(player.getUuid());
             Set<String> legacy = LegacyOnboardingGate.filter(player.getCommandTags());
             var scene = StoryPrivateSceneDirector.SceneId.RIN_LAB_INTRO;
+            // A returning Trainer must not be told Mom's introduction failed
+            // merely because Cobblemon's original starter was already chosen.
+            // The old native page can still be used for harmless dialogue.
+            if (legacy.contains("starter_chosen")
+                    || player.getCommandTags().contains("pride_starter_chosen"))
+                return 1;
             if (StoryPrivateSceneEligibility.evaluate(scene, profile.facts(), legacy)
                     != StoryPrivateSceneEligibility.Availability.READY)
-                throw new IllegalStateException("Complete Mom's introduction first, or continue your existing journey");
+                throw new IllegalStateException("Complete Mom's introduction first");
             if (PRIVATE_SCENES.active(player.getUuid()).isPresent())
                 return 1; // Duplicate native clicks do not restart or issue a second GUI.
             if (!StorySceneVisualBridge.canRender(player, scene)) {
@@ -1854,8 +1860,21 @@ public final class StoryModule {
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
+            String newStage = active.currentStage(player.getUuid());
             if (!changes.isEmpty() || verdantWin)
-                sendNextObjective(player, active.currentStage(player.getUuid()));
+                sendNextObjective(player, newStage);
+            // The Professor's legacy return tag is not proof of a genuinely
+            // selected starter. If the original League marker is absent, say
+            // exactly what is missing rather than silently recycling the
+            // old "visit Sequoia" objective. Never manufacture proof here.
+            if ("pride:visit_sequoia".equals(newStage)
+                    && player.getCommandTags().contains("pride_starter_chosen")
+                    && !player.getCommandTags().contains("starter_chosen")) {
+                source.sendError(Text.literal("Starter return recorded, but original "
+                    + "starter_chosen verification is missing. Run "
+                    + "/function prideregion:onboarding/sync_player, then "
+                    + "/pridecore story sync. Do not manually add starter tags."));
+            }
             return 1;
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Onboarding sync refused for {}: {}", player.getUuid(), ex.toString());

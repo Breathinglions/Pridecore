@@ -105,7 +105,16 @@ def rewrite_lab(league_data: dict[str, bytes]) -> dict[str, bytes]:
     # No scripted 'Rin:' text-only duplicate and no extra starter button.
     # On success the native dialogue closes, Rin enters privately and Cobblemon
     # opens its own unchanged selector once the exit animation completes.
+    # A real Cobblemon starter can be chosen before the original League
+    # starter-chosen advancement is mirrored into the trusted legacy tag.
+    # Recover ONLY from the League's already-verified Cobblemon advancement
+    # state. This function never selects or awards another Pokémon.
+    # PrideCore sync runs second so it can observe the recovered legacy proof.
     add_sync(sequoia, "starter_done", "theo", "pride_starter_chosen")
+    chosen = choice(sequoia, "starter_done", "theo")
+    chosen["action"].insert(-1,
+        "q.run_command('execute as ' + q.player.username + "
+        "' run function prideregion:onboarding/sync_player');")
 
     theo = lab["technician_theo"]
     page(theo, "main")["lines"] = [

@@ -52,8 +52,15 @@ for name in module.LAB:
                 expected=[x for x in old_choice['action'] if 'openstarterscreen ' not in x] + ["q.player.run_command('pridecore story sequoia cinematic');"]
                 check(new_choice['action']==expected,'both native starter paths hand off to scene, preserving original meeting action')
                 check('openstarterscreen' not in str(new_choice['action']),'no early starter GUI before animation')
+            elif (name,old_page['id'],old_choice['value']) == (
+                'professor_sequoia','starter_done','theo'):
+                recovery = ("q.run_command('execute as ' + q.player.username + "
+                            "' run function prideregion:onboarding/sync_player');")
+                check(new_choice['action']==old_choice['action']+[recovery,
+                    "q.player.run_command('pridecore story sync');"],
+                    "Sequoia return must recover only verified native starter advancement before sync")
             elif (name,old_page['id'],old_choice['value']) in (
-                ('professor_sequoia','starter_done','theo'),('technician_theo','main','register'),('avery','kit','take_kit')):
+                ('technician_theo','main','register'),('avery','kit','take_kit')):
                 check(new_choice['action']==old_choice['action']+["q.player.run_command('pridecore story sync');"],name+": original service and one sync")
             else:
                 check(new_choice['action']==old_choice['action'],name+": other choice unchanged")

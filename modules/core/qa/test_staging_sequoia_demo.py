@@ -30,3 +30,10 @@ assert 'completeVerifiedLabScene(server, viewer, cue)' in final
 assert "openOriginalStarter(" not in final
 assert 'No NPC, starter or story facts changed' in code
 print("PASS: OP4 Sequoia test uses real private cinematic and subtitles but never resets or grants a starter")
+
+# Returning trainers should not be offered the intro again, and incomplete
+# original legacy starter proof is diagnosed without fabricating progress.
+assert 'player.getCommandTags().contains("pride_starter_chosen")' in code
+assert 'legacy.contains("starter_chosen")' in code
+assert 'Starter return recorded, but original ' in code
+assert 'prideregion:onboarding/sync_player' in code
