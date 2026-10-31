@@ -2223,7 +2223,7 @@ public final class StoryModule {
             return message(source, "Started full Rin cinematic demo for "
                 + target.getName().getString()
                 + ". Starter selector deliberately disabled; Pokémon, League, quests, profile, tags and story facts untouched.");
-        } catch (IOException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             LOGGER.warn("Sequoia cinematic admin test refused for {}",
                 target.getUuid(), ex);
             source.sendError(Text.literal("Cannot test Sequoia cinematic: " + safe(ex.getMessage())));
