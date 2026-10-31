@@ -67,6 +67,21 @@ public final class StorySceneVisualBridge {
                 : "");
     }
 
+    /**
+     * Strict readiness for a real onboarding scene: never start a silent
+     * eight-second cinematic that cannot render on this one client's screen.
+     * Returning false permits an immediate native starter GUI fallback.
+     */
+    public static boolean canRender(ServerPlayerEntity viewer,
+                                    StoryPrivateSceneDirector.SceneId scene) {
+        if (!ServerPlayNetworking.canSend(viewer, StorySceneVisualPayload.ID))
+            return false;
+        String world = viewer.getWorld().getRegistryKey().getValue().toString();
+        return anchors.forScene(scene, world,
+            new StorySceneAnchorConfig.Point(
+                viewer.getX(), viewer.getY(), viewer.getZ())).isPresent();
+    }
+
     /** Only real server-owned scene events may reach the selected player. */
     public static boolean emit(ServerPlayerEntity viewer,
                                StoryPrivateSceneDirector.Event cue) {
