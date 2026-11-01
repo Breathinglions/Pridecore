@@ -33,6 +33,9 @@ public final class NpcSkinManager {
     private static final Logger LOG = LoggerFactory.getLogger("PrideNpcSkins");
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String NAMESPACE = "pride_skins";
+    private static final String PLAYER_MODEL = "pride_skins:player_64.geo";
+    private static final String PLAYER_MODEL_FILE =
+        "assets/pride_skins/bedrock/npcs/models/player_64.geo.json";
     private static final int MAX_SKINS = 64;
     private static final int MAX_NPCS = 96;
     private static final int MAX_PNG = 1024 * 1024;
@@ -58,7 +61,7 @@ public final class NpcSkinManager {
                 JsonObject skins = new JsonObject();
                 JsonObject ranger = new JsonObject();
                 ranger.addProperty("file", "ranger.png");
-                ranger.addProperty("model", "cobblemon:standard.geo");
+                ranger.addProperty("model", PLAYER_MODEL);
                 ranger.addProperty("poser", "cobblemon:standard");
                 skins.add("ranger", ranger);
                 config.add("skins", skins);
@@ -114,6 +117,18 @@ public final class NpcSkinManager {
             overrides.put("pack.mcmeta", bytes("{\"pack\":{\"pack_format\":48,"
                 + "\"description\":\"PrideCore NPC appearance mappings\"}}"));
 
+            // Bundle an actual 64x64 player model rather than stretching
+            // these skins onto Cobblemon's 64x128 trainer geometry.
+            boolean usesPlayer64Model = mapping.skins().values().stream()
+                .anyMatch(skin -> PLAYER_MODEL.equals(skin.model()));
+            if (usesPlayer64Model) {
+                try (InputStream model = NpcSkinManager.class.getClassLoader()
+                        .getResourceAsStream(PLAYER_MODEL_FILE)) {
+                    if (model == null)
+                        throw new IOException("Bundled Pride player 64x64 geometry missing");
+                    resources.put(PLAYER_MODEL_FILE, model.readAllBytes());
+                }
+            }
             for (var entry : mapping.skins().entrySet()) {
                 String id = entry.getKey();
                 Appearance skin = entry.getValue();
@@ -215,6 +230,11 @@ public final class NpcSkinManager {
             String model = skin.get("model").getAsString();
             String poser = skin.get("poser").getAsString();
             validateIdentifier(model, true);
+            if (model.equals("cobblemon:trainer.geo")
+                    || model.equals("cobblemon:standard.geo"))
+                throw new IOException("Model " + model
+                    + " is incompatible with standard 64x64 Minecraft skins. "
+                    + "Use pride_skins:player_64.geo instead.");
             validateIdentifier(poser, false);
             validated.put(id, new Appearance(file, model, poser));
         }

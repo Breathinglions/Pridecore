@@ -25,7 +25,7 @@ config/pride_core/npc_skins/
   "skins": {
     "ranger": {
       "file": "ranger.png",
-      "model": "cobblemon:standard.geo",
+      "model": "pride_skins:player_64.geo",
       "poser": "cobblemon:standard"
     }
   },
@@ -71,18 +71,14 @@ not deliver textures to clients.
 retain their cached old class appearance until safely re-created by your
 existing NPC spawn workflow. Do not mass-delete story NPCs.
 7. Confirm appearance in-game and check `latest.log` for Cobblemon
-model/poser/resource resolver warnings. The PNG must match the UV layout of
-the actual NPC model; `model` and `poser` fields are editable if your
-model uses different bones.
+model/poser/resource resolver warnings. Use `pride_skins:player_64.geo` for 64×64 Minecraft skins. The exported resources ZIP bundles matching geometry and the stock NPC poser uses compatible bone names. Visual verification of each skin remains required.
 
 ### Real limitations
 
 - This implementation is an **asset + NPC-class overlay generator**, not a
 live network PNG streamer. `/pridecore npc skins reload` does not silently
 replace an already installed forced resource pack or live client assets.
-- Its default `cobblemon:standard.geo` / `cobblemon:standard` template
-is intended for the standard Cobblemon NPC player shape. Validate the exact
-UV/model behavior with your current Cobblemon 1.8.1 build before rollout.
+- Its default model is `pride_skins:player_64.geo`, built around the 64×64 Minecraft player UV and preserving Cobblemon trainer poser bones. Previous `cobblemon:trainer.geo` is a 64×128 geometry and MUST NOT be used with unconverted 64×64 skins. Existing `skins.json` files must be updated manually to this model; the generator will refuse the known incompatible models to prevent invisible or reversed textures. Validate visually in Cobblemon 1.8.1.
 - It changes two PrideCore NPC **classes**, not every independently configured
 LegendaryQuests Ranger automatically. LegendaryQuests classes require their
 own compatible resourceIdentifier or provider-native skin setting.
@@ -97,3 +93,16 @@ commands. It generates new ZIPs atomically rather than replacing worlds or
 mods. Back up server and world; rollback by removing the generated skin
 datapack from `world/datapacks/`, restoring your previous resource pack,
 and reloading/rejoining. Player progress remains unchanged.
+
+## Broken Ranger back/front geometry recovery (2026-11-01)
+
+If Mira looks partially invisible or the back texture renders on the front,
+this is caused by our earlier model selection, which paired 64×64 skins with
+Cobblemon's 64×128 `cobblemon:trainer.geo` (and sometimes a nonexistent
+`cobblemon:standard.geo`). Use the new resource pack containing
+`assets/pride_skins/bedrock/npcs/models/player_64.geo.json`; switch each
+mapped 64×64 character to `"model": "pride_skins:player_64.geo"`.
+Run the skin export again after installing the updated module. Remove the
+older Ranger ZIP from Polymer includes to avoid conflicting resolver files.
+Rebuild Polymer, restart, reconnect and confirm the skin from both sides.
+No NPC deletion or quest reset is needed.
