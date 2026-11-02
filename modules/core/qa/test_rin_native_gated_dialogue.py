@@ -33,6 +33,9 @@ with tempfile.TemporaryDirectory() as temp:
         assert "pridecore story rin open" in str(base_buttons[0]["action"])
         for chapter in ("rin_route1","rin_canyon","rin_summit"):
             screen=json.loads(z.read(f"data/pride_story/dialogues/{chapter}.json"))
+            face=screen["speakers"]["npc"]["face"]
+            assert face["modelType"]=="npc"
+            assert face["identifier"]=="pride_skins:rin", face
             buttons=screen["pages"][0]["input"]["options"]
             assert [x["value"] for x in buttons]==["challenge","bye"]
             assert "pridecore story rin challenge" in str(buttons[0]["action"])
@@ -40,6 +43,7 @@ with tempfile.TemporaryDirectory() as temp:
                 # In a page's action never pass a client-chosen encounter ID.
                 assert f"pridecore story rin challenge {other}" not in str(screen)
         replay=json.loads(z.read("data/pride_story/dialogues/rin_return.json"))
+        assert replay["speakers"]["npc"]["face"]["identifier"]=="pride_skins:rin"
         assert [x["value"] for x in replay["pages"][0]["input"]["options"]]==["bye"]
         for item in z.namelist():
             if "dialogues/" in item and item.endswith(".json"):

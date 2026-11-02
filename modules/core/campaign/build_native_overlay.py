@@ -267,7 +267,7 @@ def main():
                 ]
                 native["speakers"]["npc"]["face"] = {
                     "type":"artificial", "modelType":"npc",
-                    "identifier":"pride_story:rin", "aspects":[]
+                    "identifier":"pride_skins:rin", "aspects":[]
                 }
                 generated[f"data/pride_story/dialogues/{chapter}.json"] = dump(native)
             after = dialogue("rin","Rin",
@@ -280,7 +280,7 @@ def main():
             ]
             after["speakers"]["npc"]["face"] = {
                 "type":"artificial", "modelType":"npc",
-                "identifier":"pride_story:rin", "aspects":[]
+                "identifier":"pride_skins:rin", "aspects":[]
             }
             generated["data/pride_story/dialogues/rin_return.json"] = dump(after)
         # Compatible with existing League spawn runtime function.
