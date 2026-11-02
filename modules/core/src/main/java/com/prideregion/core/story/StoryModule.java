@@ -94,6 +94,12 @@ public final class StoryModule {
 
     private StoryModule() {}
 
+    /** Story characters speak for themselves; quest updates keep the server label. */
+    private static String battleDialoguePrefix(String encounterId) {
+        return encounterId != null && encounterId.startsWith("rin_")
+            ? "Rin: " : "[Pride Region] ";
+    }
+
     public static void registerHooks() {
         // Module 02 is a Pokémon trainer battle, NEVER a hybrid Minecraft
         // boss fight. Only exact, valid story trainer actors are protected.
@@ -917,7 +923,7 @@ public final class StoryModule {
                     }
                 }
                 var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
-                player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
+                player.sendMessage(Text.literal(battleDialoguePrefix(encounterId) + roster.intro())
                     .formatted(Formatting.GOLD), false);
             } catch (IOException | RuntimeException presentationFailure) {
                 LOGGER.warn("RCT battle {} launched but cinematic introduction failed",
@@ -1032,7 +1038,7 @@ public final class StoryModule {
                 // Credit was already durably written. Presentation and
                 // advancement UI synchronization may fail independently.
                 try {
-                    player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
+                    player.sendMessage(Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)
                         .formatted(Formatting.GREEN), false);
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
                     // A genuine Rin win grants the victory fact, but
