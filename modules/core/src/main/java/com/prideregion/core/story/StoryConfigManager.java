@@ -164,26 +164,10 @@ public final class StoryConfigManager {
                         continue;
                     }
                     migrateStockText(previousOption, stockOption, newerOption);
-                    // Remove ONLY the obsolete, exact first-catch/first-battle
-                    // gate from the original Ranger Mira "explore" choice.
-                    // Rival victory is already enforced at NPC entry via
-                    // pride:rin_route1_won, so no legacy tag is fabricated.
-                    // Customized choices and additional requirements survive.
-                    if ("ranger".equals(npcId)
-                            && "hello".equals(proposed.get("id").getAsString())
-                            && "explore".equals(newerOption.get("id").getAsString())
-                            && "pride:verdant_approach".equals(
-                                previousOption.get("stage").getAsString())
-                            && previousOption.getAsJsonArray("grant").size() == 1
-                            && contains(previousOption.getAsJsonArray("grant"),
-                                "pride:route1_briefed")
-                            && previousOption.has("requiresLegacy")) {
-                        JsonArray outdated = previousOption.getAsJsonArray("requiresLegacy");
-                        if (outdated.size() == 2
-                                && contains(outdated, "first_catch")
-                                && contains(outdated, "first_battle_win"))
-                            previousOption.remove("requiresLegacy");
-                    }
+                    // Legacy first-catch and first-battle requirements stay
+                    // in the on-disk Ranger briefing. The actual Rin victory
+                    // satisfies the battle condition in StoryEngine; only a
+                    // genuine first_catch can satisfy the catch condition.
                     if (!newerOption.has("requiresLegacy")) continue;
                     TreeSet<String> allowed = new TreeSet<>();
                     if (previousOption.has("requiresLegacy"))
