@@ -193,8 +193,8 @@ def main():
        "When you're ready, promise you'll look after your partner and explore every road.",
        "begin"),
       ("ranger","Ranger Mira",
-       "Rin said you two had quite a battle. Welcome to Route 1!",
-       "There's a pale glow near the trees, and the wild Pokémon are restless. Could you help me investigate?",
+       "Rin told me about your battle! Welcome to Route 1.",
+       "Before we investigate the glow near the trees, have you caught your first wild Pokémon?",
        "explore"),
     ]
     # Recurring characters have ONE canonical physical actor, not a second
