@@ -37,6 +37,24 @@ public final class StoryEngine {
             externalFacts.apply(player), "Player markers unavailable"));
     }
 
+
+    /**
+     * Rin's authenticated Route 1 victory counts as the first TRAINER battle
+     * only when Ranger Mira checks the existing first_battle_win requirement.
+     * Never write, synthesize or grant an external first_battle_win tag.
+     * first_catch must still come from the original capture system.
+     */
+    private static boolean legacyChoiceSatisfied(StoryDefinition.Npc npc,
+            StoryDefinition.Option option, Set<String> storyFacts, Set<String> legacy) {
+        if (legacy.containsAll(option.requiresLegacy())) return true;
+        if (!"ranger".equals(npc.id()) || !"explore".equals(option.id())
+                || !storyFacts.contains("pride:rin_route1_won")) return false;
+        for (String required : option.requiresLegacy())
+            if (!"first_battle_win".equals(required) && !legacy.contains(required))
+                return false;
+        return true;
+    }
+
     /** Opens the right story chapter for a tagged, physical Cobblemon NPC. */
     public synchronized Optional<Reply> beginBoundNpc(UUID playerId, String marker)
             throws IOException {
@@ -78,8 +96,18 @@ public final class StoryEngine {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown dialogue choice"));
         if (!before.facts().containsAll(option.requires()))
             throw new IllegalStateException("Choice prerequisites not met");
-        if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
-            throw new IllegalStateException("Complete the existing starter, registration or field objective first");
+        Set<String> verifiedLegacy = legacyFor(playerId);
+        if (!legacyChoiceSatisfied(npc, option, before.facts(), verifiedLegacy)) {
+            if ("ranger".equals(npc.id()) && "explore".equals(option.id())) {
+                if (!verifiedLegacy.contains("first_catch"))
+                    throw new IllegalStateException(
+                        "Catch your first wild Pokémon before investigating with Ranger Mira");
+                throw new IllegalStateException(
+                    "Win your first Pokémon battle against Rin before continuing with Ranger Mira");
+            }
+            throw new IllegalStateException(
+                "Complete the existing starter, registration or field objective first");
+        }
         // A conversation is never proof of a scripted battle victory.
         // Keep boss and rival narrative checkpoints locked until the trusted
         // server-side battle adapter has persisted the corresponding win fact.
@@ -227,7 +255,7 @@ public final class StoryEngine {
                         ProfileState player, Set<String> verifiedLegacy) {
         List<ChoiceView> choices = node.options().stream()
                 .filter(o -> player.facts().containsAll(o.requires()))
-                .filter(o -> verifiedLegacy.containsAll(o.requiresLegacy()))
+                .filter(o -> legacyChoiceSatisfied(npc, o, player.facts(), verifiedLegacy))
                 .map(o -> new ChoiceView(o.id(), o.text())).toList();
         return new Reply(npc.id(), npc.name(), node.text(), choices, player.revision());
     }
