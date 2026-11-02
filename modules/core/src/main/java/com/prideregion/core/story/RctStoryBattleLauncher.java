@@ -27,6 +27,43 @@ public final class RctStoryBattleLauncher {
             .invoke(manager, battleId));
     }
 
+    /**
+     * RCT 0.16 TrainerNPC has an explicit per-Pokemon GimmicksMap. When
+     * we introduce the player to basic battles on Route 1, disable NPC-side
+     * Dynamax, Gmax and Tera, even if a future RCT default changes.
+     *
+     * Fail CLOSED on an API mismatch. A battle must never silently start with
+     * unknown transformation permissions. This does not affect unrelated RCT
+     * NPCs, player permissions, or third-party mods modifying battles later.
+     */
+    private static void requireNoGimmicksForRoute1(
+            Object opponent, Object[] team, Class<?> pokemonType, ClassLoader loader)
+            throws ReflectiveOperationException {
+        Class<?> gimmickType = Class.forName(
+            "com.gitlab.srcmc.rctapi.api.models.Gimmicks", true, loader);
+        Object none = gimmickType.getConstructor(String.class, boolean.class, boolean.class)
+            .newInstance(null, false, false);
+        Object map = opponent.getClass().getMethod("getGimmicks").invoke(opponent);
+        Method set = map.getClass().getMethod("to", pokemonType, gimmickType);
+        Method get = map.getClass().getMethod("of", pokemonType);
+        for (Object pokemon : team) {
+            set.invoke(map, pokemon, none);
+            Object actual = get.invoke(map, pokemon);
+            if (!Objects.equals(actual, none))
+                throw new IllegalStateException(
+                    "RCT did not accept Rin Route 1's no-gimmicks policy");
+            Object tera = gimmickType.getMethod("tera").invoke(actual);
+            Object dynamax = gimmickType.getMethod("dynamax").invoke(actual);
+            Object gmax = gimmickType.getMethod("gmax").invoke(actual);
+            if (tera != null || !Boolean.FALSE.equals(dynamax)
+                    || !Boolean.FALSE.equals(gmax))
+                throw new IllegalStateException(
+                    "Rin Route 1 gimmicks remain enabled; battle refused");
+        }
+        System.out.println("[PrideCore] Rin Route 1 RCT gimmick policy verified: "
+            + "tera=off, dynamax=off, gmax=off");
+    }
+
     public static UUID launch(String encounterId, Object serverPlayer,
                               Object livingTrainer, UUID expectedPlayerId, ClassLoader loader)
             throws ReflectiveOperationException, IOException {
@@ -75,6 +112,11 @@ public final class RctStoryBattleLauncher {
             throw new IllegalStateException("RCT trainer AI incompatible with Cobblemon");
         Object opponent = npcCtor.newInstance(
             "pride_story:" + encounterId, team, bag, ai, livingTrainer);
+        // Route 1 is deliberately a basic first-partner battle. Make its
+        // no-gimmicks policy explicit in RCT rather than relying on defaults
+        // (and never change the user's team or later Gym battles).
+        if ("rin_route1".equals(encounterId))
+            requireNoGimmicksForRoute1(opponent, team, pokemonType, loader);
         Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", true, loader);
         // Verified from the supplied RCT API 0.16.0 JAR:
