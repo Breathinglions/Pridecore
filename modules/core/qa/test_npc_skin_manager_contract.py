@@ -26,7 +26,13 @@ checks = (
     'ATOMIC_MOVE,REPLACE_EXISTING',
     'PrideNPCSkins_Resources.zip',
     'PrideNPCSkins_NPCOverrides.zip',
-    'This command does NOT push a new client pack automatically.',
+    'This does not force-send a client pack.',
+    'syncPolymerAssets(resources);',
+    'syncWorldDatapack(source, dataZip);',
+    'resolve("polymer").resolve("override_assets")',
+    'if (!activeSkins.contains(id)) continue;',
+    'Set<String> activeSkins = Set.copyOf(mapping.npcClasses().values());',
+    'WorldSavePath.ROOT',
 )
 assert 'pack_format' in code and '34,' in code and '48,' in code
 geometry = root / "src/main/resources/assets/pride_skins/bedrock/npcs/models/player_64.geo.json"
@@ -47,4 +53,4 @@ assert 'NpcSkinManager.stop();' in mod
 assert 'root.then(admin).then(StoryModule.commands()).then(CameraDirectorModule.commands()).then(NpcSkinManager.commands())' in mod
 for forbidden in ('ProfileStore', 'ProgressionService', 'battleConfiguration.add(', 'player.addCommandTag(', 'setCustomName(', 'teleport('):
     assert forbidden not in code, forbidden
-print("PASS: NPC skin manager config validation, non-destructive ZIP output and explicit resource-pack deployment contract")
+print("PASS: NPC skin manager active slots, safe Polymer namespace sync, world datapack sync and PNG geometry contract")

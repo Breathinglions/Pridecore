@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
+import net.minecraft.util.WorldSavePath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,8 +27,10 @@ import static java.nio.file.StandardCopyOption.*;
  * only Cobblemon NPC "resourceIdentifier". It never mutates player data,
  * quests, battle configuration, in-world NPC entities, or installed packs.
  *
- * Applying the produced packs is an explicit operator deployment step: the
- * server cannot silently replace a pre-existing forced server resource pack.
+ * A successful operator reload updates Polymer's override_assets/pride_skins
+ * namespace and the active world's managed datapack ZIP. Polymer still needs
+ * to rebuild and send its pack to players; nothing directly modifies or
+ * overwrites the user's existing forced resource pack or other namespaces.
  */
 public final class NpcSkinManager {
     private static final Logger LOG = LoggerFactory.getLogger("PrideNpcSkins");
@@ -36,8 +39,8 @@ public final class NpcSkinManager {
     private static final String PLAYER_MODEL = "pride_skins:player_64.geo";
     private static final String PLAYER_MODEL_FILE =
         "assets/pride_skins/bedrock/npcs/models/player_64.geo.json";
-    private static final int MAX_SKINS = 64;
-    private static final int MAX_NPCS = 96;
+    private static final int MAX_SKINS = 128;
+    private static final int MAX_NPCS = 128;
     private static final int MAX_PNG = 1024 * 1024;
     private static final String RESOURCE_ZIP = "PrideNPCSkins_Resources.zip";
     private static final String DATA_ZIP = "PrideNPCSkins_NPCOverrides.zip";
@@ -119,8 +122,13 @@ public final class NpcSkinManager {
 
             // Bundle an actual 64x64 player model rather than stretching
             // these skins onto Cobblemon's 64x128 trainer geometry.
-            boolean usesPlayer64Model = mapping.skins().values().stream()
-                .anyMatch(skin -> PLAYER_MODEL.equals(skin.model()));
+            // Inactive catalog entries may be pre-registered before their PNG
+            // has been authored. Only an explicitly NPC-mapped skin becomes
+            // active and is validated/exported.
+            Set<String> activeSkins = Set.copyOf(mapping.npcClasses().values());
+            boolean usesPlayer64Model = mapping.skins().entrySet().stream()
+                .filter(entry -> activeSkins.contains(entry.getKey()))
+                .anyMatch(entry -> PLAYER_MODEL.equals(entry.getValue().model()));
             if (usesPlayer64Model) {
                 try (InputStream model = NpcSkinManager.class.getClassLoader()
                         .getResourceAsStream(PLAYER_MODEL_FILE)) {
@@ -131,6 +139,7 @@ public final class NpcSkinManager {
             }
             for (var entry : mapping.skins().entrySet()) {
                 String id = entry.getKey();
+                if (!activeSkins.contains(id)) continue;
                 Appearance skin = entry.getValue();
                 Path file = root.resolve(skin.file());
                 verifySkin(file);
@@ -183,22 +192,84 @@ public final class NpcSkinManager {
             byte[] dataZip = zip(overrides);
             commitOutput(generated.resolve(RESOURCE_ZIP), resZip);
             commitOutput(generated.resolve(DATA_ZIP), dataZip);
-            lastSkinCount = mapping.skins().size();
+            // Sync ONLY the manager-owned resource namespace. All other
+            // Polymer texture providers and the forced resource pack remain.
+            syncPolymerAssets(resources);
+            // Update the existing fixed datapack filename. A first-time pack
+            // may still require /datapack enable; /reload applies edits.
+            syncWorldDatapack(source, dataZip);
+            lastSkinCount = activeSkins.size();
             lastNpcCount = mapping.npcClasses().size();
             status = "EXPORTED: " + lastSkinCount + " skins, "
                 + lastNpcCount + " class mappings | generated/";
             LOG.info("NPC skin pack exported: {} texture(s), {} NPC class(es)",
                 lastSkinCount, lastNpcCount);
-            return feedback(source, status + ". Install/merge resource ZIP for clients; "
-                + "install NPCOverrides ZIP as a higher-priority world datapack, "
-                + "then /reload and respawn affected NPCs. "
-                + "This command does NOT push a new client pack automatically.");
+            return feedback(source, status
+                + ". Synced Polymer override_assets and world datapacks. "
+                + "Use /reload for NPC class changes; restart Polymer/server "
+                + "to rebuild its client pack, then reconnect. "
+                + "This does not force-send a client pack.");
         } catch (IOException | RuntimeException e) {
             LOG.warn("NPC skin export rejected: {}", e.toString());
             source.sendError(Text.literal("[Pride Skins] Not applied: "
                 + e.getMessage() + ". Prior generated output kept."));
             return 0;
         }
+    }
+
+
+    /**
+     * Owned namespace only: no edits to pack.mcmeta, other mods, or existing
+     * server.properties pack settings. Source ZIP includes only generated
+     * resources; Polymer reads the extracted assets at its next pack build.
+     */
+    private static void syncPolymerAssets(Map<String, byte[]> resources) throws IOException {
+        Path gameDir = FabricLoader.getInstance().getGameDir().toAbsolutePath().normalize();
+        Path assets = gameDir.resolve("polymer").resolve("override_assets")
+            .resolve("assets").normalize();
+        Path target = assets.resolve(NAMESPACE).normalize();
+        if (!target.startsWith(assets)) throw new IOException("Invalid Polymer target");
+        if (Files.isSymbolicLink(target))
+            throw new IOException("Polymer skin asset folder must not be a symlink");
+        Files.createDirectories(target);
+        for (var entry : resources.entrySet()) {
+            if (!entry.getKey().startsWith("assets/" + NAMESPACE + "/")) continue;
+            String relative = entry.getKey().substring(("assets/" + NAMESPACE + "/").length());
+            Path dest = target.resolve(relative).normalize();
+            if (!dest.startsWith(target))
+                throw new IOException("Invalid Polymer asset path");
+            for (Path part = dest.getParent(); part != null && part.startsWith(target);
+                    part = part.getParent()) {
+                if (Files.isSymbolicLink(part))
+                    throw new IOException("Polymer asset destination is a symlink");
+            }
+            Files.createDirectories(dest.getParent());
+            if (Files.isSymbolicLink(dest))
+                throw new IOException("Polymer asset file is a symlink");
+            commitBytes(dest, entry.getValue());
+        }
+    }
+
+    private static void syncWorldDatapack(ServerCommandSource source, byte[] content)
+            throws IOException {
+        Path world = source.getServer().getSavePath(WorldSavePath.ROOT).normalize();
+        Path packs = world.resolve("datapacks");
+        Files.createDirectories(packs);
+        Path target = packs.resolve(DATA_ZIP);
+        if (Files.isSymbolicLink(packs) || Files.isSymbolicLink(target))
+            throw new IOException("Refusing symlinked world datapack output");
+        commitBytes(target, content);
+    }
+
+    private static void commitBytes(Path path, byte[] content) throws IOException {
+        Path temp = Files.createTempFile(path.getParent(), "pride-asset-", ".tmp");
+        try {
+            Files.write(temp, content);
+            try { Files.move(temp, path, ATOMIC_MOVE, REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException e) {
+                Files.move(temp, path, REPLACE_EXISTING);
+            }
+        } finally { Files.deleteIfExists(temp); }
     }
 
     private static Mapping parse() throws IOException {

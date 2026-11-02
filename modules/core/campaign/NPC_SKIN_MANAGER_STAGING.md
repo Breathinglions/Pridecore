@@ -106,3 +106,39 @@ Run the skin export again after installing the updated module. Remove the
 older Ranger ZIP from Polymer includes to avoid conflicting resolver files.
 Rebuild Polymer, restart, reconnect and confirm the skin from both sides.
 No NPC deletion or quest reset is needed.
+
+
+## Master skin catalog + automatic Polymer deployment (November 2026)
+
+A complete master `skins.json` can predeclare unused *skin slots* without
+requiring corresponding PNGs until those skins are assigned to an NPC via
+`npcClasses`. Only active, mapped skins are validated/exported. Thus it is
+safe to prepare 44 currently bundled PrideCore NPC identities plus reserved
+League appearance names without overwriting already-working NPCs.
+
+After uploading/editing PNGs and `skins.json`, run
+`/pridecore npc skins reload`. The updated exporter:
+- Generates the two preview ZIPs in `config/pride_core/npc_skins/generated/`.
+- Writes **only** the manager-owned `assets/pride_skins/` files into
+  `polymer/override_assets/assets/pride_skins/`. It does not replace other
+  Polymer pack assets. **One-time setup:** remove the former Pride-only ZIP(s)
+  from `config/polymer/resource-pack.json` `include_zips` to prevent duplicates.
+- Writes the managed NPCOverrides ZIP to the active world's `datapacks/` folder.
+  Existing pack must be enabled with sufficient priority; if first installed,
+  operator may need to run `/datapack enable`.
+- Run `/reload` after changing NPC mappings and restart/rebuild Polymer's
+  client pack at your convenient maintenance window; reconnect clients to get
+  the new textures. This is **not** live client asset streaming.
+
+**Caution:** The exporter only knows Cobblemon NPC JSON classes physically
+bundled in the running unified PrideCore JAR. Existing RCT League trainers
+and independently shipped LegendaryQuests NPCs are outside this scope.
+Their names may be reserved as *inactive skin slots* in the master catalog,
+but mapping them to a fictitious `pride_story:` class is invalid. They need a
+provider-compatible integration before they can use this manager.
+
+This sync takes effect only in the updated server JAR after replacing the old
+one; the existing user-provided static resource-pack ZIP cannot by itself
+perform the sync. Existing files under `polymer/override_assets/assets/pride_skins`
+with matching names will be replaced by PrideCore; other namespaces are untouched.
+Back up world/Polymer before deployment.
