@@ -86,6 +86,18 @@ public final class StoryConfigMigrationTests {
             rivalRequired |= "pride:met_rin".equals(required.getAsString());
         check(rivalRequired,
             "Existing Ranger NPCs gain mandatory starter rival requirement with safe backup");
+        JsonObject migratedMira = find(all, "ranger");
+        JsonObject miraExplore = migratedMira.getAsJsonArray("nodes")
+            .get(0).getAsJsonObject().getAsJsonArray("options")
+            .get(0).getAsJsonObject();
+        Set<String> miraTags = new HashSet<>();
+        for (JsonElement marker : miraExplore.getAsJsonArray("requiresLegacy"))
+            miraTags.add(marker.getAsString());
+        check(miraTags.equals(Set.of("first_catch", "first_battle_win")),
+            "Mira retains the original first catch and battle requirements after migration");
+        check(migratedMira.getAsJsonArray("nodes").get(0).getAsJsonObject()
+                .get("text").getAsString().contains("first wild Pokémon"),
+            "Migration makes the first catch requirement clear to returning players");
         check(find(all,"customguide").get("name").getAsString().equals("My existing custom Guide"),
             "Custom NPC retained");
         check(find(all,"mom").get("name").getAsString().equals("Custom Mom"),
