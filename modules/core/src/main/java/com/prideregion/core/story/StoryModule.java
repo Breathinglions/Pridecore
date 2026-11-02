@@ -536,6 +536,9 @@ public final class StoryModule {
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
+            // Stop all owned live RCT fights before discarding their routing
+            // tickets; otherwise the temporary NPC could outlive the player.
+            abortOwnedStoryBattles(server, handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
             if (router != null) router.disconnect(handler.getPlayer().getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(handler.getPlayer().getUuid());
@@ -934,13 +937,14 @@ public final class StoryModule {
 
     /** Failed ownership handshake must never leave an orphaned RCT fight. */
     private static void abortUnconfirmedStoryBattle(MinecraftServer server, UUID battleId) {
-        nativeStoryBattleCancelled(server, battleId);
         try {
             if (!RctStoryBattleLauncher.abort(battleId,
                     StoryModule.class.getClassLoader()))
                 LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
         } catch (ReflectiveOperationException | RuntimeException abortError) {
             LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
+        } finally {
+            nativeStoryBattleCancelled(server, battleId);
         }
     }
 
@@ -981,6 +985,7 @@ public final class StoryModule {
         // battle-intro cues. Never overlay an ended battle with stale prompts.
         if (battleOwner != null) CINEMATICS.cancel(battleOwner);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
                 // The victory fact was already persisted by StoryBattleProof.
@@ -1071,6 +1076,17 @@ public final class StoryModule {
         });
     }
 
+    private static void releaseTemporaryRinTrainer(UUID battleId) {
+        try {
+            RctStoryBattleLauncher.release(battleId, StoryModule.class.getClassLoader());
+        } catch (ReflectiveOperationException | RuntimeException cleanupError) {
+            // Keep permanent story victory/cancellation bookkeeping intact if
+            // a third-party RCT registry fails to release the temporary NPC.
+            LOGGER.error("Failed to release Route 1 Rin RCT trainer for {}",
+                battleId, cleanupError);
+        }
+    }
+
     public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
@@ -1080,6 +1096,7 @@ public final class StoryModule {
         BATTLE_RETRIES.forget(battleId);
         BATTLE_PHASES.finish(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
     }
 
     /** Show each encounter's prerequisite and verified-win status; never grants anything. */
