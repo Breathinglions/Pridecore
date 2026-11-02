@@ -1,6 +1,7 @@
 package com.prideregion.core.story;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.nbt.NbtCompound;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
@@ -93,6 +94,11 @@ public final class StoryModule {
     }
 
     private StoryModule() {}
+
+    /** Actual saved Cobblemon NPC class, independent of visible name and skin. */
+    private static String npcClass(Entity npc) {
+        return npc.writeNbt(new NbtCompound()).getString("NPCClass");
+    }
 
     /** Story characters speak for themselves; quest updates keep the server label. */
     private static String battleDialoguePrefix(String encounterId) {
@@ -299,6 +305,15 @@ public final class StoryModule {
                 if (nativeTags.size() != 1
                         || StoryNpcDialogueResolver.reservedNativeService(nativeTags.getFirst()))
                     return ActionResult.PASS;
+                if (!NativeNpcIdentity.matchesRequiredClass(
+                        nativeTags.getFirst(), npcClass(entity))) {
+                    LOGGER.warn("Wrong native story NPC class for entity {} tag={} actual={}",
+                        entity.getUuid(), nativeTags.getFirst(), npcClass(entity));
+                    sp.sendMessage(Text.literal(
+                        "[Pride Region] This NPC's story identity is incorrect; contact an admin.")
+                        .formatted(Formatting.RED), false);
+                    return ActionResult.FAIL;
+                }
                 if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
@@ -1190,6 +1205,10 @@ public final class StoryModule {
                 throw new IllegalArgumentException(
                     "Marker requires the correct entity type: npc=registered Cobblemon NPC, "
                     + "battle=living non-player, clue/finale=minecraft:interaction");
+            if (cobblemonNpc && !NativeNpcIdentity.matchesRequiredClass(tag, npcClass(entity)))
+                throw new IllegalStateException("Cannot assign " + tag
+                    + " to NPCClass=" + npcClass(entity)
+                    + "; expected " + NativeNpcIdentity.requiredClassForStoryTag(tag));
             if (!StoryWorldMarkerCatalog.canBind(entity.getCommandTags(), tag))
                 throw new IllegalStateException(
                     "Remove the conflicting story tag with admin unbind first");
@@ -1241,11 +1260,16 @@ public final class StoryModule {
             boolean valid = tags.size() == 1
                 && StoryWorldMarkerCatalog.validOnEntity(tags.getFirst(),
                     livingNonPlayer, cobblemonNpc,
-                    entity.getType() == EntityType.INTERACTION);
+                    entity.getType() == EntityType.INTERACTION)
+                && (!cobblemonNpc || NativeNpcIdentity.matchesRequiredClass(
+                    tags.getFirst(), npcClass(entity)));
             if (valid) healthy++; else invalid++;
             if (!valid)
                 source.sendFeedback(() -> Text.literal(
-                    "INVALID story marker on " + entity.getUuid() + ": " + tags), false);
+                    "INVALID story marker on " + entity.getUuid() + ": " + tags
+                    + (cobblemonNpc ? " NPCClass=" + npcClass(entity)
+                        + " expected=" + NativeNpcIdentity.requiredClassForStoryTag(
+                            tags.isEmpty() ? null : tags.getFirst()) : "")), false);
         }
         return message(source, "Story marker audit (32 blocks): " +
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
@@ -1983,7 +2007,9 @@ public final class StoryModule {
                 && "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
     }
 
@@ -1993,7 +2019,9 @@ public final class StoryModule {
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().filter(e -> e instanceof net.minecraft.entity.LivingEntity
                 && e.squaredDistanceTo(player) <= 36.0D)
             .map(e -> (net.minecraft.entity.LivingEntity)e).findFirst();
@@ -2090,7 +2118,9 @@ public final class StoryModule {
                     player.getBoundingBox().expand(5.0),
                     e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                         && e.getCommandTags().contains(nativeTag)
-                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))) {
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                        && NativeNpcIdentity.matchesRequiredClass(
+                            nativeTag, npcClass(e)))) {
                 if (candidate.squaredDistanceTo(player) <= 36.0D) {
                     nearby = true;
                     break;
