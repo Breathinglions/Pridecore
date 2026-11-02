@@ -81,4 +81,11 @@ assert "--ticket.remaining <= 0" in source
 # Recomputed encounter is authoritative; no temporary ticket required.
 assert "String encounter = scene.encounter();" in source
 assert "RinChapterGate.choose(profile.facts(), player.getCommandTags())" in source
+# Route 1 intro and defeat lines are Rin's speech, not quest objectives.
+assert 'return encounterId != null && encounterId.startsWith("rin_")' in source
+assert '? "Rin: " : "[Pride Region] "' in source
+assert 'Text.literal(battleDialoguePrefix(encounterId) + roster.intro())' in source
+assert 'Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)' in source
+assert 'Text.literal("[Pride Region] Next objective: ")' in source
+print("PASS: Rin battle dialogue attributed to Rin; next objectives remain system messages")
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
