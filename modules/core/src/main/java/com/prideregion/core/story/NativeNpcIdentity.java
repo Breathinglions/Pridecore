@@ -27,6 +27,36 @@ public final class NativeNpcIdentity {
     public static boolean isAllowed(String id) { return ALLOWED.contains(id); }
 
     private NativeNpcIdentity() {}
+
+    /**
+     * Native NPC classes are not equivalent to their command tags, display
+     * names, skins or ForcedResourceIdentifier. Only the canonical class
+     * may own a story role; a retagged Resource Ranger is not Mom.
+     *
+     * Original RCT Thorn and service NPC identities remain with their own
+     * providers and are not guessed here.
+     */
+    public static String requiredClassForStoryTag(String tag) {
+        if (tag == null) return null;
+        for (String id : ALLOWED) {
+            if (Set.of("sequoia", "theo", "avery", "thorn").contains(id))
+                continue;
+            if (!tagFor(id).equals(tag)) continue;
+            String canonical = switch (id) {
+                case "rin_canyon", "rin_summit" -> "rin";
+                case "ranger_epilogue" -> "ranger_rowan";
+                default -> id;
+            };
+            return "pride_story:" + canonical;
+        }
+        return null;
+    }
+
+    public static boolean matchesRequiredClass(String tag, String actualClass) {
+        String required = requiredClassForStoryTag(tag);
+        return required == null || required.equals(actualClass);
+    }
+
     public static String tagFor(String storyId) {
         if (!StoryDefinition.validId(storyId) || !isAllowed(storyId))
             throw new IllegalArgumentException("Invalid story NPC identifier");
