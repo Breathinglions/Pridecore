@@ -440,6 +440,45 @@ public final class StoryEngineTests {
         check(!store.get(bystander).facts().contains("pride:sable_warning"),
             "Sable battle story completion remains player-isolated");
 
+        // The authenticated Rin battle (persisted by StoryBattleProof) can
+        // substitute for an old first_battle_win marker at Ranger Mira ONLY.
+        // A real first_catch marker remains mandatory, and other NPCs cannot
+        // borrow this narrow substitution.
+        var miraNpc = new StoryDefinition.Npc("ranger", "Ranger Mira",
+            Set.of("pride:rin_route1_won"), "pride:route1_briefed",
+            "hello", "return", Map.of(
+                "hello", new StoryDefinition.Node("hello", "The trees are glowing.",
+                    List.of(new StoryDefinition.Option("explore", "I'll investigate.",
+                        null, "pride:verdant_approach",
+                        Set.of("pride:route1_briefed"), Set.of(), Set.of(),
+                        Set.of("first_catch", "first_battle_win")))),
+                "return", new StoryDefinition.Node("return", "Stay safe.", List.of())));
+        Map<UUID, Set<String>> route1Tags = new HashMap<>();
+        var miraStory = new StoryEngine(new StoryDefinition(Map.of("ranger", miraNpc)),
+            store, id -> route1Tags.getOrDefault(id, Set.of()));
+        UUID route1Player = UUID.randomUUID();
+        rejected(() -> miraStory.begin(route1Player, "ranger"));
+        route1Tags.put(route1Player, Set.of("first_catch", "first_battle_win"));
+        rejected(() -> miraStory.begin(route1Player, "ranger"));
+        check(!store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Legacy catch and battle markers cannot bypass Rin's actual story win");
+        route1Tags.put(route1Player, Set.of());
+        store.grant(route1Player, "pride:rin_route1_won");
+        check(miraStory.begin(route1Player, "ranger").options().isEmpty(),
+            "Rin victory alone does not bypass the real first-catch gate");
+        rejected(() -> miraStory.choose(route1Player, "explore"));
+        check(!store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Missing first catch cannot advance Verdant progression");
+        route1Tags.put(route1Player, Set.of("first_catch"));
+        check(miraStory.begin(route1Player, "ranger").options().size() == 1,
+            "Verified Rin win plus first catch unlocks Mira's investigation");
+        check(miraStory.choose(route1Player, "explore").options().isEmpty(),
+            "Mira route progression completes after both independent milestones");
+        check(store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Mira writes only Pride-owned route checkpoint");
+        check(!route1Tags.get(route1Player).contains("first_battle_win"),
+            "Rin battle credit does not manufacture external battle-win tag");
+
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
