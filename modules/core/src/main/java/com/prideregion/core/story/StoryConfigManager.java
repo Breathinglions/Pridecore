@@ -140,6 +140,17 @@ public final class StoryConfigManager {
                     continue;
                 }
                 migrateStockText(originalNode, stockNode, proposed);
+                // Route 1 now has a real, server-verified rival battle. The
+                // previous Mira briefing still referred to the pre-rival
+                // onboarding flow. Update only the exact shipped text.
+                if ("ranger".equals(npcId)
+                        && "hello".equals(proposed.get("id").getAsString())
+                        && originalNode.has("text")
+                        && "Something strange moved through the woods last night. "
+                            .concat("The Pokémon are unsettled, and there's a pale glow ")
+                            .concat("between the trees. Rin was asking about it earlier.")
+                            .equals(originalNode.get("text").getAsString()))
+                    originalNode.add("text", proposed.get("text").deepCopy());
                 JsonArray oldOptions = originalNode.getAsJsonArray("options");
                 for (JsonElement opt : proposed.getAsJsonArray("options")) {
                     JsonObject newerOption = opt.getAsJsonObject();
@@ -153,6 +164,26 @@ public final class StoryConfigManager {
                         continue;
                     }
                     migrateStockText(previousOption, stockOption, newerOption);
+                    // Remove ONLY the obsolete, exact first-catch/first-battle
+                    // gate from the original Ranger Mira "explore" choice.
+                    // Rival victory is already enforced at NPC entry via
+                    // pride:rin_route1_won, so no legacy tag is fabricated.
+                    // Customized choices and additional requirements survive.
+                    if ("ranger".equals(npcId)
+                            && "hello".equals(proposed.get("id").getAsString())
+                            && "explore".equals(newerOption.get("id").getAsString())
+                            && "pride:verdant_approach".equals(
+                                previousOption.get("stage").getAsString())
+                            && previousOption.getAsJsonArray("grant").size() == 1
+                            && contains(previousOption.getAsJsonArray("grant"),
+                                "pride:route1_briefed")
+                            && previousOption.has("requiresLegacy")) {
+                        JsonArray outdated = previousOption.getAsJsonArray("requiresLegacy");
+                        if (outdated.size() == 2
+                                && contains(outdated, "first_catch")
+                                && contains(outdated, "first_battle_win"))
+                            previousOption.remove("requiresLegacy");
+                    }
                     if (!newerOption.has("requiresLegacy")) continue;
                     TreeSet<String> allowed = new TreeSet<>();
                     if (previousOption.has("requiresLegacy"))
