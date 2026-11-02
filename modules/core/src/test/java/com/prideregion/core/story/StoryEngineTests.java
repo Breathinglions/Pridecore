@@ -381,8 +381,14 @@ public final class StoryEngineTests {
         check(labWithRin.reconcileOnboarding(newRival).isEmpty(),
             "Speaking to Sequoia without selecting a starter cannot introduce Rin");
         actualMarkers.put(newRival, Set.of("sequoia_met", "starter_chosen"));
+        check(labWithRin.reconcileOnboarding(newRival).isEmpty(),
+            "Starter choice must not complete Sequoia before the return dialogue");
+        check(store.get(newRival).storyStage().equals("pride:visit_sequoia"),
+            "Rin's first starter selection leaves Professor return as the objective");
+        actualMarkers.put(newRival, Set.of("sequoia_met", "starter_chosen",
+            "pride_sequoia_returned"));
         check(labWithRin.reconcileOnboarding(newRival).equals(List.of("sequoia", "rin")),
-            "Actual starter choice completes Sequoia and mandatory Rin milestone");
+            "Only after Professor return can Sequoia and the mandatory Rin checkpoint reconcile");
         check(store.get(newRival).facts().contains("pride:met_rin"),
             "Rival becomes an owned story checkpoint automatically");
         check(store.get(newRival).storyStage().equals("pride:trainer_registration"),
