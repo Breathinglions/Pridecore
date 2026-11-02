@@ -20,6 +20,11 @@ with tempfile.TemporaryDirectory() as temp:
     with ZipFile(archive) as z:
         rin=json.loads(z.read("data/pride_story/dialogues/rin.json"))
         npc=json.loads(z.read("data/pride_story/npcs/rin.json"))
+        for story_npc in ("mom", "ranger", "rin"):
+            spawn = z.read(f"data/pride_story/function/spawn/{story_npc}.mcfunction").decode("utf8")
+            # Every post-spawn selector must require the actual native class.
+            assert spawn.count(f'nbt={{NPCClass:"pride_story:{story_npc}"}}') == 3
+            assert f'{{npc:"pride_story:{story_npc}"}}' in spawn
         assert npc["interaction"]["dialogue"]=="pride_story:rin"
         original=json.dumps(rin)
         assert "pridecore story rin open" in original
