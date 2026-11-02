@@ -55,4 +55,14 @@ assert '"pride_npc_ranger_rowan", List.of("ranger_epilogue", "ranger_rowan")' in
 assert 'MAX_DISTANCE_SQUARED = 36.0D' in anchor
 assert 'bound.entity().equals(entity)' in anchor
 assert 'bound.dimension().equals(dimension)' in anchor
+# A visible NPC name and role tag do not prove the saved Cobblemon NPC class.
+# Regression: a resource_ranger retagged pride_npc_mom must be refused.
+identity=(src / "NativeNpcIdentity.java").read_text(encoding="utf8")
+assert 'return "pride_story:" + canonical;' in identity
+assert 'public static boolean matchesRequiredClass' in identity
+assert 'npc.writeNbt(new NbtCompound()).getString("NPCClass")' in module
+assert 'NativeNpcIdentity.matchesRequiredClass(' in module
+assert 'Wrong native story NPC class' in module
+assert 'Cannot assign " + tag' in module
+assert 'INVALID story marker on ' in module
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
