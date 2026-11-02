@@ -241,6 +241,40 @@ def wire_configurable_onboarding(league: dict[str, bytes]) -> list[str]:
     return [theo_path, avery_path]
 
 
+
+def wire_starter_selection_timing(league: dict[str, bytes]) -> list[str]:
+    """Announce genuine Cobblemon starter selection immediately, not on Professor return.
+
+    Cobblemon 1.8 grants cobblemon:root when a starter is chosen. Retain
+    the native pick_starter trigger; OR a tick check against that already-granted
+    Cobblemon advancement as an idempotent fallback. Never grant a starter.
+    """
+    path = "data/prideregion/advancement/onboarding/starter_chosen.json"
+    data = json.loads(league[path])
+    if data.get("criteria", {}).get("picked", {}).get("trigger") != "cobblemon:pick_starter":
+        raise ValueError("Original starter event trigger changed")
+    if data.get("rewards", {}).get("function") != "prideregion:onboarding/starter_chosen":
+        raise ValueError("Original verified starter reward changed")
+    if data.get("requirements") != [["picked"]]:
+        raise ValueError("Original starter criteria are not the audited form")
+    data["criteria"]["native_starter_recorded"] = {
+        "trigger": "minecraft:tick",
+        "conditions": {"player": {"advancements": {"cobblemon:root": True}}}
+    }
+    data["requirements"] = [["picked"], ["native_starter_recorded"]]
+    league[path] = serialize(data)
+
+    function = "data/prideregion/function/onboarding/starter_chosen.mcfunction"
+    content = league[function].decode("utf-8")
+    old = "Return to Professor Sequoia, then register with Technician Theo."
+    new = "Return to Professor Sequoia at the Hearthleaf laboratory."
+    if old not in content or "tag @s add starter_chosen" not in content or (
+            "ftbquests change_progress @s complete 2D7D171369126710" not in content):
+        raise ValueError("Original starter event function changed")
+    league[function] = content.replace(old, new).encode("utf-8")
+    return [path, function]
+
+
 def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path) -> dict:
     if digest(league_path.read_bytes()) != EXPECTED_LEAGUE_SHA:
         raise ValueError("League datapack checksum differs from original audited 7.10.10")
@@ -278,6 +312,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     immutable_original = dict(league)
     lab = rewrite_lab(league)
     changed_onboarding = wire_configurable_onboarding(league)
+    changed_onboarding.extend(wire_starter_selection_timing(league))
     refine_story_prologue(story)
     resources = {**league, **story, **lab}
     thorn = "data/rctmod/mobs/trainers/single/pride_thorn.json"
@@ -292,7 +327,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
-    # Explicit path comparison: only approved dialogue, kit functions and safe Thorn sync.
+    # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
     expected_changed = sorted([thorn] + changed_onboarding + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))

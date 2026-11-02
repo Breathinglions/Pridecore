@@ -78,4 +78,39 @@ for name in ['mom','ranger']:
     after=json.loads(story_sample[path])
     check(after['pages'][0]['input']==fake['pages'][0]['input'],name+' actions unchanged')
     check('Hearthleaf' in str(after) if name=='mom' else 'Route 1' in str(after),name+' story focus')
+# Two separate checkpoints: real Cobblemon starter selection announces return;
+# only Sequoia's later native confirmation advances to Theo.
+starter_path = "data/prideregion/advancement/onboarding/starter_chosen.json"
+starter_function = "data/prideregion/function/onboarding/starter_chosen.mcfunction"
+starter_resources = {
+    starter_path: module.serialize({
+        "criteria":{"picked":{"trigger":"cobblemon:pick_starter"}},
+        "requirements":[["picked"]],
+        "rewards":{"function":"prideregion:onboarding/starter_chosen"}
+    }),
+    starter_function: (
+        'execute unless entity @s[tag=starter_chosen] run tellraw @s '
+        '[{"text":"Return to Professor Sequoia, then register with Technician Theo."}]\n'
+        'tag @s add starter_chosen\n'
+        'ftbquests change_progress @s complete 2D7D171369126710\n'
+    ).encode()
+}
+changed = module.wire_starter_selection_timing(starter_resources)
+check(set(changed)=={starter_path, starter_function},
+    "Only native starter timing assets changed")
+criteria = json.loads(starter_resources[starter_path])
+check(criteria["requirements"] == [["picked"], ["native_starter_recorded"]],
+    "Starter advancement has OR fallback rather than AND gating")
+check(criteria["criteria"]["native_starter_recorded"]["conditions"] ==
+    {"player":{"advancements":{"cobblemon:root": True}}},
+    "Starter selection fallback must use real Cobblemon root proof")
+check("Return to Professor Sequoia at the Hearthleaf laboratory." in
+    starter_resources[starter_function].decode(),
+    "Starter event tells trainer to return to Sequoia, not go to Theo")
+check("then register with Technician Theo." not in
+    starter_resources[starter_function].decode(),
+    "Starter event cannot prematurely tell the player to go to Theo")
+check("ftbquests change_progress @s complete 2D7D171369126710" in
+    starter_resources[starter_function].decode(),
+    "Original FTB starter quest ID preserved")
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")

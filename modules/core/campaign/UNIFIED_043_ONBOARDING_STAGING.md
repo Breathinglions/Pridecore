@@ -42,3 +42,38 @@ Change staging `config/pride_core/story.properties`: `story_enabled=true` and `s
 Run `/pridecore story status`, `/pridecore story validate`, `/pridecore story admin runtime-preflight`, then play actual non-OP onboarding through the original NPCs. Confirm starter service and first-time kit/card occur once. Confirm original RCT Thorn battle and one-time `league_grass`/FTB/₽1,000 and subsequent League trainers. Check a second player, relog, other dimensions, restart and the cinematic preview. No build-only claim of live playability.
 
 Automated test: `python3 modules/core/qa/test_unified_onboarding_dialogue.py`; generated synthetic fixtures verify native original action retention. **Staging gameplay is mandatory before production rollout.**
+
+## Starter selection / Sequoia return — two explicit milestones (2026-11-02)
+
+A fresh player's starter selection must immediately complete the original
+`2D7D171369126710` FTB task and display **Return to Professor Sequoia**.
+It must NOT advance Module 2 to Technician Theo yet.
+
+The original `cobblemon:pick_starter` criterion remains. A second OR path
+observes Cobblemon's genuine `cobblemon:root` starter advancement on
+`minecraft:tick` to cover versions where the first criterion wasn't
+recognized until the original onboarding sync. The existing mcfunction still
+guards the notification via `starter_chosen` and never creates a Pokémon.
+
+The return conversation ("I'll talk to Theo") already writes
+`pride_sequoia_returned` and then runs the original sync. PrideCore's Java
+story reconciliation NOW REQUIRES `starter_chosen`, `sequoia_met`,
+`pride_sequoia_returned`, the completed Mom fact, and the appropriate
+`pride:visit_sequoia` stage before advancing to
+`pride:trainer_registration`. Neither starter selection nor a relog alone
+can skip the return conversation.
+
+**Fresh-profile acceptance checks**
+1. Complete Mom, start Sequoia cinematic, choose exactly one starter.
+2. Before returning to Sequoia: see "Starter chosen! Return to Professor
+   Sequoia", get the original starter FTB completion exactly once;
+   `/pridecore story objective` still names Sequoia.
+3. Only after reopening his native dialogue and selecting "I'll talk to Theo"
+   should PrideCore point to Theo.
+4. Repeated conversations/relog must not re-award starters, items or FTB.
+5. Existing progressed players must not be reset or regressed. This does NOT
+   change Pokémon storage, original NPC classes, cinematics or RCT Gym results.
+
+The bundled 7.10.10 League *source archive* and Cobblemon 1.8.1 runtime
+remain required for game testing; synthetic regression tests are not proof
+of live in-game behavior.

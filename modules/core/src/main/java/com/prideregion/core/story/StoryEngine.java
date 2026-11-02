@@ -118,13 +118,16 @@ public final class StoryEngine {
      * own story checkpoints. Invoked by native NPC actions and at player login.
      * This DOES NOT select Pokémon, issue items, write tags or complete FTB Quests.
      *
+     * The starter alone does NOT finish the Professor meeting: require the
+     * return-conversation marker from the original native Sequoia dialogue.
      * No player can bypass Mom or skip a missing prerequisite. This deliberately
      * handles only the three already-installed legacy onboarding services.
      */
     private record VerifiedStep(String npc, String choice, Set<String> legacyMarkers,
                                 String previousStage, String stage) {}
     private static final List<VerifiedStep> ONBOARDING = List.of(
-        new VerifiedStep("sequoia", "understood", Set.of("starter_chosen", "sequoia_met"),
+        new VerifiedStep("sequoia", "understood", Set.of("starter_chosen", "sequoia_met",
+                "pride_sequoia_returned"),
                 "pride:visit_sequoia", "pride:trainer_registration"),
         new VerifiedStep("theo", "next", Set.of("trainer_card_received"),
                 "pride:trainer_registration", "pride:field_orientation"),

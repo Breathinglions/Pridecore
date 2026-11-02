@@ -133,8 +133,9 @@ public final class StoryEngineTests {
             "External tags must never be written as owned facts");
         rejected(() -> new StoryDefinition.Option("bad", "invalid", null, null,
             Set.of(), Set.of(), Set.of(), Set.of("admin")));
-        check(LegacyOnboardingGate.filter(Set.of("admin", "starter_chosen"))
-            .equals(Set.of("starter_chosen")), "Only allowlisted legacy markers visible");
+        check(LegacyOnboardingGate.filter(Set.of("admin", "starter_chosen", "pride_sequoia_returned"))
+            .equals(Set.of("starter_chosen", "pride_sequoia_returned")),
+            "Only allowlisted original onboarding markers visible");
         check(gatedEngine.begin(fresh, "gate").options().isEmpty(),
             "One player's eligibility never leaks into another player");
         // Recheck at choice time: prerequisites can change after opening a dialogue.
@@ -204,18 +205,24 @@ public final class StoryEngineTests {
         check(reconcile.reconcileOnboarding(newbie).isEmpty(),
             "Sequoia encounter required in addition to starter tag");
         actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met"));
+        check(reconcile.reconcileOnboarding(newbie).isEmpty(),
+            "Choosing a starter cannot advance to Theo before returning to Sequoia");
+        check(store.get(newbie).storyStage().equals("pride:visit_sequoia"),
+            "After starter selection the objective is still return to Sequoia");
+        actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met",
+            "pride_sequoia_returned"));
         check(reconcile.reconcileOnboarding(newbie).equals(List.of("sequoia")),
-            "Professor promotion automatically recognizes original starter service");
+            "Only actual Professor return advances to Technician Theo");
         check(store.get(newbie).storyStage().equals("pride:trainer_registration"),
             "Automatic Professor stage matches established story");
         check(reconcile.reconcileOnboarding(newbie).isEmpty(),
             "Repeat Professor sync cannot increment revisions");
         actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met",
-            "trainer_card_received"));
+            "pride_sequoia_returned","trainer_card_received"));
         check(reconcile.reconcileOnboarding(newbie).equals(List.of("theo")),
             "Trainer registration automatically promotes Theo checkpoint");
         actualMarkers.put(newbie,Set.of("starter_chosen","sequoia_met",
-            "trainer_card_received","trainer_guide_received"));
+            "pride_sequoia_returned","trainer_card_received","trainer_guide_received"));
         check(reconcile.reconcileOnboarding(newbie).equals(List.of("avery")),
             "Avery kit automatically promotes field orientation");
         check(store.get(newbie).storyStage().equals("pride:route1_orientation"),

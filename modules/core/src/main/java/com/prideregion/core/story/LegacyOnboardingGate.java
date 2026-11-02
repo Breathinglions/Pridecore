@@ -5,7 +5,7 @@ import java.util.*;
 /** Read-only, explicitly allowlisted legacy onboarding/League tags. */
 public final class LegacyOnboardingGate {
     private static final Set<String> ALLOWED = Set.of(
-        "journey_started","sequoia_met","starter_chosen",
+        "journey_started","sequoia_met","starter_chosen","pride_sequoia_returned",
         "trainer_card_received","pokepedia_received","trainer_guide_received",
         "field_kit_received","first_catch","first_battle_win","league_started",
         "league_grass","league_rock","league_fire","league_water",
