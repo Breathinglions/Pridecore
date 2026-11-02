@@ -1948,7 +1948,8 @@ public final class StoryModule {
             .get(player.getUuid()).facts();
         player.sendMessage(Text.literal("[Pride Region] Next objective: ")
             .formatted(Formatting.GOLD)
-            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts))
+            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts,
+                    LegacyOnboardingGate.filter(player.getCommandTags())))
                 .formatted(Formatting.YELLOW)), false);
     }
 
