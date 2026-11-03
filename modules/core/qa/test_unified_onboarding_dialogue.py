@@ -164,4 +164,67 @@ try:
 except ValueError:
     checks += 1
 
+# First battle is a genuine trainer result from either Cobblemon pvn or
+# PrideCore's separately verified Rin RCT victory. The original FTB task IDs
+# and the two independent catch/battle prerequisites must remain intact.
+first_battle_adv = "data/prideregion/advancement/onboarding/first_battle_event.json"
+first_battle_fn = "data/prideregion/function/onboarding/first_battle.mcfunction"
+first_catch_fn = "data/prideregion/function/onboarding/first_catch.mcfunction"
+begin_league_fn = "data/prideregion/function/onboarding/begin_league.mcfunction"
+original_milestones = {
+    first_battle_adv: module.serialize({
+        "criteria": {kind: {"trigger": "cobblemon:battles_won",
+                            "conditions": {"count": 0, "battle_types": [code]}}
+            for kind, code in (("wild", "pvw"), ("npc", "pvn"), ("pvp", "pvp"))},
+        "requirements": [["wild", "npc", "pvp"]],
+        "rewards": {"function": "prideregion:onboarding/first_battle"}
+    }),
+    first_battle_fn: (
+        'execute unless entity @s[tag=first_catch] run advancement revoke @s only prideregion:onboarding/first_battle_event\n'
+        'execute if entity @s[tag=first_catch] unless entity @s[tag=first_battle_win] run tellraw @s [{"text":"First battle won!"}]\n'
+        'execute if entity @s[tag=first_catch] run tag @s add first_battle_win\n'
+        'execute if entity @s[tag=first_battle_win] run ftbquests change_progress @s complete 70B779849A4D0F73\n'
+        'execute if entity @s[tag=first_battle_win] run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8"),
+    first_catch_fn: (
+        'execute unless entity @s[tag=trainer_guide_received] run advancement revoke @s only prideregion:onboarding/first_catch_event\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] run tellraw @s [{"text":"First Pokémon caught!"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] run tag @s add first_catch\n'
+        'execute if entity @s[tag=first_catch] run ftbquests change_progress @s complete 008C694ADAE81F20\n'
+    ).encode("utf8"),
+    begin_league_fn: (
+        'execute if entity @s[tag=first_battle_win] unless entity @s[tag=league_started] run tellraw @s [{"text":"Next: Challenge Gym Leader Thorn"}]\n'
+        'execute if entity @s[tag=first_battle_win] run tag @s add league_started\n'
+        'execute if entity @s[tag=league_started] run advancement grant @s only prideregion:onboarding/begin_league\n'
+        'execute if entity @s[tag=league_started] run ftbquests change_progress @s complete 7436AE3F5EDD8DC9\n'
+    ).encode("utf8")
+}
+adapted = dict(original_milestones)
+changed_milestones = module.wire_first_trainer_battle_onboarding(adapted)
+check(set(changed_milestones) == set(adapted),
+      "Exactly four legacy onboarding resources edited")
+miles = json.loads(adapted[first_battle_adv])
+check(list(miles["criteria"]) == ["npc"]
+      and miles["criteria"]["npc"]["conditions"]["battle_types"] == ["pvn"],
+      "Wild and PvP battles cannot satisfy first trainer victory")
+check("unless entity @s[tag=first_battle_win] run tag @s add first_battle_win"
+      in adapted[first_battle_fn].decode(), "First trainer win is recorded once")
+check("if entity @s[tag=first_battle_win,tag=first_catch]"
+      in adapted[first_battle_fn].decode(), "League waits for first catch")
+check("if entity @s[tag=first_catch,tag=first_battle_win]"
+      in adapted[first_catch_fn].decode(), "Capture after victory can unlock League")
+check("unless entity @s[tag=league_grass]"
+      in adapted[begin_league_fn].decode(),
+      "Never tell a player with Verdant badge to challenge Thorn again")
+check("complete 70B779849A4D0F73" in adapted[first_battle_fn].decode()
+      and "complete 7436AE3F5EDD8DC9" in adapted[begin_league_fn].decode(),
+      "Original FTB first battle and League IDs retained")
+story_source = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
+check('synchronizeFirstTrainerVictoryFromRin(player);' in story_source,
+      "Rin victory and native FTB milestone must be synchronized")
+check('pride:rin_route1_won' in story_source.split(
+      'private static void synchronizeFirstTrainerVictoryFromRin(', 1)[1].split(
+      'public static boolean nativeStoryBattleEnded(', 1)[0],
+      "Only a persisted, authenticated Rin win can invoke the native milestone")
+
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
