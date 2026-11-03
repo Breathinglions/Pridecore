@@ -113,4 +113,55 @@ check("then register with Technician Theo." not in
 check("ftbquests change_progress @s complete 2D7D171369126710" in
     starter_resources[starter_function].decode(),
     "Original FTB starter quest ID preserved")
+# The original 24 League service spawn helpers must not retag a nearby
+# wrong NPC class when the requested spawn fails or an entity overlaps.
+def service_spawn(name):
+    return (f"# Pride Region reload-safe NPC placement helper: {name}\n"
+        f'function prideregion:npc_services/spawn/_spawn_runtime {{npc:"pride_region:{name}"}}\n'
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tp "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] ~ ~ ~ ~ 0\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_service_npc\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_npc_" + name + "\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run attribute "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] "
+           "minecraft:generic.knockback_resistance base set 1\n")).encode()
+all_services = [
+    "aide_nia", "avery", "backpack_outfitter", "battle_mechanics_specialist",
+    "battle_tower_receptionist", "card_collector", "daycare_attendant",
+    "expedition_guide", "field_scout", "housing_agent", "league_registrar",
+    "market_registrar", "move_tutor", "pokemon_center_nurse",
+    "pokemon_specialist", "pokemon_work_foreman", "professor_sequoia",
+    "raid_researcher", "ranked_official", "researcher_mira",
+    "resource_ranger", "technician_theo", "tournament_director",
+    "transit_attendant"
+]
+original_spawns = {
+    f"data/prideregion/function/npc_services/spawn/{n}.mcfunction": service_spawn(n)
+    for n in all_services
+}
+guarded_spawns = original_spawns.copy()
+changed_spawns = module.harden_original_service_spawn_helpers(guarded_spawns)
+check(set(changed_spawns) == set(original_spawns), "All 24 League service spawns hardened")
+for n in all_services:
+    p = f"data/prideregion/function/npc_services/spawn/{n}.mcfunction"
+    text = guarded_spawns[p].decode("utf8")
+    check(f'nbt={{NPCClass:"pride_region:{n}"}}' in text,
+        n + " must verify original NPCClass")
+    check("tag=!pride_service_spawn_existing" in text,
+        n + " must exclude existing NPCs")
+    check("remove pride_service_spawn_existing" in text,
+        n + " must clear temporary tags")
+    check(f'{{npc:"pride_region:{n}"}}' in text,
+        n + " must preserve original /spawnnpc class")
+check(original_spawns != guarded_spawns, "Original unsafe nearest selectors replaced")
+try:
+    module.harden_original_service_spawn_helpers({
+        "data/prideregion/function/npc_services/spawn/only_one.mcfunction":
+            service_spawn("only_one")})
+    raise AssertionError("Unsafe incomplete helper set was accepted")
+except ValueError:
+    checks += 1
+
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
