@@ -352,7 +352,9 @@ public final class StoryModule {
                     handler.getPlayer().getWorld().getRegistryKey().getValue().toString()))
                 return;
             try {
-                // Read old *verified* onboarding markers, then project owned checkpoints.
+                // Reconcile the already-authenticated Rin win before projecting
+                // native onboarding. This repairs disconnects after a genuine win.
+                synchronizeFirstTrainerVictoryFromRin(handler.getPlayer());
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
                 boolean verdantWin = active.reconcileVerdantVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
@@ -969,6 +971,30 @@ public final class StoryModule {
         }
     }
 
+    /**
+     * Original League onboarding did not observe every custom RCT rival win.
+     * The persisted PrideCore proof is signed off only by the authoritative
+     * Cobblemon/RCT victory callback. Mirror that REAL trainer victory through
+     * the original League's one-time battle function (and its original FTB ID).
+     * It never grants a catch, a badge, money, or a second battle result.
+     *
+     * Replaying on join/sync repairs an interrupted post-victory handoff.
+     */
+    private static void synchronizeFirstTrainerVictoryFromRin(
+            ServerPlayerEntity player) throws IOException {
+        if (player.getCommandTags().contains("first_battle_win")) return;
+        var profile = PrideCoreMod.progression(player.getServer())
+            .orElseThrow(() -> new IOException("Progression unavailable"))
+            .get(player.getUuid());
+        if (!profile.facts().contains("pride:rin_route1_won")) return;
+        player.getServer().getCommandManager().executeWithPrefix(
+            player.getCommandSource().withLevel(4),
+            "function prideregion:onboarding/first_battle");
+        if (!player.getCommandTags().contains("first_battle_win"))
+            LOGGER.warn("Rin first-trainer victory did not reach League onboarding for {}",
+                player.getUuid());
+    }
+
     /** Process only genuine resolved native battle results. */
     public static boolean nativeStoryBattleEnded(MinecraftServer server,
             UUID battleId, UUID winnerId) throws IOException {
@@ -1040,6 +1066,14 @@ public final class StoryModule {
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null) {
+                if ("rin_route1".equals(resolvedEncounter)) {
+                    try {
+                        synchronizeFirstTrainerVictoryFromRin(player);
+                    } catch (IOException | RuntimeException milestoneError) {
+                        LOGGER.warn("Rin victory was persisted but native first-trainer "
+                            + "milestone sync failed for {}", winnerId, milestoneError);
+                    }
+                }
                 String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
@@ -1906,6 +1940,7 @@ public final class StoryModule {
             if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
                 throw new IllegalStateException("Story synchronization is disabled in this dimension");
             StoryEngine active = ready(source.getServer());
+            synchronizeFirstTrainerVictoryFromRin(player);
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
