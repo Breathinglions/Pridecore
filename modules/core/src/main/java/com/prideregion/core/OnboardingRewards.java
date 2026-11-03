@@ -1,11 +1,13 @@
 package com.prideregion.core;
 
 import com.google.gson.*;
+import com.prideregion.core.story.NativeNpcIdentity;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -158,7 +160,9 @@ public final class OnboardingRewards {
                 player.getBoundingBox().expand(5.0),
                 e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                     && e.getCommandTags().contains("pride_service_npc")
-                    && e.getCommandTags().contains(npc))) {
+                    && e.getCommandTags().contains(npc)
+                    && NativeNpcIdentity.matchesRequiredClass(
+                        npc, e.writeNbt(new NbtCompound()).getString("NPCClass")))) {
             if (candidate.squaredDistanceTo(player) <= 36.0D) {
                 physicalServiceNearby = true;
                 break;
