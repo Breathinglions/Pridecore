@@ -275,6 +275,51 @@ def wire_starter_selection_timing(league: dict[str, bytes]) -> list[str]:
     return [path, function]
 
 
+def harden_original_service_spawn_helpers(league: dict[str, bytes]) -> list[str]:
+    """Don't tag/reposition a nearby wrong-class NPC after /spawnnpc.
+
+    The original League helpers target only the nearest cobblemon:npc after
+    spawning. If another NPC occupies that location, it can inherit the new
+    actor's name/skin/tag while retaining its original native dialogue class.
+    Keep original placement, rotations, NPC class requests and reward code.
+    """
+    folder = "data/prideregion/function/npc_services/spawn/"
+    helper_paths = sorted(k for k in league if k.startswith(folder)
+        and k.endswith(".mcfunction") and not k.endswith("/_spawn_runtime.mcfunction"))
+    if len(helper_paths) != 24:
+        raise ValueError(f"Expected 24 original service NPC spawn helpers, found {len(helper_paths)}")
+    changed = []
+    for path in helper_paths:
+        npc = Path(path).stem
+        source = league[path].decode("utf-8")
+        invoke = f'function prideregion:npc_services/spawn/_spawn_runtime {{npc:"pride_region:{npc}"}}'
+        old_selector = "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35]"
+        if source.count(invoke) != 1 or source.count(old_selector) != 4:
+            raise ValueError(f"Unexpected original spawn helper commands for {npc}")
+        premark = ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+            "@e[type=cobblemon:npc,distance=..2.5] add pride_service_spawn_existing")
+        safe_selector = (
+            "@e[type=cobblemon:npc,tag=!pride_service_spawn_existing,"
+            f'nbt={{NPCClass:"pride_region:{npc}"}},sort=nearest,limit=1,distance=..0.35]'
+        )
+        guarded = source.replace(invoke, premark + "\n" + invoke)
+        guarded = guarded.replace(old_selector, safe_selector)
+        # Refuse silently touching existing neighbors; make the failure
+        # observable to the builder, then remove temporary scan tags.
+        verify = (f'execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity {safe_selector} '
+            'run tellraw @s {"text":"Pride Region NPC spawn refused: no new matching NPC class found.",'
+            '"color":"red"}')
+        clear = ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+            "@e[type=cobblemon:npc,tag=pride_service_spawn_existing,distance=..2.5] "
+            "remove pride_service_spawn_existing")
+        guarded = guarded.rstrip("\n") + "\n" + verify + "\n" + clear + "\n"
+        if guarded.count(f'nbt={{NPCClass:"pride_region:{npc}"}}') != 5:
+            raise ValueError("Invalid NPC class selector count for " + npc)
+        league[path] = guarded.encode("utf-8")
+        changed.append(path)
+    return changed
+
+
 def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path) -> dict:
     if digest(league_path.read_bytes()) != EXPECTED_LEAGUE_SHA:
         raise ValueError("League datapack checksum differs from original audited 7.10.10")
@@ -330,6 +375,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     lab = rewrite_lab(league)
     changed_onboarding = wire_configurable_onboarding(league)
     changed_onboarding.extend(wire_starter_selection_timing(league))
+    hardened_spawns = harden_original_service_spawn_helpers(league)
     refine_story_prologue(story)
     resources = {**league, **story, **lab}
     thorn = "data/rctmod/mobs/trainers/single/pride_thorn.json"
@@ -345,7 +391,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
     # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
-    expected_changed = sorted([thorn] + changed_onboarding + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    expected_changed = sorted([thorn] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
@@ -357,6 +403,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
         "overridden_lab_dialogues": sorted(lab),
         "onboarding_kit_config": "config/pride_core/onboarding_rewards.json",
         "configurable_native_reward_functions": changed_onboarding,
+        "hardened_original_service_spawn_helpers": hardened_spawns,
         "only_approved_original_league_changes": changed_league,
         "player_data_changed": False, "ftb_quest_ids_changed": False,
         "story_npc_duplicates_removed": ["thorn", "rin_canyon", "rin_summit", "ranger_epilogue"],
