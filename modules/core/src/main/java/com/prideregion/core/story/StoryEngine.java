@@ -41,8 +41,9 @@ public final class StoryEngine {
     /**
      * Rin's authenticated Route 1 victory counts as the first TRAINER battle
      * only when Ranger Mira checks the existing first_battle_win requirement.
-     * Never write, synthesize or grant an external first_battle_win tag.
-     * first_catch must still come from the original capture system.
+     * The verified RCT victory adapter may mirror this authenticated win into
+     * the original League onboarding function, but this story engine never
+     * fabricates a battle result. first_catch must still come from Cobblemon.
      */
     private static boolean legacyChoiceSatisfied(StoryDefinition.Npc npc,
             StoryDefinition.Option option, Set<String> storyFacts, Set<String> legacy) {
