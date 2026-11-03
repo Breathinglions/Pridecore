@@ -65,4 +65,15 @@ assert 'NativeNpcIdentity.matchesRequiredClass(' in module
 assert 'Wrong native story NPC class' in module
 assert 'Cannot assign " + tag' in module
 assert 'INVALID story marker on ' in module
+rewards = (root / "src/main/java/com/prideregion/core/OnboardingRewards.java").read_text(encoding="utf8")
+assert 'NativeNpcIdentity.matchesRequiredClass(' in rewards, (
+    "Theo/Avery kit grants must verify the native Cobblemon NPCClass")
+assert '"pride_npc_professor_sequoia", npcClass(e)' in module, (
+    "Sequoia's cinematic must not trust a tag on a different NPC")
+for expected in (
+    'case "pride_npc_professor_sequoia" -> "pride_region:professor_sequoia"',
+    'case "pride_npc_technician_theo" -> "pride_region:technician_theo"',
+    'case "pride_npc_avery" -> "pride_region:avery"',
+):
+    assert expected in identity, expected
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
