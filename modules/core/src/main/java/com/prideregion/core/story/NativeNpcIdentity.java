@@ -33,11 +33,20 @@ public final class NativeNpcIdentity {
      * names, skins or ForcedResourceIdentifier. Only the canonical class
      * may own a story role; a retagged Resource Ranger is not Mom.
      *
-     * Original RCT Thorn and service NPC identities remain with their own
-     * providers and are not guessed here.
+     * The three original lab services have their own verified League
+     * namespace NPC classes; RCT Thorn retains its provider-owned identity.
      */
     public static String requiredClassForStoryTag(String tag) {
         if (tag == null) return null;
+        // Native onboarding services are packaged from the original League.
+        // Guard them as strictly as the newly authored Pride Story NPCs.
+        String serviceClass = switch (tag) {
+            case "pride_npc_professor_sequoia" -> "pride_region:professor_sequoia";
+            case "pride_npc_technician_theo" -> "pride_region:technician_theo";
+            case "pride_npc_avery" -> "pride_region:avery";
+            default -> null;
+        };
+        if (serviceClass != null) return serviceClass;
         for (String id : ALLOWED) {
             if (Set.of("sequoia", "theo", "avery", "thorn").contains(id))
                 continue;
