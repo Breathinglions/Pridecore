@@ -479,6 +479,32 @@ public final class StoryEngineTests {
         check(!route1Tags.get(route1Player).contains("first_battle_win"),
             "Rin battle credit does not manufacture external battle-win tag");
 
+        check(NativeNpcIdentity.matchesRequiredClass("pride_npc_mom", "pride_story:mom"),
+            "Mom's real NPC class is accepted");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_mom", "pride_region:resource_ranger"),
+            "Resource Ranger cannot act as Mom merely by adopting Mom's tag or skin");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_professor_sequoia", "pride_region:professor_sequoia"),
+            "Original Sequoia service retains its correct class");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_professor_sequoia", "pride_story:mom"),
+            "Another story NPC cannot masquerade as Sequoia");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_technician_theo", "pride_region:technician_theo"),
+            "Theo's original class retains registration privileges");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_avery", "pride_region:avery"),
+            "Avery's original class retains field kit privileges");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_avery", "pride_region:resource_ranger"),
+            "Resource Ranger cannot claim a field kit authorization");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_rin", "pride_story:rin"),
+            "Rin's canonical class works in every chapter");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_rin", "pride_story:ranger"),
+            "Retagged Ranger cannot launch Rin battles");
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }
