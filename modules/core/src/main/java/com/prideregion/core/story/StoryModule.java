@@ -1798,6 +1798,8 @@ public final class StoryModule {
             player.getBoundingBox().expand(6.0D),
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_professor_sequoia")
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_professor_sequoia", npcClass(e))
                 && e.getCommandTags().stream().filter(t -> t.startsWith(PREFIX)).count() == 1
                 && e.squaredDistanceTo(player) <= 36.0D)
             .stream().findAny().isPresent();
