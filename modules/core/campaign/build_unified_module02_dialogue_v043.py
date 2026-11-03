@@ -297,6 +297,23 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     npcs = [k for k in story if k.startswith("data/pride_story/npcs/")]
     if len(npcs) != 20:
         raise ValueError(f"Expected exactly 20 narrative-only NPC types, found {len(npcs)}")
+    # An NPC's name, skin and entity tag are not its native Cobblemon class.
+    # Enforce correct data identities in the final unified package; otherwise a
+    # retagged Resource Ranger can display the wrong UI while looking like Mom.
+    for npc_path in npcs:
+        npc_id = Path(npc_path).stem
+        npc_def = json.loads(story[npc_path])
+        expected_dialogue = f"pride_story:{npc_id}"
+        if npc_def.get("interaction", {}).get("dialogue") != expected_dialogue:
+            raise ValueError(f"Native NPC {npc_id} dialogue/class mismatch")
+        if f"data/pride_story/dialogues/{npc_id}.json" not in story:
+            raise ValueError(f"Missing native dialogue for {npc_id}")
+        spawn_path = f"data/pride_story/function/spawn/{npc_id}.mcfunction"
+        spawn = story.get(spawn_path, b"").decode("utf-8")
+        expected_class = f'nbt={{NPCClass:"pride_story:{npc_id}"}}'
+        if spawn.count(expected_class) != 3 or (
+                f'{{npc:"pride_story:{npc_id}"}}' not in spawn):
+            raise ValueError(f"Unsafe or missing class-verified spawn for {npc_id}")
     for c in CLUES:
         if f"data/pride_story/advancement/clue_{c}.json" not in story:
             raise ValueError("Missing story clue " + c)
