@@ -320,6 +320,89 @@ def harden_original_service_spawn_helpers(league: dict[str, bytes]) -> list[str]
     return changed
 
 
+def wire_first_trainer_battle_onboarding(league: dict[str, bytes]) -> list[str]:
+    """Count a first *trainer* victory, never postpone it to the first Gym.
+
+    A real native pvn victory drives the original advancement. A native
+    authenticated PrideCore Rin win can invoke the same one-time function.
+    First catch stays independently required before unlocking the League.
+    """
+    advancement = "data/prideregion/advancement/onboarding/first_battle_event.json"
+    battle_path = "data/prideregion/function/onboarding/first_battle.mcfunction"
+    catch_path = "data/prideregion/function/onboarding/first_catch.mcfunction"
+    league_path = "data/prideregion/function/onboarding/begin_league.mcfunction"
+    required = (advancement, battle_path, catch_path, league_path)
+    if any(path not in league for path in required):
+        raise ValueError("Original first-battle/League resources are missing")
+    definition = json.loads(league[advancement])
+    criteria = definition.get("criteria", {})
+    if set(criteria) != {"wild", "npc", "pvp"} or any(
+        criteria[key].get("trigger") != "cobblemon:battles_won"
+        or criteria[key].get("conditions", {}).get("battle_types") != [battle_type]
+        for key, battle_type in (("wild", "pvw"), ("npc", "pvn"), ("pvp", "pvp"))
+    ) or definition.get("rewards", {}).get("function") != "prideregion:onboarding/first_battle":
+        raise ValueError("Original first battle advancement has changed")
+    definition["criteria"] = {"npc": criteria["npc"]}
+    definition["requirements"] = [["npc"]]
+    league[advancement] = serialize(definition)
+
+    old_battle = league[battle_path].decode("utf8")
+    old_catch = league[catch_path].decode("utf8")
+    old_league = league[league_path].decode("utf8")
+    for expected, source in (
+        ("tag @s add first_battle_win", old_battle),
+        ("ftbquests change_progress @s complete 70B779849A4D0F73", old_battle),
+        ("function prideregion:onboarding/begin_league", old_battle),
+        ("tag @s add first_catch", old_catch),
+        ("ftbquests change_progress @s complete 008C694ADAE81F20", old_catch),
+        ("tag @s add league_started", old_league),
+        ("ftbquests change_progress @s complete 7436AE3F5EDD8DC9", old_league),
+    ):
+        if expected not in source:
+            raise ValueError("Original first-battle onboarding changed: " + expected)
+
+    # Recording the real first trainer win must not depend on capture order.
+    # The original FTB task remains credited by the original reward function.
+    league[battle_path] = (
+        '# One verified trainer victory: native Cobblemon pvn or authenticated Rin.\n'
+        'execute unless entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First trainer battle won! ","color":"gold","bold":true},'
+        '{"text":"Your League journey is underway.","color":"yellow"}]\n'
+        'execute unless entity @s[tag=first_battle_win] run tag @s add first_battle_win\n'
+        'execute if entity @s[tag=first_battle_win] run ftbquests change_progress @s complete 70B779849A4D0F73\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] '
+        'run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8")
+    league[catch_path] = (
+        '# Original first-catch proof; never mint a catch marker without a real capture.\n'
+        'execute unless entity @s[tag=trainer_guide_received] run advancement revoke @s only prideregion:onboarding/first_catch_event\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] unless entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First Pokémon caught! ","color":"gold","bold":true},'
+        '{"text":"Challenge Rin or another trainer on Route 1.","color":"yellow"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] if entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First Pokémon caught! ","color":"gold","bold":true},'
+        '{"text":"Your first trainer victory is already recorded.","color":"yellow"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] run tag @s add first_catch\n'
+        'execute if entity @s[tag=first_catch] run ftbquests change_progress @s complete 008C694ADAE81F20\n'
+        'execute if entity @s[tag=first_catch,tag=first_battle_win] '
+        'run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8")
+    # A player must have BOTH milestones. Never advertise challenging a
+    # Gym Leader they have already beaten; story directions own the next step.
+    league[league_path] = (
+        '# Original one-time League registration; first catch + first trainer win.\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] unless entity @s[tag=league_started] unless entity @s[tag=league_grass] run title @s actionbar '
+        '{"text":"Pokémon League unlocked","color":"gold"}\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] unless entity @s[tag=league_started] unless entity @s[tag=league_grass] run tellraw @s '
+        '[{"text":"Pokémon League unlocked! ","color":"gold","bold":true},'
+        '{"text":"Continue your journey toward Verdant Gym.","color":"green"}]\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] run tag @s add league_started\n'
+        'execute if entity @s[tag=league_started] run advancement grant @s only prideregion:onboarding/begin_league\n'
+        'execute if entity @s[tag=league_started] run ftbquests change_progress @s complete 7436AE3F5EDD8DC9\n'
+    ).encode("utf8")
+    return list(required)
+
+
 def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path) -> dict:
     if digest(league_path.read_bytes()) != EXPECTED_LEAGUE_SHA:
         raise ValueError("League datapack checksum differs from original audited 7.10.10")
@@ -375,6 +458,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     lab = rewrite_lab(league)
     changed_onboarding = wire_configurable_onboarding(league)
     changed_onboarding.extend(wire_starter_selection_timing(league))
+    changed_onboarding.extend(wire_first_trainer_battle_onboarding(league))
     hardened_spawns = harden_original_service_spawn_helpers(league)
     refine_story_prologue(story)
     resources = {**league, **story, **lab}
