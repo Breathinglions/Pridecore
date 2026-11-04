@@ -23,6 +23,7 @@ public final class StoryObjectiveGuide {
         Map.entry("pride:rival_introduced", "Rin has been looking for you on Route 1. Ranger Mira waits farther along the trail."),
         Map.entry("pride:forest_investigation", "Investigate the glowing amethyst fragments in Verdant Forest. Right-click the crystals to collect a Resonance trace."),
         Map.entry("pride:forest_traces_discovered", "Resonance trace collected! Follow the trail to Stonehaven City. Earn Rook's Bastion Badge, then seek Miner Lyra near the mountain."),
+        Map.entry("pride:stonehaven_victory", "Rook's Bastion Badge is yours. Miner Lyra is investigating missing survey records near the Stonehaven mountain mine."),
         Map.entry("pride:rock_investigation", "Miner Lyra has found something missing from the old mine surveys."),
         Map.entry("pride:eclipse_detected", "Rin has followed the same rumors to the canyon. Neither of you has the whole story yet."),
         Map.entry("pride:rival_debate", "The canyon meeting has raised more questions. The foundry district may hold the next clue."),
