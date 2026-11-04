@@ -64,6 +64,12 @@ public final class StoryEngineTests {
                     .contains("Rook's Bastion Badge"),
             "After the clue, the objective sends players to Stonehaven for the Rock Badge first");
 
+        check(StoryObjectiveGuide.forStage("pride:rock_investigation")
+                .contains("Examine the marked evidence"),
+            "Miner Lyra asks player to examine the Rock Mine survey evidence");
+        check(StoryObjectiveGuide.forStage("pride:mine_evidence_discovered")
+                .contains("Eclipse Scout"),
+            "After surveying the mine, the objective directs players to the Eclipse Scout");
         check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
             "Canyon rivalry is identified in the player's campaign directions");
         check(StoryObjectiveGuide.forStage("pride:ice_research").contains("summit"),
@@ -72,7 +78,7 @@ public final class StoryEngineTests {
             "Eclipse Lieutenant battle is a required stage");
         check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
             "The Resonance crisis remains visible through narrative direction");
-        check(StoryObjectiveGuide.coveredStages() == 31,
+        check(StoryObjectiveGuide.coveredStages() == 32,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
             "Unknown custom stages fall back to immersive, nontechnical story direction");
@@ -373,7 +379,7 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
-        check(StoryObjectiveGuide.coveredStages() == 31,
+        check(StoryObjectiveGuide.coveredStages() == 32,
             "Every milestone stage and newly verified Verdant win has guidance");
 
         // Regression: Rin may be visited out of sequence without undoing a
