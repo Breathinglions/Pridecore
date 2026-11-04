@@ -105,7 +105,7 @@ for required in (
     'if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective)',
 ):
     assert required in module, f"Mine evidence repair not wired: {required}"
-assert 'case "mine" when "pride:rock_investigation".equals(player.storyStage())' in evidence
-assert 'case "pride:rock_investigation" when player.facts().contains("pride:clue_mine")' in evidence
+assert 'case "mine" -> "pride:rock_investigation".equals(player.storyStage())' in evidence
+assert 'case "pride:rock_investigation" ->' in evidence and 'player.facts().contains("pride:clue_mine")' in evidence
 assert '"pride:mine_evidence_discovered"' in evidence and guide
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
