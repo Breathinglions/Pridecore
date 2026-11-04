@@ -70,6 +70,37 @@ public final class StoryEvidenceEngineTests {
             check(StoryEvidenceEngine.discovered(store.get(outsider)).isEmpty(),
                 "No leaked FTB evidence for other player");
         }
+        // Physical Verdant crystal click must complete the investigation
+        // stage and unlock a fresh objective while preserving all later stages.
+        UUID verdant = UUID.randomUUID();
+        tags.put(verdant, Set.of("league_grass"));
+        store.transition(verdant, "pride:forest_investigation",
+            Set.of("pride:forest_evidence"), Set.of());
+        long firstRevision = store.get(verdant).revision();
+        check(engine.complete(verdant, "forest").firstDiscovery(),
+            "Verified first crystal click records the forest discovery");
+        check(store.get(verdant).storyStage().equals("pride:forest_traces_discovered"),
+            "Amethyst clue advances the active objective toward Stonehaven");
+        check(store.get(verdant).facts().contains("pride:clue_forest"),
+            "Pride clue fact is persisted for per-player FTB advancement");
+        check(store.get(verdant).revision() == firstRevision + 1,
+            "Discovery fact and new stage commit atomically in one revision");
+        long finishedRevision = store.get(verdant).revision();
+        check(!engine.complete(verdant, "forest").firstDiscovery()
+                && store.get(verdant).revision() == finishedRevision,
+            "Repeat clicks don't announce or rewrite a completed crystal clue");
+
+        UUID advanced = UUID.randomUUID();
+        tags.put(advanced, Set.of("league_grass"));
+        store.transition(advanced, "pride:rock_investigation",
+            Set.of("pride:forest_evidence"), Set.of());
+        check(engine.complete(advanced, "forest").firstDiscovery(),
+            "Previously skipped forest evidence can be recovered legitimately");
+        check(store.get(advanced).storyStage().equals("pride:rock_investigation"),
+            "Late crystal click cannot regress a player already in Stonehaven");
+        check(store.get(advanced).facts().contains("pride:clue_forest"),
+            "Late evidence preserves story objective and fills missing advancement");
+
         System.out.println("PASS: "+checks+" authenticated evidence gates, "
             + "no reward replay, chapter isolation and stage persistence");
     }
