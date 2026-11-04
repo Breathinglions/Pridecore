@@ -417,11 +417,12 @@ public final class StoryModule {
                 boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
                     PrideCoreMod.progression(server).orElseThrow(), handler.getPlayer().getUuid());
                 boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
+                boolean canyonWin = active.reconcileRinCanyonVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin || stonehavenWin || clueObjective)
+                if (verdantWin || stonehavenWin || clueObjective || canyonWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -1149,7 +1150,12 @@ public final class StoryModule {
                 try {
                     player.sendMessage(Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)
                         .formatted(Formatting.GREEN), false);
+                    boolean canyonWin = engine != null
+                        && "rin_canyon".equals(resolvedEncounter)
+                        && engine.reconcileRinCanyonVictory(player.getUuid());
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                    if (canyonWin)
+                        sendNextObjective(player, engine.currentStage(player.getUuid()));
                     // A genuine Rin win grants the victory fact, but
                     // Ranger Mira (not the battle) advances the stage. Guide
                     // the winner there immediately instead of advertising
@@ -2006,9 +2012,10 @@ public final class StoryModule {
             boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
                 PrideCoreMod.progression(source.getServer()).orElseThrow(), player.getUuid());
             boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
+            boolean canyonWin = active.reconcileRinCanyonVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
