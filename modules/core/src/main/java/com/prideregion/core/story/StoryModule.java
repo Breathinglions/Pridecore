@@ -5,6 +5,7 @@ import net.minecraft.nbt.NbtCompound;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -15,6 +16,8 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
@@ -27,6 +30,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,6 +112,42 @@ public final class StoryModule {
             ? "Rin: " : "[Pride Region] ";
     }
 
+    // The terrain is decoration; only a deliberately placed clue marker
+    // authorizes a story discovery. Players can click the amethyst blocks
+    // themselves even if the invisible interaction entity is inside the build.
+    private static final Set<Block> FOREST_CRYSTAL_BLOCKS = Set.of(
+        Blocks.AMETHYST_BLOCK, Blocks.BUDDING_AMETHYST, Blocks.SMALL_AMETHYST_BUD,
+        Blocks.MEDIUM_AMETHYST_BUD, Blocks.LARGE_AMETHYST_BUD, Blocks.AMETHYST_CLUSTER
+    );
+
+    private static ActionResult discoverStoryEvidence(ServerPlayerEntity player, String clueId) {
+        try {
+            if (liveServer != player.getServer() || engine == null)
+                throw new IllegalStateException("Story module is not active");
+            var service = PrideCoreMod.progression(player.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"));
+            var evidence = new StoryEvidenceEngine(service,
+                id -> id.equals(player.getUuid())
+                    ? Set.copyOf(player.getCommandTags()) : Set.of());
+            var result = evidence.complete(player.getUuid(), clueId);
+            StoryAdvancementBridge.synchronize(player, engine);
+            player.sendMessage(Text.literal(result.firstDiscovery()
+                ? "[Pride Region] Evidence discovered: " + result.clue().title()
+                : "[Pride Region] You've already examined this evidence.")
+                .formatted(Formatting.AQUA), false);
+            // The persisted fact AND stage now reflect the crystal discovery.
+            // Only the first click should announce a fresh next objective.
+            if (result.firstDiscovery())
+                sendNextObjective(player, engine.currentStage(player.getUuid()));
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Story evidence interaction failed for {} clue={}: {}",
+                player.getUuid(), clueId, ex.toString());
+            player.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
+                .formatted(Formatting.RED), false);
+        }
+        return ActionResult.SUCCESS;
+    }
+
     public static void registerHooks() {
         // Module 02 is a Pokémon trainer battle, NEVER a hybrid Minecraft
         // boss fight. Only exact, valid story trainer actors are protected.
@@ -125,6 +167,31 @@ public final class StoryModule {
                 STORY_WORLDS.permits(entity.getWorld().getRegistryKey().getValue().toString()),
                 entity instanceof net.minecraft.entity.player.PlayerEntity);
             return !protectedTrainer;
+        });
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND
+                    || liveServer != sp.getServer() || engine == null
+                    || !STORY_WORLDS.permits(sp.getWorld().getRegistryKey().getValue().toString()))
+                return ActionResult.PASS;
+            BlockPos clicked = hitResult.getBlockPos();
+            if (!FOREST_CRYSTAL_BLOCKS.contains(world.getBlockState(clicked).getBlock()))
+                return ActionResult.PASS;
+            Vec3d crystalCenter = Vec3d.ofCenter(clicked);
+            if (sp.getPos().squaredDistanceTo(crystalCenter) > 36.0D)
+                return ActionResult.PASS;
+            // Don't make every amethyst crystal in the world a storyline
+            // shortcut. The author must place pride_clue_forest nearby.
+            boolean authoredFormation = world.getOtherEntities(sp,
+                new Box(clicked).expand(3.0D),
+                markerEntity -> markerEntity.getType() == EntityType.INTERACTION
+                    && markerEntity.getCommandTags().contains("pride_clue_forest")
+                    && StoryWorldMarkerCatalog.exclusiveStoryMarker(
+                        markerEntity.getCommandTags())
+                    && markerEntity.getPos().squaredDistanceTo(crystalCenter) <= 9.0D
+                    && markerEntity.squaredDistanceTo(sp) <= 36.0D
+            ).stream().findAny().isPresent();
+            if (!authoredFormation) return ActionResult.PASS;
+            return discoverStoryEvidence(sp, "forest");
         });
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
@@ -240,23 +307,7 @@ public final class StoryModule {
                 if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
-                try {
-                    var service = PrideCoreMod.progression(sp.getServer())
-                        .orElseThrow(() -> new IOException("Progression unavailable"));
-                    var evidence = new StoryEvidenceEngine(service,
-                        id -> id.equals(sp.getUuid()) ? Set.copyOf(sp.getCommandTags()) : Set.of());
-                    var result = evidence.complete(sp.getUuid(), clues.getFirst().id());
-                    StoryEngine running = liveServer == sp.getServer() ? engine : null;
-                    if (running != null) StoryAdvancementBridge.synchronize(sp, running);
-                    sp.sendMessage(Text.literal(result.firstDiscovery()
-                            ? "[Pride Region] Evidence discovered: " + result.clue().title()
-                            : "[Pride Region] You've already examined this evidence.")
-                        .formatted(Formatting.AQUA), false);
-                } catch (IOException | RuntimeException ex) {
-                    sp.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
-                        .formatted(Formatting.RED), false);
-                }
-                return ActionResult.SUCCESS;
+                return discoverStoryEvidence(sp, clues.getFirst().id());
             }
             // Intentionally placed story battle trainers. Only living
             // entities carrying one exact, registered encounter tag qualify.
