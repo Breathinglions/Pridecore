@@ -95,4 +95,17 @@ guide = (src / "StoryObjectiveGuide.java").read_text(encoding="utf8")
 assert '"pride:forest_investigation".equals(player.storyStage())' in evidence
 assert '"pride:forest_traces_discovered"' in evidence and guide
 assert 'Set.of(clue.earnedFact()), Set.of()).changed()' in evidence
+# Both the first click and an older save with a persisted mine clue must
+# produce the proper follow-up, without a fabricated second discovery.
+for required in (
+    'String stageBeforeClick = engine.currentStage(player.getUuid());',
+    'StoryEvidenceEngine.reconcileSavedObjective(',
+    '|| !stageBeforeClick.equals(afterClick)',
+    'if (verdantWin || stonehavenWin || clueObjective)',
+    'if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective)',
+):
+    assert required in module, f"Mine evidence repair not wired: {required}"
+assert 'case "mine" when "pride:rock_investigation".equals(player.storyStage())' in evidence
+assert 'case "pride:rock_investigation" when player.facts().contains("pride:clue_mine")' in evidence
+assert '"pride:mine_evidence_discovered"' in evidence and guide
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
