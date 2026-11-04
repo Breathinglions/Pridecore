@@ -250,6 +250,33 @@ public final class StoryEngine {
             metThorn ? Set.of() : Set.of("pride:met_thorn"), Set.of()).changed();
     }
 
+    /**
+     * Rook's real RCT League callback owns the Bastion Badge, FTB credit,
+     * payout and native battle. This read-only reconciliation uses ONLY the
+     * original per-player League rock/grassy badges and previously persisted
+     * Warden + forest crystal evidence to unlock Miner Lyra's chapter.
+     *
+     * Players who won Rook before discovering the forest crystal are
+     * reconciled on that later click or on join/sync. A player already in
+     * Stonehaven's investigation or beyond is never sent backward.
+     */
+    public synchronized boolean reconcileStonehavenVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!Set.of("pride:forest_investigation",
+                    "pride:forest_traces_discovered").contains(current.storyStage()))
+            return false;
+        if (!current.facts().containsAll(Set.of(
+                "pride:met_thorn", "pride:forest_evidence", "pride:clue_forest")))
+            return false;
+        Set<String> league = legacyFor(playerId);
+        if (!league.containsAll(Set.of("league_started", "league_grass", "league_rock")))
+            return false;
+        // Save only the current objective. No badge, reward, quest
+        // completion, battle win or player command tag may be manufactured.
+        return progression.transition(playerId, "pride:stonehaven_victory",
+            Set.of(), Set.of()).changed();
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
