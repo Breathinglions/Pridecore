@@ -1169,8 +1169,8 @@ public final class StoryModule {
                                 reminderFailure);
                         }
                     }
-                } catch (RuntimeException presentationError) {
-                    LOGGER.warn("Verified story victory {} persisted but player UI update failed",
+                } catch (IOException | RuntimeException presentationError) {
+                    LOGGER.warn("Verified story victory {} persisted but post-win story/UI handoff failed",
                         battleId, presentationError);
                 }
             }
