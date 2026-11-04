@@ -72,7 +72,7 @@ public final class StoryEngineTests {
             "Eclipse Lieutenant battle is a required stage");
         check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
             "The Resonance crisis remains visible through narrative direction");
-        check(StoryObjectiveGuide.coveredStages() == 30,
+        check(StoryObjectiveGuide.coveredStages() == 31,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
             "Unknown custom stages fall back to immersive, nontechnical story direction");
@@ -317,10 +317,63 @@ public final class StoryEngineTests {
         actualMarkers.put(veteranGym, Set.of("league_started", "league_grass"));
         check(!gymEngine.reconcileVerdantVictory(veteranGym),
             "Verified legacy Gym win can never regress later campaign stages");
+        // Rook's original RCT victory writes the official league_rock tag.
+        // A callback/returning-player sync may advance ONLY after the Warden
+        // briefing and real forest evidence, without re-awarding anything.
+        UUID rookWinner = UUID.randomUUID(), missingCrystal = UUID.randomUUID(),
+            noRockBadge = UUID.randomUUID(), laterChapter = UUID.randomUUID();
+        var fullForest = Set.of(
+            "pride:met_thorn", "pride:forest_evidence", "pride:clue_forest");
+        var rockLegacy = Set.of("league_started", "league_grass", "league_rock");
+        store.transition(rookWinner, "pride:forest_traces_discovered",
+            fullForest, Set.of());
+        actualMarkers.put(rookWinner, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileStonehavenVictory(rookWinner),
+            "Rock victory cannot be forged without the official Bastion Badge");
+        actualMarkers.put(rookWinner, rockLegacy);
+        check(gymEngine.reconcileStonehavenVictory(rookWinner),
+            "Real Rook badge and completed crystal clue open Stonehaven objective");
+        check(store.get(rookWinner).storyStage().equals("pride:stonehaven_victory"),
+            "Bastion victory directs player to Miner Lyra");
+        long rookRevision = store.get(rookWinner).revision();
+        check(!gymEngine.reconcileStonehavenVictory(rookWinner)
+                && store.get(rookWinner).revision() == rookRevision,
+            "Replayed badge sync is idempotent");
+        check(!store.get(rookWinner).facts().contains("pride:league_rock"),
+            "PrideCore never fabricates a native League badge or payout");
+
+        store.transition(missingCrystal, "pride:forest_investigation",
+            Set.of("pride:met_thorn", "pride:forest_evidence"), Set.of());
+        actualMarkers.put(missingCrystal, rockLegacy);
+        check(!gymEngine.reconcileStonehavenVictory(missingCrystal),
+            "Early Rook win cannot bypass the required glowing forest crystals");
+        check(store.get(missingCrystal).storyStage().equals("pride:forest_investigation"),
+            "Early Rock badge preserves the outstanding forest quest");
+        store.grant(missingCrystal, "pride:clue_forest");
+        check(gymEngine.reconcileStonehavenVictory(missingCrystal),
+            "Already-earned Rock badge advances immediately after late crystal discovery");
+        check(store.get(missingCrystal).storyStage().equals("pride:stonehaven_victory"),
+            "Late evidence and real badge open Lyra without a Rook rematch");
+
+        store.transition(noRockBadge, "pride:forest_traces_discovered",
+            fullForest, Set.of());
+        actualMarkers.put(noRockBadge, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileStonehavenVictory(noRockBadge),
+            "Another player's Rock badge cannot promote this profile");
+        store.transition(laterChapter, "pride:rock_investigation",
+            fullForest, Set.of());
+        actualMarkers.put(laterChapter, rockLegacy);
+        check(!gymEngine.reconcileStonehavenVictory(laterChapter)
+                && store.get(laterChapter).storyStage().equals("pride:rock_investigation"),
+            "Late legacy Rook recovery cannot rewind a more advanced chapter");
+        check(StoryObjectiveGuide.forStage("pride:stonehaven_victory")
+                .contains("Miner Lyra"),
+            "Post-Rook guidance names the next story investigator");
+
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
-        check(StoryObjectiveGuide.coveredStages() == 30,
+        check(StoryObjectiveGuide.coveredStages() == 31,
             "Every milestone stage and newly verified Verdant win has guidance");
 
         // Regression: Rin may be visited out of sequence without undoing a
