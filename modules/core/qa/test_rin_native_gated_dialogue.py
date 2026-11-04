@@ -95,7 +95,7 @@ assert 'Text.literal("[Pride Region] Next objective: ")' in source
 # Canyon victory must not strand players after the native chapter selector
 # moves them into Rin's return dialogue. Only the server-verified win fact can
 # complete the story checkpoint; reconnect/sync must repair saved wins.
-engine = (root / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
+engine = (ROOT / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
 assert 'boolean reconcileRinCanyonVictory(UUID playerId)' in engine
 assert '"pride:rin_canyon_won"' in engine.split(
     'boolean reconcileRinCanyonVictory(UUID playerId)',1)[1].split(
