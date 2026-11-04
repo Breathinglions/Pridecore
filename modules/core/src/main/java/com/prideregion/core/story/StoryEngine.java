@@ -277,6 +277,26 @@ public final class StoryEngine {
             Set.of(), Set.of()).changed();
     }
 
+    /**
+     * Real Cobblemon/RCT Canyon Rin victory is the chapter's completion proof.
+     * The pre-battle dialogue already happened; Rin's post-win native overlay
+     * is a return-only conversation, so waiting for a second dialogue choice
+     * would leave the player stranded at the canyon indefinitely.
+     *
+     * This changes ONLY Pride Core's owned story stage/fact, after the durable
+     * trusted battle result. Login/sync replay is idempotent. No rewards,
+     * badges or external FTB markers are forged.
+     */
+    public synchronized boolean reconcileRinCanyonVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:eclipse_detected".equals(current.storyStage())
+                || !current.facts().containsAll(Set.of(
+                    "pride:eclipse_contact", "pride:rin_canyon_won")))
+            return false;
+        return progression.transition(playerId, "pride:rival_debate",
+            Set.of("pride:rival_theory"), Set.of()).changed();
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
