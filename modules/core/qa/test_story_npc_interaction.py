@@ -76,4 +76,23 @@ for expected in (
     'case "pride_npc_avery" -> "pride_region:avery"',
 ):
     assert expected in identity, expected
+# The actual amethyst blocks are clickable, but only at a builder-placed,
+# authenticated forest marker. Generic amethyst elsewhere stays vanilla.
+for required in (
+    'UseBlockCallback.EVENT.register',
+    'FOREST_CRYSTAL_BLOCKS.contains(world.getBlockState(clicked).getBlock())',
+    'new Box(clicked).expand(3.0D)',
+    'markerEntity.getType() == EntityType.INTERACTION',
+    'markerEntity.getCommandTags().contains("pride_clue_forest")',
+    'StoryWorldMarkerCatalog.exclusiveStoryMarker(',
+    'return discoverStoryEvidence(sp, "forest");',
+    'StoryAdvancementBridge.synchronize(player, engine);',
+    'sendNextObjective(player, engine.currentStage(player.getUuid()));',
+):
+    assert required in module, f"Unsafe or missing crystal-click quest handoff: {required}"
+evidence = (src / "StoryEvidenceEngine.java").read_text(encoding="utf8")
+guide = (src / "StoryObjectiveGuide.java").read_text(encoding="utf8")
+assert '"pride:forest_investigation".equals(player.storyStage())' in evidence
+assert '"pride:forest_traces_discovered"' in evidence and guide
+assert 'Set.of(clue.earnedFact()), Set.of()).changed()' in evidence
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
