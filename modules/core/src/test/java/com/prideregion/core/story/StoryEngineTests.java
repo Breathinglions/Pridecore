@@ -61,7 +61,7 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
                 .contains("Miner Lyra")
                 && StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
-                    .contains("defeat Rook"),
+                    .contains("Rook's Bastion Badge"),
             "After the clue, the objective sends players to Stonehaven for the Rock Badge first");
 
         check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
