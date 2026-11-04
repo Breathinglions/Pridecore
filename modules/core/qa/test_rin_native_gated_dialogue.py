@@ -92,5 +92,19 @@ assert '? "Rin: " : "[Pride Region] "' in source
 assert 'Text.literal(battleDialoguePrefix(encounterId) + roster.intro())' in source
 assert 'Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)' in source
 assert 'Text.literal("[Pride Region] Next objective: ")' in source
+# Canyon victory must not strand players after the native chapter selector
+# moves them into Rin's return dialogue. Only the server-verified win fact can
+# complete the story checkpoint; reconnect/sync must repair saved wins.
+engine = (root / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
+assert 'boolean reconcileRinCanyonVictory(UUID playerId)' in engine
+assert '"pride:rin_canyon_won"' in engine.split(
+    'boolean reconcileRinCanyonVictory(UUID playerId)',1)[1].split(
+    'public synchronized void cancel(',1)[0]
+assert 'progression.transition(playerId, "pride:rival_debate",' in engine
+assert 'Set.of("pride:rival_theory"), Set.of()).changed()' in engine
+assert '"rin_canyon".equals(resolvedEncounter)' in source
+assert 'engine.reconcileRinCanyonVictory(player.getUuid())' in source
+assert 'if (canyonWin)' in source
+assert 'boolean canyonWin = active.reconcileRinCanyonVictory(' in source
 print("PASS: Rin battle dialogue attributed to Rin; next objectives remain system messages")
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
