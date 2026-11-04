@@ -85,10 +85,10 @@ public final class StoryEvidenceEngine {
         // Exact-match stage gates prevent a late mine/forest clue from
         // rewinding a player's progress. Persist fact and stage atomically.
         String destination = switch (id) {
-            case "forest" when "pride:forest_investigation".equals(player.storyStage())
-                -> "pride:forest_traces_discovered";
-            case "mine" when "pride:rock_investigation".equals(player.storyStage())
-                -> "pride:mine_evidence_discovered";
+            case "forest" -> "pride:forest_investigation".equals(player.storyStage())
+                ? "pride:forest_traces_discovered" : null;
+            case "mine" -> "pride:rock_investigation".equals(player.storyStage())
+                ? "pride:mine_evidence_discovered" : null;
             default -> null;
         };
         return new Result(clue, progression.transition(playerId, destination,
@@ -105,10 +105,12 @@ public final class StoryEvidenceEngine {
             UUID playerId) throws IOException {
         ProfileState player = progression.get(playerId);
         String destination = switch (player.storyStage()) {
-            case "pride:forest_investigation" when player.facts().contains("pride:clue_forest")
-                -> "pride:forest_traces_discovered";
-            case "pride:rock_investigation" when player.facts().contains("pride:clue_mine")
-                -> "pride:mine_evidence_discovered";
+            case "pride:forest_investigation" ->
+                player.facts().contains("pride:clue_forest")
+                    ? "pride:forest_traces_discovered" : null;
+            case "pride:rock_investigation" ->
+                player.facts().contains("pride:clue_mine")
+                    ? "pride:mine_evidence_discovered" : null;
             default -> null;
         };
         return destination != null && progression.setStage(playerId, destination).changed();
