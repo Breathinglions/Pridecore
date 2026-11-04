@@ -55,6 +55,13 @@ public final class StoryEngineTests {
             "Trainer registration gives a useful next destination");
         check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Rin"),
             "Route 1 objective requires the scripted rival battle");
+        check(StoryObjectiveGuide.forStage("pride:forest_investigation")
+                .contains("Right-click the crystals"),
+            "Before the clue, the objective tells players to interact with amethyst");
+        check(StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
+                .contains("Miner Lyra"),
+            "After the clue, the new objective sends players to Stonehaven");
+
         check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
             "Canyon rivalry is identified in the player's campaign directions");
         check(StoryObjectiveGuide.forStage("pride:ice_research").contains("summit"),
@@ -63,7 +70,7 @@ public final class StoryEngineTests {
             "Eclipse Lieutenant battle is a required stage");
         check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
             "The Resonance crisis remains visible through narrative direction");
-        check(StoryObjectiveGuide.coveredStages() == 29,
+        check(StoryObjectiveGuide.coveredStages() == 30,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
             "Unknown custom stages fall back to immersive, nontechnical story direction");
@@ -311,7 +318,7 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
-        check(StoryObjectiveGuide.coveredStages() == 29,
+        check(StoryObjectiveGuide.coveredStages() == 30,
             "Every milestone stage and newly verified Verdant win has guidance");
 
         // Regression: Rin may be visited out of sequence without undoing a
