@@ -471,11 +471,24 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     if not any("@1 pridecore story sync" in line for line in thorn_commands):
         thorn_commands.append("@1 pridecore story sync")
     resources[thorn] = serialize(thorn_def)
+    # The native RCT Rock Gym owns all of its existing rewards and badges.
+    # Like Thorn, let the LAST win command ask PrideCore to reconcile
+    # the now-authoritative badge with prior forest evidence. This is safe
+    # for an existing winner because the story engine only changes stages.
+    rook = "data/rctmod/mobs/trainers/single/pride_rook.json"
+    rook_def = json.loads(resources[rook])
+    rook_commands = rook_def["winCommands"]["1"]
+    for token in ("league_rock", "ftbquests change_progress", "eco deposit 1500"):
+        if not any(token in line for line in rook_commands):
+            raise ValueError("Rook original Bastion reward callback incomplete: " + token)
+    if not any("@1 pridecore story sync" in line for line in rook_commands):
+        rook_commands.append("@1 pridecore story sync")
+    resources[rook] = serialize(rook_def)
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
     # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
-    expected_changed = sorted([thorn] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    expected_changed = sorted([thorn, rook] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
