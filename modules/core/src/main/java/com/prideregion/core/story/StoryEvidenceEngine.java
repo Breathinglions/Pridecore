@@ -71,21 +71,47 @@ public final class StoryEvidenceEngine {
         Clue clue = BY_ID.get(id);
         if (clue == null) throw new IllegalArgumentException("Unknown evidence marker");
         ProfileState player = progression.get(playerId);
-        if (player.facts().contains(clue.earnedFact())) return new Result(clue, false);
+        if (player.facts().contains(clue.earnedFact())) {
+            // Earlier staging versions saved evidence but left its objective
+            // unchanged. Repair that owned milestone without re-awarding it.
+            reconcileSavedObjective(progression, playerId);
+            return new Result(clue, false);
+        }
         if (!player.facts().contains(clue.requiresFact()))
             throw new IllegalStateException("Investigate the preceding story chapter first");
         if (clue.requiresLeague() != null && !LegacyOnboardingGate.filter(
                 Objects.requireNonNull(externalTags.apply(playerId))).contains(clue.requiresLeague()))
             throw new IllegalStateException("Earn the corresponding official League badge first");
-        // A real click on Verdant's amethyst formation closes this specific
-        // investigation objective and points the trainer toward Stonehaven.
-        // Other discoveries only grant evidence, and a late forest discovery
-        // must NEVER move a player backward from an advanced chapter.
-        String destination = "forest".equals(id)
-            && "pride:forest_investigation".equals(player.storyStage())
-            ? "pride:forest_traces_discovered" : null;
+        // Exact-match stage gates prevent a late mine/forest clue from
+        // rewinding a player's progress. Persist fact and stage atomically.
+        String destination = switch (id) {
+            case "forest" when "pride:forest_investigation".equals(player.storyStage())
+                -> "pride:forest_traces_discovered";
+            case "mine" when "pride:rock_investigation".equals(player.storyStage())
+                -> "pride:mine_evidence_discovered";
+            default -> null;
+        };
         return new Result(clue, progression.transition(playerId, destination,
             Set.of(clue.earnedFact()), Set.of()).changed());
+    }
+
+    /**
+     * Repair earlier staging players whose verified clue was persisted but
+     * whose quest objective was never advanced. It is safe to invoke on login,
+     * /pridecore story sync or a repeated marker click: no FTB, badge, money,
+     * inventory or external tags are touched. A later chapter never regresses.
+     */
+    public static boolean reconcileSavedObjective(ProgressionService progression,
+            UUID playerId) throws IOException {
+        ProfileState player = progression.get(playerId);
+        String destination = switch (player.storyStage()) {
+            case "pride:forest_investigation" when player.facts().contains("pride:clue_forest")
+                -> "pride:forest_traces_discovered";
+            case "pride:rock_investigation" when player.facts().contains("pride:clue_mine")
+                -> "pride:mine_evidence_discovered";
+            default -> null;
+        };
+        return destination != null && progression.setStage(playerId, destination).changed();
     }
 
     public static Set<String> discovered(ProfileState profile) {
