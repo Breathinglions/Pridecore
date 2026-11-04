@@ -130,6 +130,9 @@ public final class StoryModule {
                 id -> id.equals(player.getUuid())
                     ? Set.copyOf(player.getCommandTags()) : Set.of());
             var result = evidence.complete(player.getUuid(), clueId);
+            // If Rook was already defeated, the now-complete forest evidence
+            // can immediately open the Stonehaven follow-up without a rematch.
+            boolean stonehavenWin = engine.reconcileStonehavenVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, engine);
             player.sendMessage(Text.literal(result.firstDiscovery()
                 ? "[Pride Region] Evidence discovered: " + result.clue().title()
@@ -137,7 +140,7 @@ public final class StoryModule {
                 .formatted(Formatting.AQUA), false);
             // The persisted fact AND stage now reflect the crystal discovery.
             // Only the first click should announce a fresh next objective.
-            if (result.firstDiscovery())
+            if (result.firstDiscovery() || stonehavenWin)
                 sendNextObjective(player, engine.currentStage(player.getUuid()));
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Story evidence interaction failed for {} clue={}: {}",
@@ -408,11 +411,12 @@ public final class StoryModule {
                 synchronizeFirstTrainerVictoryFromRin(handler.getPlayer());
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
                 boolean verdantWin = active.reconcileVerdantVictory(handler.getPlayer().getUuid());
+                boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin)
+                if (verdantWin || stonehavenWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -1994,9 +1998,10 @@ public final class StoryModule {
             synchronizeFirstTrainerVictoryFromRin(player);
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
+            boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
