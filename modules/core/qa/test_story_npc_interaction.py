@@ -87,7 +87,7 @@ for required in (
     'StoryWorldMarkerCatalog.exclusiveStoryMarker(',
     'return discoverStoryEvidence(sp, "forest");',
     'StoryAdvancementBridge.synchronize(player, engine);',
-    'sendNextObjective(player, engine.currentStage(player.getUuid()));',
+    'sendNextObjective(player, afterClick);',
 ):
     assert required in module, f"Unsafe or missing crystal-click quest handoff: {required}"
 evidence = (src / "StoryEvidenceEngine.java").read_text(encoding="utf8")
