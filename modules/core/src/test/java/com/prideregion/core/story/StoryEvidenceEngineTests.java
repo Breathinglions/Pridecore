@@ -101,6 +101,66 @@ public final class StoryEvidenceEngineTests {
         check(store.get(advanced).facts().contains("pride:clue_forest"),
             "Late evidence preserves story objective and fills missing advancement");
 
+        // Stonehaven's survey-paper interaction completes the investigation
+        // objective. The original Rock Gym badge remains external authority.
+        UUID miner = UUID.randomUUID();
+        tags.put(miner, Set.of("league_rock"));
+        store.transition(miner, "pride:rock_investigation",
+            Set.of("pride:mine_records"), Set.of());
+        long mineBefore = store.get(miner).revision();
+        check(engine.complete(miner, "mine").firstDiscovery(),
+            "First authenticated survey page click records Rock Mine evidence");
+        check(store.get(miner).storyStage().equals("pride:mine_evidence_discovered"),
+            "Mine evidence moves objective to the Eclipse Scout");
+        check(store.get(miner).facts().contains("pride:clue_mine"),
+            "Mine clue is stored for FTB advancement projection");
+        check(store.get(miner).revision() == mineBefore + 1,
+            "Mine evidence and its objective commit atomically in one revision");
+        long mineSaved = store.get(miner).revision();
+        check(!engine.complete(miner, "mine").firstDiscovery()
+                && store.get(miner).revision() == mineSaved,
+            "Repeated mine clicks neither duplicate progress nor change the stage");
+
+        UUID oldMine = UUID.randomUUID();
+        tags.put(oldMine, Set.of("league_rock"));
+        store.transition(oldMine, "pride:rock_investigation",
+            Set.of("pride:mine_records", "pride:clue_mine"), Set.of());
+        long oldMineRevision = store.get(oldMine).revision();
+        check(StoryEvidenceEngine.reconcileSavedObjective(store, oldMine),
+            "Already-discovered survey pages repair an older stale objective");
+        check(store.get(oldMine).storyStage().equals("pride:mine_evidence_discovered")
+                && store.get(oldMine).revision() == oldMineRevision + 1,
+            "Mine objective repair persists with no second evidence fact");
+        check(!StoryEvidenceEngine.reconcileSavedObjective(store, oldMine),
+            "Repeated login/sync repair is a safe no-op");
+
+        UUID repeatedOldMine = UUID.randomUUID();
+        tags.put(repeatedOldMine, Set.of("league_rock"));
+        store.transition(repeatedOldMine, "pride:rock_investigation",
+            Set.of("pride:mine_records", "pride:clue_mine"), Set.of());
+        check(!engine.complete(repeatedOldMine, "mine").firstDiscovery()
+                && store.get(repeatedOldMine).storyStage().equals("pride:mine_evidence_discovered"),
+            "Legacy player clicking a known mine clue repairs the objective once");
+
+        UUID tooEarlyMine = UUID.randomUUID();
+        tags.put(tooEarlyMine, Set.of("league_rock"));
+        store.transition(tooEarlyMine, "pride:rock_investigation",
+            Set.of("pride:mine_records"), Set.of());
+        check(!StoryEvidenceEngine.reconcileSavedObjective(store, tooEarlyMine)
+                && store.get(tooEarlyMine).storyStage().equals("pride:rock_investigation"),
+            "Objective cannot advance merely because Lyra was consulted");
+
+        UUID laterMine = UUID.randomUUID();
+        tags.put(laterMine, Set.of("league_rock"));
+        store.transition(laterMine, "pride:rival_debate",
+            Set.of("pride:mine_records", "pride:clue_mine"), Set.of());
+        check(!StoryEvidenceEngine.reconcileSavedObjective(store, laterMine)
+                && store.get(laterMine).storyStage().equals("pride:rival_debate"),
+            "Saved mine evidence never regresses a later chapter");
+        check(!engine.complete(laterMine, "mine").firstDiscovery()
+                && store.get(laterMine).storyStage().equals("pride:rival_debate"),
+            "Repeated old clue click cannot roll back advanced players");
+
         System.out.println("PASS: "+checks+" authenticated evidence gates, "
             + "no reward replay, chapter isolation and stage persistence");
     }
