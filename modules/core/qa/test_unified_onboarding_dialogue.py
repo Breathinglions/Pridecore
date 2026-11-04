@@ -227,4 +227,15 @@ check('pride:rin_route1_won' in story_source.split(
       'public static boolean nativeStoryBattleEnded(', 1)[0],
       "Only a persisted, authenticated Rin win can invoke the native milestone")
 
+# Preserve the official Rook victory, FTB checkpoint and ₽1,500 reward.
+# The one extra command must come LAST so PrideCore sees league_rock.
+unified_packager = source.read_text(encoding="utf8")
+check('rook = "data/rctmod/mobs/trainers/single/pride_rook.json"' in unified_packager,
+    "Rook original RCT trainer is present in the unified overlay")
+check('rook_commands.append("@1 pridecore story sync")' in unified_packager,
+    "Rook victory triggers read-only PrideCore story reconciliation")
+check('("league_rock", "ftbquests change_progress", "eco deposit 1500")'
+      in unified_packager, "Rook badge, FTB task and PokéDollars remain original")
+check('expected_changed = sorted([thorn, rook]' in unified_packager,
+    "Only approved League battle entries may differ from the audited original")
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
