@@ -59,8 +59,10 @@ public final class StoryEngineTests {
                 .contains("Right-click the crystals"),
             "Before the clue, the objective tells players to interact with amethyst");
         check(StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
-                .contains("Miner Lyra"),
-            "After the clue, the new objective sends players to Stonehaven");
+                .contains("Miner Lyra")
+                && StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
+                    .contains("defeat Rook"),
+            "After the clue, the objective sends players to Stonehaven for the Rock Badge first");
 
         check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
             "Canyon rivalry is identified in the player's campaign directions");
