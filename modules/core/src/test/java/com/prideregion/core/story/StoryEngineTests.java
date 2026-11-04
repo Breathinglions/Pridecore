@@ -376,6 +376,39 @@ public final class StoryEngineTests {
                 .contains("Miner Lyra"),
             "Post-Rook guidance names the next story investigator");
 
+        // Rin's chapter-specific native dialogue becomes a return
+        // conversation after the genuine Canyon victory. An authenticated win
+        // must itself finish the chapter so players aren't trapped at Rin.
+        UUID canyonWinner = UUID.randomUUID();
+        store.transition(canyonWinner, "pride:eclipse_detected",
+            Set.of("pride:eclipse_contact"), Set.of());
+        check(!gymEngine.reconcileRinCanyonVictory(canyonWinner),
+            "Talking to Rin or encountering Eclipse cannot fake Canyon victory");
+        store.grant(canyonWinner, "pride:rin_canyon_won");
+        check(gymEngine.reconcileRinCanyonVictory(canyonWinner),
+            "Verified Canyon win opens the next story chapter");
+        check(store.get(canyonWinner).storyStage().equals("pride:rival_debate"),
+            "Canyon Rin victory directs the player toward Emberfall");
+        check(store.get(canyonWinner).facts().contains("pride:rival_theory"),
+            "Canyon storyline checkpoint completes after the real win");
+        long canyonRevision = store.get(canyonWinner).revision();
+        check(!gymEngine.reconcileRinCanyonVictory(canyonWinner)
+                && store.get(canyonWinner).revision() == canyonRevision,
+            "Rejoining after Canyon victory never repeats progress");
+        UUID alreadyPastCanyon = UUID.randomUUID(), wrongChapterCanyon = UUID.randomUUID();
+        store.transition(alreadyPastCanyon, "pride:fire_district",
+            Set.of("pride:eclipse_contact", "pride:rin_canyon_won"), Set.of());
+        store.transition(wrongChapterCanyon, "pride:rock_investigation",
+            Set.of("pride:eclipse_contact", "pride:rin_canyon_won"), Set.of());
+        check(!gymEngine.reconcileRinCanyonVictory(alreadyPastCanyon)
+                && store.get(alreadyPastCanyon).storyStage().equals("pride:fire_district"),
+            "Canyon reconciliation never rewinds a later chapter");
+        check(!gymEngine.reconcileRinCanyonVictory(wrongChapterCanyon)
+                && store.get(wrongChapterCanyon).storyStage().equals("pride:rock_investigation"),
+            "Having a past battle fact cannot skip an unrelated current stage");
+        check(StoryObjectiveGuide.forStage("pride:rival_debate").contains("foundry"),
+            "Next objective after verified Canyon victory points toward Emberfall");
+
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
