@@ -77,9 +77,15 @@ public final class StoryEvidenceEngine {
         if (clue.requiresLeague() != null && !LegacyOnboardingGate.filter(
                 Objects.requireNonNull(externalTags.apply(playerId))).contains(clue.requiresLeague()))
             throw new IllegalStateException("Earn the corresponding official League badge first");
-        // Do not change stage: the current objective must never regress when
-        // a player discovers a clue late or alongside another player.
-        return new Result(clue, progression.grant(playerId, clue.earnedFact()).changed());
+        // A real click on Verdant's amethyst formation closes this specific
+        // investigation objective and points the trainer toward Stonehaven.
+        // Other discoveries only grant evidence, and a late forest discovery
+        // must NEVER move a player backward from an advanced chapter.
+        String destination = "forest".equals(id)
+            && "pride:forest_investigation".equals(player.storyStage())
+            ? "pride:forest_traces_discovered" : null;
+        return new Result(clue, progression.transition(playerId, destination,
+            Set.of(clue.earnedFact()), Set.of()).changed());
     }
 
     public static Set<String> discovered(ProfileState profile) {
