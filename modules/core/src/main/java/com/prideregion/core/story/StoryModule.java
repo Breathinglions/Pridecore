@@ -418,11 +418,12 @@ public final class StoryModule {
                     PrideCoreMod.progression(server).orElseThrow(), handler.getPlayer().getUuid());
                 boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
                 boolean canyonWin = active.reconcileRinCanyonVictory(handler.getPlayer().getUuid());
+                boolean emberfallWin = active.reconcileEmberfallVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin || stonehavenWin || clueObjective || canyonWin)
+                if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -2013,9 +2014,10 @@ public final class StoryModule {
                 PrideCoreMod.progression(source.getServer()).orElseThrow(), player.getUuid());
             boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
             boolean canyonWin = active.reconcileRinCanyonVictory(player.getUuid());
+            boolean emberfallWin = active.reconcileEmberfallVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
