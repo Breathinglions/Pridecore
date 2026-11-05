@@ -297,6 +297,27 @@ public final class StoryEngine {
             Set.of("pride:rival_theory"), Set.of()).changed();
     }
 
+    /**
+     * Ashen's RCT first-win callback is the authority for Inferno Badge and
+     * rewards. This mirrors only the real league_fire tag into the current
+     * story objective, without paying, crediting FTB or fabricating a win.
+     * Strict prior-stage and Rin proof checks prevent out-of-order Gym battles
+     * from bypassing the canyon. Restart/sync replay never rewinds a chapter.
+     */
+    public synchronized boolean reconcileEmberfallVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:rival_debate".equals(current.storyStage())
+                || !current.facts().containsAll(Set.of(
+                    "pride:eclipse_contact", "pride:rin_canyon_won", "pride:rival_theory")))
+            return false;
+        Set<String> league = legacyFor(playerId);
+        if (!league.containsAll(Set.of(
+                "league_started", "league_grass", "league_rock", "league_fire")))
+            return false;
+        return progression.transition(playerId, "pride:emberfall_victory",
+            Set.of(), Set.of()).changed();
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
