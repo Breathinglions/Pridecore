@@ -193,8 +193,8 @@ def main():
        "When you're ready, promise you'll look after your partner and explore every road.",
        "begin"),
       ("ranger","Ranger Mira",
-       "You've made it to Route 1. Something has the wild Pokémon uneasy.",
-       "Catch your first Pokémon and win your first battle, then report back for field guidance.",
+       "Rin told me about your battle! Welcome to Route 1.",
+       "Before we investigate the glow near the trees, have you caught your first wild Pokémon?",
        "explore"),
     ]
     # Recurring characters have ONE canonical physical actor, not a second
@@ -284,15 +284,17 @@ def main():
             }
             generated["data/pride_story/dialogues/rin_return.json"] = dump(after)
         # Compatible with existing League spawn runtime function.
+        # Only tag the exact Cobblemon NPCClass we intentionally spawned.
+        expected_nbt = f'nbt={{NPCClass:"pride_story:{npc}"}}'
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
             f"# Pride Story native NPC: {name}. Run as a player, away from other NPCs.\n"
             f"# Mark existing NPCs BEFORE spawning: never attach this identity to a neighbor.\n"
             f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,distance=..2.5] add pride_story_spawn_existing\n"
             f"function prideregion:npc_services/spawn/_spawn_runtime {{npc:\"pride_story:{npc}\"}}\n"
             f"# Match the original League helper's zero-pitch rotation and exclude existing NPCs.\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] add pride_npc_{npc}\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 as @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] run attribute @s minecraft:generic.knockback_resistance base set 1\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,distance=..0.75] run tellraw @s {{\"text\":\"Pride Story spawn warning: {npc} was not tagged. Move to a clear area and inspect the new NPC.\",\"color\":\"red\"}}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=!pride_story_spawn_existing,{expected_nbt},sort=nearest,limit=1,distance=..0.75] add pride_npc_{npc}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 as @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,{expected_nbt},sort=nearest,limit=1,distance=..0.75] run attribute @s minecraft:generic.knockback_resistance base set 1\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,{expected_nbt},distance=..0.75] run tellraw @s {{\"text\":\"Pride Story spawn warning: {npc} was not tagged. Move to a clear area and inspect the new NPC.\",\"color\":\"red\"}}\n"
             f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=pride_story_spawn_existing,distance=..2.5] remove pride_story_spawn_existing\n"
         ).encode("utf-8")
     # No physical items or commands are awarded by these checkpoints.

@@ -275,6 +275,134 @@ def wire_starter_selection_timing(league: dict[str, bytes]) -> list[str]:
     return [path, function]
 
 
+def harden_original_service_spawn_helpers(league: dict[str, bytes]) -> list[str]:
+    """Don't tag/reposition a nearby wrong-class NPC after /spawnnpc.
+
+    The original League helpers target only the nearest cobblemon:npc after
+    spawning. If another NPC occupies that location, it can inherit the new
+    actor's name/skin/tag while retaining its original native dialogue class.
+    Keep original placement, rotations, NPC class requests and reward code.
+    """
+    folder = "data/prideregion/function/npc_services/spawn/"
+    helper_paths = sorted(k for k in league if k.startswith(folder)
+        and k.endswith(".mcfunction") and not k.endswith("/_spawn_runtime.mcfunction"))
+    if len(helper_paths) != 24:
+        raise ValueError(f"Expected 24 original service NPC spawn helpers, found {len(helper_paths)}")
+    changed = []
+    for path in helper_paths:
+        npc = Path(path).stem
+        source = league[path].decode("utf-8")
+        invoke = f'function prideregion:npc_services/spawn/_spawn_runtime {{npc:"pride_region:{npc}"}}'
+        old_selector = "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35]"
+        if source.count(invoke) != 1 or source.count(old_selector) != 4:
+            raise ValueError(f"Unexpected original spawn helper commands for {npc}")
+        premark = ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+            "@e[type=cobblemon:npc,distance=..2.5] add pride_service_spawn_existing")
+        safe_selector = (
+            "@e[type=cobblemon:npc,tag=!pride_service_spawn_existing,"
+            f'nbt={{NPCClass:"pride_region:{npc}"}},sort=nearest,limit=1,distance=..0.35]'
+        )
+        guarded = source.replace(invoke, premark + "\n" + invoke)
+        guarded = guarded.replace(old_selector, safe_selector)
+        # Refuse silently touching existing neighbors; make the failure
+        # observable to the builder, then remove temporary scan tags.
+        verify = (f'execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity {safe_selector} '
+            'run tellraw @s {"text":"Pride Region NPC spawn refused: no new matching NPC class found.",'
+            '"color":"red"}')
+        clear = ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+            "@e[type=cobblemon:npc,tag=pride_service_spawn_existing,distance=..2.5] "
+            "remove pride_service_spawn_existing")
+        guarded = guarded.rstrip("\n") + "\n" + verify + "\n" + clear + "\n"
+        if guarded.count(f'nbt={{NPCClass:"pride_region:{npc}"}}') != 5:
+            raise ValueError("Invalid NPC class selector count for " + npc)
+        league[path] = guarded.encode("utf-8")
+        changed.append(path)
+    return changed
+
+
+def wire_first_trainer_battle_onboarding(league: dict[str, bytes]) -> list[str]:
+    """Count a first *trainer* victory, never postpone it to the first Gym.
+
+    A real native pvn victory drives the original advancement. A native
+    authenticated PrideCore Rin win can invoke the same one-time function.
+    First catch stays independently required before unlocking the League.
+    """
+    advancement = "data/prideregion/advancement/onboarding/first_battle_event.json"
+    battle_path = "data/prideregion/function/onboarding/first_battle.mcfunction"
+    catch_path = "data/prideregion/function/onboarding/first_catch.mcfunction"
+    league_path = "data/prideregion/function/onboarding/begin_league.mcfunction"
+    required = (advancement, battle_path, catch_path, league_path)
+    if any(path not in league for path in required):
+        raise ValueError("Original first-battle/League resources are missing")
+    definition = json.loads(league[advancement])
+    criteria = definition.get("criteria", {})
+    if set(criteria) != {"wild", "npc", "pvp"} or any(
+        criteria[key].get("trigger") != "cobblemon:battles_won"
+        or criteria[key].get("conditions", {}).get("battle_types") != [battle_type]
+        for key, battle_type in (("wild", "pvw"), ("npc", "pvn"), ("pvp", "pvp"))
+    ) or definition.get("rewards", {}).get("function") != "prideregion:onboarding/first_battle":
+        raise ValueError("Original first battle advancement has changed")
+    definition["criteria"] = {"npc": criteria["npc"]}
+    definition["requirements"] = [["npc"]]
+    league[advancement] = serialize(definition)
+
+    old_battle = league[battle_path].decode("utf8")
+    old_catch = league[catch_path].decode("utf8")
+    old_league = league[league_path].decode("utf8")
+    for expected, source in (
+        ("tag @s add first_battle_win", old_battle),
+        ("ftbquests change_progress @s complete 70B779849A4D0F73", old_battle),
+        ("function prideregion:onboarding/begin_league", old_battle),
+        ("tag @s add first_catch", old_catch),
+        ("ftbquests change_progress @s complete 008C694ADAE81F20", old_catch),
+        ("tag @s add league_started", old_league),
+        ("ftbquests change_progress @s complete 7436AE3F5EDD8DC9", old_league),
+    ):
+        if expected not in source:
+            raise ValueError("Original first-battle onboarding changed: " + expected)
+
+    # Recording the real first trainer win must not depend on capture order.
+    # The original FTB task remains credited by the original reward function.
+    league[battle_path] = (
+        '# One verified trainer victory: native Cobblemon pvn or authenticated Rin.\n'
+        'execute unless entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First trainer battle won! ","color":"gold","bold":true},'
+        '{"text":"Your League journey is underway.","color":"yellow"}]\n'
+        'execute unless entity @s[tag=first_battle_win] run tag @s add first_battle_win\n'
+        'execute if entity @s[tag=first_battle_win] run ftbquests change_progress @s complete 70B779849A4D0F73\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] '
+        'run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8")
+    league[catch_path] = (
+        '# Original first-catch proof; never mint a catch marker without a real capture.\n'
+        'execute unless entity @s[tag=trainer_guide_received] run advancement revoke @s only prideregion:onboarding/first_catch_event\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] unless entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First Pokémon caught! ","color":"gold","bold":true},'
+        '{"text":"Challenge Rin or another trainer on Route 1.","color":"yellow"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] if entity @s[tag=first_battle_win] run tellraw @s '
+        '[{"text":"First Pokémon caught! ","color":"gold","bold":true},'
+        '{"text":"Your first trainer victory is already recorded.","color":"yellow"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] run tag @s add first_catch\n'
+        'execute if entity @s[tag=first_catch] run ftbquests change_progress @s complete 008C694ADAE81F20\n'
+        'execute if entity @s[tag=first_catch,tag=first_battle_win] '
+        'run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8")
+    # A player must have BOTH milestones. Never advertise challenging a
+    # Gym Leader they have already beaten; story directions own the next step.
+    league[league_path] = (
+        '# Original one-time League registration; first catch + first trainer win.\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] unless entity @s[tag=league_started] unless entity @s[tag=league_grass] run title @s actionbar '
+        '{"text":"Pokémon League unlocked","color":"gold"}\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] unless entity @s[tag=league_started] unless entity @s[tag=league_grass] run tellraw @s '
+        '[{"text":"Pokémon League unlocked! ","color":"gold","bold":true},'
+        '{"text":"Continue your journey toward Verdant Gym.","color":"green"}]\n'
+        'execute if entity @s[tag=first_battle_win,tag=first_catch] run tag @s add league_started\n'
+        'execute if entity @s[tag=league_started] run advancement grant @s only prideregion:onboarding/begin_league\n'
+        'execute if entity @s[tag=league_started] run ftbquests change_progress @s complete 7436AE3F5EDD8DC9\n'
+    ).encode("utf8")
+    return list(required)
+
+
 def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path) -> dict:
     if digest(league_path.read_bytes()) != EXPECTED_LEAGUE_SHA:
         raise ValueError("League datapack checksum differs from original audited 7.10.10")
@@ -297,6 +425,23 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     npcs = [k for k in story if k.startswith("data/pride_story/npcs/")]
     if len(npcs) != 20:
         raise ValueError(f"Expected exactly 20 narrative-only NPC types, found {len(npcs)}")
+    # An NPC's name, skin and entity tag are not its native Cobblemon class.
+    # Enforce correct data identities in the final unified package; otherwise a
+    # retagged Resource Ranger can display the wrong UI while looking like Mom.
+    for npc_path in npcs:
+        npc_id = Path(npc_path).stem
+        npc_def = json.loads(story[npc_path])
+        expected_dialogue = f"pride_story:{npc_id}"
+        if npc_def.get("interaction", {}).get("dialogue") != expected_dialogue:
+            raise ValueError(f"Native NPC {npc_id} dialogue/class mismatch")
+        if f"data/pride_story/dialogues/{npc_id}.json" not in story:
+            raise ValueError(f"Missing native dialogue for {npc_id}")
+        spawn_path = f"data/pride_story/function/spawn/{npc_id}.mcfunction"
+        spawn = story.get(spawn_path, b"").decode("utf-8")
+        expected_class = f'nbt={{NPCClass:"pride_story:{npc_id}"}}'
+        if spawn.count(expected_class) != 3 or (
+                f'{{npc:"pride_story:{npc_id}"}}' not in spawn):
+            raise ValueError(f"Unsafe or missing class-verified spawn for {npc_id}")
     for c in CLUES:
         if f"data/pride_story/advancement/clue_{c}.json" not in story:
             raise ValueError("Missing story clue " + c)
@@ -313,6 +458,8 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     lab = rewrite_lab(league)
     changed_onboarding = wire_configurable_onboarding(league)
     changed_onboarding.extend(wire_starter_selection_timing(league))
+    changed_onboarding.extend(wire_first_trainer_battle_onboarding(league))
+    hardened_spawns = harden_original_service_spawn_helpers(league)
     refine_story_prologue(story)
     resources = {**league, **story, **lab}
     thorn = "data/rctmod/mobs/trainers/single/pride_thorn.json"
@@ -324,11 +471,36 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     if not any("@1 pridecore story sync" in line for line in thorn_commands):
         thorn_commands.append("@1 pridecore story sync")
     resources[thorn] = serialize(thorn_def)
+    # The native RCT Rock Gym owns all of its existing rewards and badges.
+    # Like Thorn, let the LAST win command ask PrideCore to reconcile
+    # the now-authoritative badge with prior forest evidence. This is safe
+    # for an existing winner because the story engine only changes stages.
+    rook = "data/rctmod/mobs/trainers/single/pride_rook.json"
+    rook_def = json.loads(resources[rook])
+    rook_commands = rook_def["winCommands"]["1"]
+    for token in ("league_rock", "ftbquests change_progress", "eco deposit 1500"):
+        if not any(token in line for line in rook_commands):
+            raise ValueError("Rook original Bastion reward callback incomplete: " + token)
+    if not any("@1 pridecore story sync" in line for line in rook_commands):
+        rook_commands.append("@1 pridecore story sync")
+    resources[rook] = serialize(rook_def)
+    # Ashen's original Fire Gym owns the battle, Inferno Badge, FTB Quest,
+    # ₽2,000 first-win payout, and all native League effects. Append ONLY
+    # a post-reward PrideCore story sync, just as for Thorn and Rook.
+    ashen = "data/rctmod/mobs/trainers/single/pride_ashen.json"
+    ashen_def = json.loads(resources[ashen])
+    ashen_commands = ashen_def["winCommands"]["1"]
+    for token in ("league_fire", "ftbquests change_progress", "eco deposit 2000"):
+        if not any(token in line for line in ashen_commands):
+            raise ValueError("Ashen original Inferno reward callback incomplete: " + token)
+    if not any("@1 pridecore story sync" in line for line in ashen_commands):
+        ashen_commands.append("@1 pridecore story sync")
+    resources[ashen] = serialize(ashen_def)
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
     # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
-    expected_changed = sorted([thorn] + changed_onboarding + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    expected_changed = sorted([thorn, rook, ashen] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
@@ -340,6 +512,7 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
         "overridden_lab_dialogues": sorted(lab),
         "onboarding_kit_config": "config/pride_core/onboarding_rewards.json",
         "configurable_native_reward_functions": changed_onboarding,
+        "hardened_original_service_spawn_helpers": hardened_spawns,
         "only_approved_original_league_changes": changed_league,
         "player_data_changed": False, "ftb_quest_ids_changed": False,
         "story_npc_duplicates_removed": ["thorn", "rin_canyon", "rin_summit", "ranger_epilogue"],

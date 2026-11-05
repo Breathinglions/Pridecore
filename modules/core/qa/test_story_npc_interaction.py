@@ -55,4 +55,57 @@ assert '"pride_npc_ranger_rowan", List.of("ranger_epilogue", "ranger_rowan")' in
 assert 'MAX_DISTANCE_SQUARED = 36.0D' in anchor
 assert 'bound.entity().equals(entity)' in anchor
 assert 'bound.dimension().equals(dimension)' in anchor
+# A visible NPC name and role tag do not prove the saved Cobblemon NPC class.
+# Regression: a resource_ranger retagged pride_npc_mom must be refused.
+identity=(src / "NativeNpcIdentity.java").read_text(encoding="utf8")
+assert 'return "pride_story:" + canonical;' in identity
+assert 'public static boolean matchesRequiredClass' in identity
+assert 'npc.writeNbt(new NbtCompound()).getString("NPCClass")' in module
+assert 'NativeNpcIdentity.matchesRequiredClass(' in module
+assert 'Wrong native story NPC class' in module
+assert 'Cannot assign " + tag' in module
+assert 'INVALID story marker on ' in module
+rewards = (root / "src/main/java/com/prideregion/core/OnboardingRewards.java").read_text(encoding="utf8")
+assert 'NativeNpcIdentity.matchesRequiredClass(' in rewards, (
+    "Theo/Avery kit grants must verify the native Cobblemon NPCClass")
+assert '"pride_npc_professor_sequoia", npcClass(e)' in module, (
+    "Sequoia's cinematic must not trust a tag on a different NPC")
+for expected in (
+    'case "pride_npc_professor_sequoia" -> "pride_region:professor_sequoia"',
+    'case "pride_npc_technician_theo" -> "pride_region:technician_theo"',
+    'case "pride_npc_avery" -> "pride_region:avery"',
+):
+    assert expected in identity, expected
+# The actual amethyst blocks are clickable, but only at a builder-placed,
+# authenticated forest marker. Generic amethyst elsewhere stays vanilla.
+for required in (
+    'UseBlockCallback.EVENT.register',
+    'FOREST_CRYSTAL_BLOCKS.contains(world.getBlockState(clicked).getBlock())',
+    'new Box(clicked).expand(3.0D)',
+    'markerEntity.getType() == EntityType.INTERACTION',
+    'markerEntity.getCommandTags().contains("pride_clue_forest")',
+    'StoryWorldMarkerCatalog.exclusiveStoryMarker(',
+    'return discoverStoryEvidence(sp, "forest");',
+    'StoryAdvancementBridge.synchronize(player, engine);',
+    'sendNextObjective(player, afterClick);',
+):
+    assert required in module, f"Unsafe or missing crystal-click quest handoff: {required}"
+evidence = (src / "StoryEvidenceEngine.java").read_text(encoding="utf8")
+guide = (src / "StoryObjectiveGuide.java").read_text(encoding="utf8")
+assert '"pride:forest_investigation".equals(player.storyStage())' in evidence
+assert '"pride:forest_traces_discovered"' in evidence and guide
+assert 'Set.of(clue.earnedFact()), Set.of()).changed()' in evidence
+# Both the first click and an older save with a persisted mine clue must
+# produce the proper follow-up, without a fabricated second discovery.
+for required in (
+    'String stageBeforeClick = engine.currentStage(player.getUuid());',
+    'StoryEvidenceEngine.reconcileSavedObjective(',
+    '|| !stageBeforeClick.equals(afterClick)',
+    'if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)',
+    'if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)',
+):
+    assert required in module, f"Mine evidence repair not wired: {required}"
+assert 'case "mine" -> "pride:rock_investigation".equals(player.storyStage())' in evidence
+assert 'case "pride:rock_investigation" ->' in evidence and 'player.facts().contains("pride:clue_mine")' in evidence
+assert '"pride:mine_evidence_discovered"' in evidence and guide
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")

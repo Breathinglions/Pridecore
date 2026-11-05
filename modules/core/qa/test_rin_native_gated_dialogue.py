@@ -20,6 +20,11 @@ with tempfile.TemporaryDirectory() as temp:
     with ZipFile(archive) as z:
         rin=json.loads(z.read("data/pride_story/dialogues/rin.json"))
         npc=json.loads(z.read("data/pride_story/npcs/rin.json"))
+        for story_npc in ("mom", "ranger", "rin"):
+            spawn = z.read(f"data/pride_story/function/spawn/{story_npc}.mcfunction").decode("utf8")
+            # Every post-spawn selector must require the actual native class.
+            assert spawn.count(f'nbt={{NPCClass:"pride_story:{story_npc}"}}') == 3
+            assert f'{{npc:"pride_story:{story_npc}"}}' in spawn
         assert npc["interaction"]["dialogue"]=="pride_story:rin"
         original=json.dumps(rin)
         assert "pridecore story rin open" in original
@@ -81,4 +86,25 @@ assert "--ticket.remaining <= 0" in source
 # Recomputed encounter is authoritative; no temporary ticket required.
 assert "String encounter = scene.encounter();" in source
 assert "RinChapterGate.choose(profile.facts(), player.getCommandTags())" in source
+# Route 1 intro and defeat lines are Rin's speech, not quest objectives.
+assert 'return encounterId != null && encounterId.startsWith("rin_")' in source
+assert '? "Rin: " : "[Pride Region] "' in source
+assert 'Text.literal(battleDialoguePrefix(encounterId) + roster.intro())' in source
+assert 'Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)' in source
+assert 'Text.literal("[Pride Region] Next objective: ")' in source
+# Canyon victory must not strand players after the native chapter selector
+# moves them into Rin's return dialogue. Only the server-verified win fact can
+# complete the story checkpoint; reconnect/sync must repair saved wins.
+engine = (ROOT / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
+assert 'boolean reconcileRinCanyonVictory(UUID playerId)' in engine
+assert '"pride:rin_canyon_won"' in engine.split(
+    'boolean reconcileRinCanyonVictory(UUID playerId)',1)[1].split(
+    'public synchronized void cancel(',1)[0]
+assert 'progression.transition(playerId, "pride:rival_debate",' in engine
+assert 'Set.of("pride:rival_theory"), Set.of()).changed()' in engine
+assert '"rin_canyon".equals(resolvedEncounter)' in source
+assert 'engine.reconcileRinCanyonVictory(player.getUuid())' in source
+assert 'if (canyonWin)' in source
+assert 'boolean canyonWin = active.reconcileRinCanyonVictory(' in source
+print("PASS: Rin battle dialogue attributed to Rin; next objectives remain system messages")
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")

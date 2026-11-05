@@ -165,7 +165,7 @@
       "nodes": [
         {
           "id": "hello",
-          "text": "Something strange moved through the woods last night. The Pokémon are unsettled, and there's a pale glow between the trees. Rin was asking about it earlier.",
+          "text": "The wild Pokémon are restless, and an eerie glow has appeared among the trees. Rin told me about your battle! Have you also caught your first wild Pokémon? I'll need your help investigating.",
           "options": [
             {
               "id": "explore",

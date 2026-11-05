@@ -1,9 +1,11 @@
 package com.prideregion.core.story;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.nbt.NbtCompound;
 import com.prideregion.core.PrideCoreMod;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -14,6 +16,8 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
@@ -26,6 +30,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,6 +101,59 @@ public final class StoryModule {
 
     private StoryModule() {}
 
+    /** Actual saved Cobblemon NPC class, independent of visible name and skin. */
+    private static String npcClass(Entity npc) {
+        return npc.writeNbt(new NbtCompound()).getString("NPCClass");
+    }
+
+    /** Story characters speak for themselves; quest updates keep the server label. */
+    private static String battleDialoguePrefix(String encounterId) {
+        return encounterId != null && encounterId.startsWith("rin_")
+            ? "Rin: " : "[Pride Region] ";
+    }
+
+    // The terrain is decoration; only a deliberately placed clue marker
+    // authorizes a story discovery. Players can click the amethyst blocks
+    // themselves even if the invisible interaction entity is inside the build.
+    private static final Set<Block> FOREST_CRYSTAL_BLOCKS = Set.of(
+        Blocks.AMETHYST_BLOCK, Blocks.BUDDING_AMETHYST, Blocks.SMALL_AMETHYST_BUD,
+        Blocks.MEDIUM_AMETHYST_BUD, Blocks.LARGE_AMETHYST_BUD, Blocks.AMETHYST_CLUSTER
+    );
+
+    private static ActionResult discoverStoryEvidence(ServerPlayerEntity player, String clueId) {
+        try {
+            if (liveServer != player.getServer() || engine == null)
+                throw new IllegalStateException("Story module is not active");
+            var service = PrideCoreMod.progression(player.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"));
+            var evidence = new StoryEvidenceEngine(service,
+                id -> id.equals(player.getUuid())
+                    ? Set.copyOf(player.getCommandTags()) : Set.of());
+            String stageBeforeClick = engine.currentStage(player.getUuid());
+            var result = evidence.complete(player.getUuid(), clueId);
+            // If Rook was already defeated, the now-complete forest evidence
+            // can immediately open the Stonehaven follow-up without a rematch.
+            boolean stonehavenWin = engine.reconcileStonehavenVictory(player.getUuid());
+            StoryAdvancementBridge.synchronize(player, engine);
+            player.sendMessage(Text.literal(result.firstDiscovery()
+                ? "[Pride Region] Evidence discovered: " + result.clue().title()
+                : "[Pride Region] You've already examined this evidence.")
+                .formatted(Formatting.AQUA), false);
+            // A legacy stored clue may advance its stage on a repeat click:
+            // display the new objective once even though the fact is old.
+            String afterClick = engine.currentStage(player.getUuid());
+            if (result.firstDiscovery() || stonehavenWin
+                    || !stageBeforeClick.equals(afterClick))
+                sendNextObjective(player, afterClick);
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Story evidence interaction failed for {} clue={}: {}",
+                player.getUuid(), clueId, ex.toString());
+            player.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
+                .formatted(Formatting.RED), false);
+        }
+        return ActionResult.SUCCESS;
+    }
+
     public static void registerHooks() {
         // Module 02 is a Pokémon trainer battle, NEVER a hybrid Minecraft
         // boss fight. Only exact, valid story trainer actors are protected.
@@ -113,6 +173,31 @@ public final class StoryModule {
                 STORY_WORLDS.permits(entity.getWorld().getRegistryKey().getValue().toString()),
                 entity instanceof net.minecraft.entity.player.PlayerEntity);
             return !protectedTrainer;
+        });
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND
+                    || liveServer != sp.getServer() || engine == null
+                    || !STORY_WORLDS.permits(sp.getWorld().getRegistryKey().getValue().toString()))
+                return ActionResult.PASS;
+            BlockPos clicked = hitResult.getBlockPos();
+            if (!FOREST_CRYSTAL_BLOCKS.contains(world.getBlockState(clicked).getBlock()))
+                return ActionResult.PASS;
+            Vec3d crystalCenter = Vec3d.ofCenter(clicked);
+            if (sp.getPos().squaredDistanceTo(crystalCenter) > 36.0D)
+                return ActionResult.PASS;
+            // Don't make every amethyst crystal in the world a storyline
+            // shortcut. The author must place pride_clue_forest nearby.
+            boolean authoredFormation = world.getOtherEntities(sp,
+                new Box(clicked).expand(3.0D),
+                markerEntity -> markerEntity.getType() == EntityType.INTERACTION
+                    && markerEntity.getCommandTags().contains("pride_clue_forest")
+                    && StoryWorldMarkerCatalog.exclusiveStoryMarker(
+                        markerEntity.getCommandTags())
+                    && markerEntity.getPos().squaredDistanceTo(crystalCenter) <= 9.0D
+                    && markerEntity.squaredDistanceTo(sp) <= 36.0D
+            ).stream().findAny().isPresent();
+            if (!authoredFormation) return ActionResult.PASS;
+            return discoverStoryEvidence(sp, "forest");
         });
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
@@ -228,23 +313,7 @@ public final class StoryModule {
                 if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
-                try {
-                    var service = PrideCoreMod.progression(sp.getServer())
-                        .orElseThrow(() -> new IOException("Progression unavailable"));
-                    var evidence = new StoryEvidenceEngine(service,
-                        id -> id.equals(sp.getUuid()) ? Set.copyOf(sp.getCommandTags()) : Set.of());
-                    var result = evidence.complete(sp.getUuid(), clues.getFirst().id());
-                    StoryEngine running = liveServer == sp.getServer() ? engine : null;
-                    if (running != null) StoryAdvancementBridge.synchronize(sp, running);
-                    sp.sendMessage(Text.literal(result.firstDiscovery()
-                            ? "[Pride Region] Evidence discovered: " + result.clue().title()
-                            : "[Pride Region] You've already examined this evidence.")
-                        .formatted(Formatting.AQUA), false);
-                } catch (IOException | RuntimeException ex) {
-                    sp.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
-                        .formatted(Formatting.RED), false);
-                }
-                return ActionResult.SUCCESS;
+                return discoverStoryEvidence(sp, clues.getFirst().id());
             }
             // Intentionally placed story battle trainers. Only living
             // entities carrying one exact, registered encounter tag qualify.
@@ -293,6 +362,15 @@ public final class StoryModule {
                 if (nativeTags.size() != 1
                         || StoryNpcDialogueResolver.reservedNativeService(nativeTags.getFirst()))
                     return ActionResult.PASS;
+                if (!NativeNpcIdentity.matchesRequiredClass(
+                        nativeTags.getFirst(), npcClass(entity))) {
+                    LOGGER.warn("Wrong native story NPC class for entity {} tag={} actual={}",
+                        entity.getUuid(), nativeTags.getFirst(), npcClass(entity));
+                    sp.sendMessage(Text.literal(
+                        "[Pride Region] This NPC's story identity is incorrect; contact an admin.")
+                        .formatted(Formatting.RED), false);
+                    return ActionResult.FAIL;
+                }
                 if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
@@ -331,14 +409,21 @@ public final class StoryModule {
                     handler.getPlayer().getWorld().getRegistryKey().getValue().toString()))
                 return;
             try {
-                // Read old *verified* onboarding markers, then project owned checkpoints.
+                // Reconcile the already-authenticated Rin win before projecting
+                // native onboarding. This repairs disconnects after a genuine win.
+                synchronizeFirstTrainerVictoryFromRin(handler.getPlayer());
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
                 boolean verdantWin = active.reconcileVerdantVictory(handler.getPlayer().getUuid());
+                boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
+                    PrideCoreMod.progression(server).orElseThrow(), handler.getPlayer().getUuid());
+                boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
+                boolean canyonWin = active.reconcileRinCanyonVictory(handler.getPlayer().getUuid());
+                boolean emberfallWin = active.reconcileEmberfallVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin)
+                if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -536,6 +621,9 @@ public final class StoryModule {
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
+            // Stop all owned live RCT fights before discarding their routing
+            // tickets; otherwise the temporary NPC could outlive the player.
+            abortOwnedStoryBattles(server, handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
             if (router != null) router.disconnect(handler.getPlayer().getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(handler.getPlayer().getUuid());
@@ -914,7 +1002,7 @@ public final class StoryModule {
                     }
                 }
                 var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
-                player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
+                player.sendMessage(Text.literal(battleDialoguePrefix(encounterId) + roster.intro())
                     .formatted(Formatting.GOLD), false);
             } catch (IOException | RuntimeException presentationFailure) {
                 LOGGER.warn("RCT battle {} launched but cinematic introduction failed",
@@ -934,14 +1022,39 @@ public final class StoryModule {
 
     /** Failed ownership handshake must never leave an orphaned RCT fight. */
     private static void abortUnconfirmedStoryBattle(MinecraftServer server, UUID battleId) {
-        nativeStoryBattleCancelled(server, battleId);
         try {
             if (!RctStoryBattleLauncher.abort(battleId,
                     StoryModule.class.getClassLoader()))
                 LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
         } catch (ReflectiveOperationException | RuntimeException abortError) {
             LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
+        } finally {
+            nativeStoryBattleCancelled(server, battleId);
         }
+    }
+
+    /**
+     * Original League onboarding did not observe every custom RCT rival win.
+     * The persisted PrideCore proof is signed off only by the authoritative
+     * Cobblemon/RCT victory callback. Mirror that REAL trainer victory through
+     * the original League's one-time battle function (and its original FTB ID).
+     * It never grants a catch, a badge, money, or a second battle result.
+     *
+     * Replaying on join/sync repairs an interrupted post-victory handoff.
+     */
+    private static void synchronizeFirstTrainerVictoryFromRin(
+            ServerPlayerEntity player) throws IOException {
+        if (player.getCommandTags().contains("first_battle_win")) return;
+        var profile = PrideCoreMod.progression(player.getServer())
+            .orElseThrow(() -> new IOException("Progression unavailable"))
+            .get(player.getUuid());
+        if (!profile.facts().contains("pride:rin_route1_won")) return;
+        player.getServer().getCommandManager().executeWithPrefix(
+            player.getCommandSource().withLevel(4),
+            "function prideregion:onboarding/first_battle");
+        if (!player.getCommandTags().contains("first_battle_win"))
+            LOGGER.warn("Rin first-trainer victory did not reach League onboarding for {}",
+                player.getUuid());
     }
 
     /** Process only genuine resolved native battle results. */
@@ -981,6 +1094,7 @@ public final class StoryModule {
         // battle-intro cues. Never overlay an ended battle with stale prompts.
         if (battleOwner != null) CINEMATICS.cancel(battleOwner);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
                 // The victory fact was already persisted by StoryBattleProof.
@@ -1014,6 +1128,14 @@ public final class StoryModule {
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null) {
+                if ("rin_route1".equals(resolvedEncounter)) {
+                    try {
+                        synchronizeFirstTrainerVictoryFromRin(player);
+                    } catch (IOException | RuntimeException milestoneError) {
+                        LOGGER.warn("Rin victory was persisted but native first-trainer "
+                            + "milestone sync failed for {}", winnerId, milestoneError);
+                    }
+                }
                 String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
@@ -1027,9 +1149,14 @@ public final class StoryModule {
                 // Credit was already durably written. Presentation and
                 // advancement UI synchronization may fail independently.
                 try {
-                    player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
+                    player.sendMessage(Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)
                         .formatted(Formatting.GREEN), false);
+                    boolean canyonWin = engine != null
+                        && "rin_canyon".equals(resolvedEncounter)
+                        && engine.reconcileRinCanyonVictory(player.getUuid());
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                    if (canyonWin)
+                        sendNextObjective(player, engine.currentStage(player.getUuid()));
                     // A genuine Rin win grants the victory fact, but
                     // Ranger Mira (not the battle) advances the stage. Guide
                     // the winner there immediately instead of advertising
@@ -1043,8 +1170,8 @@ public final class StoryModule {
                                 reminderFailure);
                         }
                     }
-                } catch (RuntimeException presentationError) {
-                    LOGGER.warn("Verified story victory {} persisted but player UI update failed",
+                } catch (IOException | RuntimeException presentationError) {
+                    LOGGER.warn("Verified story victory {} persisted but post-win story/UI handoff failed",
                         battleId, presentationError);
                 }
             }
@@ -1071,6 +1198,17 @@ public final class StoryModule {
         });
     }
 
+    private static void releaseTemporaryRinTrainer(UUID battleId) {
+        try {
+            RctStoryBattleLauncher.release(battleId, StoryModule.class.getClassLoader());
+        } catch (ReflectiveOperationException | RuntimeException cleanupError) {
+            // Keep permanent story victory/cancellation bookkeeping intact if
+            // a third-party RCT registry fails to release the temporary NPC.
+            LOGGER.error("Failed to release Route 1 Rin RCT trainer for {}",
+                battleId, cleanupError);
+        }
+    }
+
     public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
@@ -1080,6 +1218,7 @@ public final class StoryModule {
         BATTLE_RETRIES.forget(battleId);
         BATTLE_PHASES.finish(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
     }
 
     /** Show each encounter's prerequisite and verified-win status; never grants anything. */
@@ -1167,6 +1306,10 @@ public final class StoryModule {
                 throw new IllegalArgumentException(
                     "Marker requires the correct entity type: npc=registered Cobblemon NPC, "
                     + "battle=living non-player, clue/finale=minecraft:interaction");
+            if (cobblemonNpc && !NativeNpcIdentity.matchesRequiredClass(tag, npcClass(entity)))
+                throw new IllegalStateException("Cannot assign " + tag
+                    + " to NPCClass=" + npcClass(entity)
+                    + "; expected " + NativeNpcIdentity.requiredClassForStoryTag(tag));
             if (!StoryWorldMarkerCatalog.canBind(entity.getCommandTags(), tag))
                 throw new IllegalStateException(
                     "Remove the conflicting story tag with admin unbind first");
@@ -1218,11 +1361,16 @@ public final class StoryModule {
             boolean valid = tags.size() == 1
                 && StoryWorldMarkerCatalog.validOnEntity(tags.getFirst(),
                     livingNonPlayer, cobblemonNpc,
-                    entity.getType() == EntityType.INTERACTION);
+                    entity.getType() == EntityType.INTERACTION)
+                && (!cobblemonNpc || NativeNpcIdentity.matchesRequiredClass(
+                    tags.getFirst(), npcClass(entity)));
             if (valid) healthy++; else invalid++;
             if (!valid)
                 source.sendFeedback(() -> Text.literal(
-                    "INVALID story marker on " + entity.getUuid() + ": " + tags), false);
+                    "INVALID story marker on " + entity.getUuid() + ": " + tags
+                    + (cobblemonNpc ? " NPCClass=" + npcClass(entity)
+                        + " expected=" + NativeNpcIdentity.requiredClassForStoryTag(
+                            tags.isEmpty() ? null : tags.getFirst()) : "")), false);
         }
         return message(source, "Story marker audit (32 blocks): " +
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
@@ -1751,6 +1899,8 @@ public final class StoryModule {
             player.getBoundingBox().expand(6.0D),
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_professor_sequoia")
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_professor_sequoia", npcClass(e))
                 && e.getCommandTags().stream().filter(t -> t.startsWith(PREFIX)).count() == 1
                 && e.squaredDistanceTo(player) <= 36.0D)
             .stream().findAny().isPresent();
@@ -1857,11 +2007,17 @@ public final class StoryModule {
             if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
                 throw new IllegalStateException("Story synchronization is disabled in this dimension");
             StoryEngine active = ready(source.getServer());
+            synchronizeFirstTrainerVictoryFromRin(player);
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
+            boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
+                PrideCoreMod.progression(source.getServer()).orElseThrow(), player.getUuid());
+            boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
+            boolean canyonWin = active.reconcileRinCanyonVictory(player.getUuid());
+            boolean emberfallWin = active.reconcileEmberfallVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
@@ -1925,7 +2081,8 @@ public final class StoryModule {
             .get(player.getUuid()).facts();
         player.sendMessage(Text.literal("[Pride Region] Next objective: ")
             .formatted(Formatting.GOLD)
-            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts))
+            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts,
+                    LegacyOnboardingGate.filter(player.getCommandTags())))
                 .formatted(Formatting.YELLOW)), false);
     }
 
@@ -1959,7 +2116,9 @@ public final class StoryModule {
                 && "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
     }
 
@@ -1969,7 +2128,9 @@ public final class StoryModule {
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().filter(e -> e instanceof net.minecraft.entity.LivingEntity
                 && e.squaredDistanceTo(player) <= 36.0D)
             .map(e -> (net.minecraft.entity.LivingEntity)e).findFirst();
@@ -2066,7 +2227,9 @@ public final class StoryModule {
                     player.getBoundingBox().expand(5.0),
                     e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                         && e.getCommandTags().contains(nativeTag)
-                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))) {
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                        && NativeNpcIdentity.matchesRequiredClass(
+                            nativeTag, npcClass(e)))) {
                 if (candidate.squaredDistanceTo(player) <= 36.0D) {
                     nearby = true;
                     break;

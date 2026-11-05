@@ -12,6 +12,29 @@ import java.util.*;
 public final class RctStoryBattleLauncher {
     private RctStoryBattleLauncher() {}
 
+    // Only temporary Route 1 RCT NPC registrations are retained here.
+    // The registry lookup is how RCTBattleAI resolves per-Pokemon gimmick rules.
+    private static final Map<UUID, String> RIN_BATTLE_REGISTRATIONS = new HashMap<>();
+
+    private static void unregisterRin(String registrationId, ClassLoader loader)
+            throws ReflectiveOperationException {
+        Class<?> apiType = Class.forName("com.gitlab.srcmc.rctapi.api.RCTApi", true, loader);
+        Object api = apiType.getMethod("getInstance", String.class).invoke(null, "pridecore");
+        if (api == null) throw new IllegalStateException("PrideCore RCT API is unavailable");
+        Object registry = apiType.getMethod("getTrainerRegistry").invoke(api);
+        registry.getClass().getMethod("unregisterById", String.class)
+            .invoke(registry, registrationId);
+    }
+
+    /** Retire this single story NPC once its native battle has resolved. */
+    public static void release(UUID battleId, ClassLoader loader)
+            throws ReflectiveOperationException {
+        String registrationId = RIN_BATTLE_REGISTRATIONS.get(battleId);
+        if (registrationId == null) return;
+        unregisterRin(registrationId, loader);
+        RIN_BATTLE_REGISTRATIONS.remove(battleId);
+    }
+
     /**
      * Abort an RCT battle whose returned UUID failed Pride Core ownership
      * confirmation. Never leave an untracked trainer battle running.
@@ -23,8 +46,12 @@ public final class RctStoryBattleLauncher {
         Object api = apiType.getMethod("getInstance", String.class).invoke(null, "pridecore");
         if (api == null) return false;
         Object manager = apiType.getMethod("getBattleManager").invoke(api);
-        return Boolean.TRUE.equals(manager.getClass().getMethod("end", UUID.class)
-            .invoke(manager, battleId));
+        try {
+            return Boolean.TRUE.equals(manager.getClass().getMethod("end", UUID.class)
+                .invoke(manager, battleId));
+        } finally {
+            release(battleId, loader);
+        }
     }
 
     /**
@@ -115,9 +142,30 @@ public final class RctStoryBattleLauncher {
         // Route 1 is deliberately a basic first-partner battle. Make its
         // no-gimmicks policy explicit in RCT rather than relying on defaults
         // (and never change the user's team or later Gym battles).
-        if ("rin_route1".equals(encounterId))
-            requireNoGimmicksForRoute1(opponent, team, pokemonType, loader);
-        Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
+        String temporaryRegistryId = null;
+        boolean verified = false;
+        try {
+            if ("rin_route1".equals(encounterId)) {
+                requireNoGimmicksForRoute1(opponent, team, pokemonType, loader);
+                // RCTBattleAI resolves the owner via TrainerRegistry.getByOT().
+                // A directly constructed TrainerNPC has no registered original
+                // trainer, so its verified GimmicksMap is otherwise ignored.
+                Object registry = apiType.getMethod("getTrainerRegistry").invoke(api);
+                temporaryRegistryId = "rin_route1_" +
+                    UUID.randomUUID().toString().replace("-", "");
+                registry.getClass().getMethod("registerNPC", String.class, trainerNpc)
+                    .invoke(registry, temporaryRegistryId, opponent);
+                for (Object pokemon : team) {
+                    Object resolved = registry.getClass().getMethod("getByOT", pokemonType)
+                        .invoke(registry, pokemon);
+                    if (resolved != opponent)
+                        throw new IllegalStateException(
+                            "Rin Route 1 RCT trainer ownership not registered; battle refused");
+                }
+                System.out.println("[PrideCore] Rin Route 1 RCT NPC registered and "
+                    + "original-trainer lookup verified: " + temporaryRegistryId);
+            }
+            Class<?> format = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleFormat", true, loader);
         Class<?> rules = Class.forName("com.gitlab.srcmc.rctapi.api.battle.BattleRules", true, loader);
         // Verified from the supplied RCT API 0.16.0 JAR:
         // BattleFormat is an enum implementing BattleFormatProvider.
@@ -134,7 +182,6 @@ public final class RctStoryBattleLauncher {
         // RCT owns the encounter state. Validate before giving the battle
         // to the story router, and abort *all* validation failures, not
         // only mismatched UUIDs.
-        boolean verified = false;
         try {
             Object state = manager.getClass().getMethod("getState", UUID.class)
                 .invoke(manager, id);
@@ -165,6 +212,8 @@ public final class RctStoryBattleLauncher {
             if (!id.equals(cobbleId))
                 throw new IllegalStateException("RCT/Cobblemon battle ID mismatch");
             verified = true;
+            if (temporaryRegistryId != null)
+                RIN_BATTLE_REGISTRATIONS.put(id, temporaryRegistryId);
             return id;
         } finally {
             if (!verified) {
@@ -173,6 +222,18 @@ public final class RctStoryBattleLauncher {
                 } catch (ReflectiveOperationException | RuntimeException abortFailure) {
                     System.err.println("[PrideCore] Failed to abort unverified RCT battle " +
                         id + ": " + abortFailure.getMessage());
+                }
+            }
+        }
+        } finally {
+            // If launch or ownership verification fails, never leave a
+            // temporary NPC in RCT's registry after aborting the battle.
+            if (!verified && temporaryRegistryId != null) {
+                try {
+                    unregisterRin(temporaryRegistryId, loader);
+                } catch (ReflectiveOperationException | RuntimeException cleanupError) {
+                    System.err.println("[PrideCore] Failed to release unverified Rin "
+                        + "RCT trainer: " + cleanupError);
                 }
             }
         }

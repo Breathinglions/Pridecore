@@ -37,6 +37,25 @@ public final class StoryEngine {
             externalFacts.apply(player), "Player markers unavailable"));
     }
 
+
+    /**
+     * Rin's authenticated Route 1 victory counts as the first TRAINER battle
+     * only when Ranger Mira checks the existing first_battle_win requirement.
+     * The verified RCT victory adapter may mirror this authenticated win into
+     * the original League onboarding function, but this story engine never
+     * fabricates a battle result. first_catch must still come from Cobblemon.
+     */
+    private static boolean legacyChoiceSatisfied(StoryDefinition.Npc npc,
+            StoryDefinition.Option option, Set<String> storyFacts, Set<String> legacy) {
+        if (legacy.containsAll(option.requiresLegacy())) return true;
+        if (!"ranger".equals(npc.id()) || !"explore".equals(option.id())
+                || !storyFacts.contains("pride:rin_route1_won")) return false;
+        for (String required : option.requiresLegacy())
+            if (!"first_battle_win".equals(required) && !legacy.contains(required))
+                return false;
+        return true;
+    }
+
     /** Opens the right story chapter for a tagged, physical Cobblemon NPC. */
     public synchronized Optional<Reply> beginBoundNpc(UUID playerId, String marker)
             throws IOException {
@@ -78,8 +97,18 @@ public final class StoryEngine {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown dialogue choice"));
         if (!before.facts().containsAll(option.requires()))
             throw new IllegalStateException("Choice prerequisites not met");
-        if (!legacyFor(playerId).containsAll(option.requiresLegacy()))
-            throw new IllegalStateException("Complete the existing starter, registration or field objective first");
+        Set<String> verifiedLegacy = legacyFor(playerId);
+        if (!legacyChoiceSatisfied(npc, option, before.facts(), verifiedLegacy)) {
+            if ("ranger".equals(npc.id()) && "explore".equals(option.id())) {
+                if (!verifiedLegacy.contains("first_catch"))
+                    throw new IllegalStateException(
+                        "Catch your first wild Pokémon before investigating with Ranger Mira");
+                throw new IllegalStateException(
+                    "Win your first Pokémon battle against Rin before continuing with Ranger Mira");
+            }
+            throw new IllegalStateException(
+                "Complete the existing starter, registration or field objective first");
+        }
         // A conversation is never proof of a scripted battle victory.
         // Keep boss and rival narrative checkpoints locked until the trusted
         // server-side battle adapter has persisted the corresponding win fact.
@@ -221,13 +250,81 @@ public final class StoryEngine {
             metThorn ? Set.of() : Set.of("pride:met_thorn"), Set.of()).changed();
     }
 
+    /**
+     * Rook's real RCT League callback owns the Bastion Badge, FTB credit,
+     * payout and native battle. This read-only reconciliation uses ONLY the
+     * original per-player League rock/grassy badges and previously persisted
+     * Warden + forest crystal evidence to unlock Miner Lyra's chapter.
+     *
+     * Players who won Rook before discovering the forest crystal are
+     * reconciled on that later click or on join/sync. A player already in
+     * Stonehaven's investigation or beyond is never sent backward.
+     */
+    public synchronized boolean reconcileStonehavenVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!Set.of("pride:forest_investigation",
+                    "pride:forest_traces_discovered").contains(current.storyStage()))
+            return false;
+        if (!current.facts().containsAll(Set.of(
+                "pride:met_thorn", "pride:forest_evidence", "pride:clue_forest")))
+            return false;
+        Set<String> league = legacyFor(playerId);
+        if (!league.containsAll(Set.of("league_started", "league_grass", "league_rock")))
+            return false;
+        // Save only the current objective. No badge, reward, quest
+        // completion, battle win or player command tag may be manufactured.
+        return progression.transition(playerId, "pride:stonehaven_victory",
+            Set.of(), Set.of()).changed();
+    }
+
+    /**
+     * Real Cobblemon/RCT Canyon Rin victory is the chapter's completion proof.
+     * The pre-battle dialogue already happened; Rin's post-win native overlay
+     * is a return-only conversation, so waiting for a second dialogue choice
+     * would leave the player stranded at the canyon indefinitely.
+     *
+     * This changes ONLY Pride Core's owned story stage/fact, after the durable
+     * trusted battle result. Login/sync replay is idempotent. No rewards,
+     * badges or external FTB markers are forged.
+     */
+    public synchronized boolean reconcileRinCanyonVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:eclipse_detected".equals(current.storyStage())
+                || !current.facts().containsAll(Set.of(
+                    "pride:eclipse_contact", "pride:rin_canyon_won")))
+            return false;
+        return progression.transition(playerId, "pride:rival_debate",
+            Set.of("pride:rival_theory"), Set.of()).changed();
+    }
+
+    /**
+     * Ashen's RCT first-win callback is the authority for Inferno Badge and
+     * rewards. This mirrors only the real league_fire tag into the current
+     * story objective, without paying, crediting FTB or fabricating a win.
+     * Strict prior-stage and Rin proof checks prevent out-of-order Gym battles
+     * from bypassing the canyon. Restart/sync replay never rewinds a chapter.
+     */
+    public synchronized boolean reconcileEmberfallVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:rival_debate".equals(current.storyStage())
+                || !current.facts().containsAll(Set.of(
+                    "pride:eclipse_contact", "pride:rin_canyon_won", "pride:rival_theory")))
+            return false;
+        Set<String> league = legacyFor(playerId);
+        if (!league.containsAll(Set.of(
+                "league_started", "league_grass", "league_rock", "league_fire")))
+            return false;
+        return progression.transition(playerId, "pride:emberfall_victory",
+            Set.of(), Set.of()).changed();
+    }
+
     public synchronized void cancel(UUID playerId) { sessions.remove(playerId); }
 
     private Reply reply(StoryDefinition.Npc npc, StoryDefinition.Node node,
                         ProfileState player, Set<String> verifiedLegacy) {
         List<ChoiceView> choices = node.options().stream()
                 .filter(o -> player.facts().containsAll(o.requires()))
-                .filter(o -> verifiedLegacy.containsAll(o.requiresLegacy()))
+                .filter(o -> legacyChoiceSatisfied(npc, o, player.facts(), verifiedLegacy))
                 .map(o -> new ChoiceView(o.id(), o.text())).toList();
         return new Reply(npc.id(), npc.name(), node.text(), choices, player.revision());
     }
