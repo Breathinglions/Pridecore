@@ -484,11 +484,23 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     if not any("@1 pridecore story sync" in line for line in rook_commands):
         rook_commands.append("@1 pridecore story sync")
     resources[rook] = serialize(rook_def)
+    # Ashen's original Fire Gym owns the battle, Inferno Badge, FTB Quest,
+    # ₽2,000 first-win payout, and all native League effects. Append ONLY
+    # a post-reward PrideCore story sync, just as for Thorn and Rook.
+    ashen = "data/rctmod/mobs/trainers/single/pride_ashen.json"
+    ashen_def = json.loads(resources[ashen])
+    ashen_commands = ashen_def["winCommands"]["1"]
+    for token in ("league_fire", "ftbquests change_progress", "eco deposit 2000"):
+        if not any(token in line for line in ashen_commands):
+            raise ValueError("Ashen original Inferno reward callback incomplete: " + token)
+    if not any("@1 pridecore story sync" in line for line in ashen_commands):
+        ashen_commands.append("@1 pridecore story sync")
+    resources[ashen] = serialize(ashen_def)
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
     # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
-    expected_changed = sorted([thorn, rook] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    expected_changed = sorted([thorn, rook, ashen] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
