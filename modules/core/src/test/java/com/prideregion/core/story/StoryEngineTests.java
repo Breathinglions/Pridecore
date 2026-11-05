@@ -78,7 +78,7 @@ public final class StoryEngineTests {
             "Eclipse Lieutenant battle is a required stage");
         check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
             "The Resonance crisis remains visible through narrative direction");
-        check(StoryObjectiveGuide.coveredStages() == 32,
+        check(StoryObjectiveGuide.coveredStages() == 33,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
             "Unknown custom stages fall back to immersive, nontechnical story direction");
@@ -409,10 +409,56 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.forStage("pride:rival_debate").contains("foundry"),
             "Next objective after verified Canyon victory points toward Emberfall");
 
+        // Ashen's official RCT first-win callback grants league_fire before
+        // PrideCore sees the new objective. Stages/facts may only change after
+        // real three-badge League proof AND the verified Rin Canyon chapter.
+        UUID ashenWinner = UUID.randomUUID(), ashenMissingBadge = UUID.randomUUID(),
+            ashenNoCanyon = UUID.randomUUID(), ashenFuture = UUID.randomUUID();
+        Set<String> canyonFacts = Set.of(
+            "pride:eclipse_contact", "pride:rin_canyon_won", "pride:rival_theory");
+        Set<String> twoBadges = Set.of("league_started", "league_grass", "league_rock");
+        Set<String> fireBadges = Set.of(
+            "league_started", "league_grass", "league_rock", "league_fire");
+        store.transition(ashenWinner, "pride:rival_debate", canyonFacts, Set.of());
+        actualMarkers.put(ashenWinner, twoBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenWinner),
+            "Ashen cannot clear the story without an official Inferno Badge");
+        actualMarkers.put(ashenWinner, fireBadges);
+        check(gymEngine.reconcileEmberfallVictory(ashenWinner),
+            "Verified Ashen win advances the Foundry objective");
+        check(store.get(ashenWinner).storyStage().equals("pride:emberfall_victory"),
+            "Ashen victory directs players to Technician Sol");
+        long ashenRevision = store.get(ashenWinner).revision();
+        check(!gymEngine.reconcileEmberfallVictory(ashenWinner)
+                && store.get(ashenWinner).revision() == ashenRevision,
+            "Ashen story sync is safe on replay/reconnect");
+        check(!store.get(ashenWinner).facts().contains("pride:league_fire"),
+            "No native badge or payout is forged in PrideCore profile");
+        store.transition(ashenMissingBadge, "pride:rival_debate",
+            canyonFacts, Set.of());
+        actualMarkers.put(ashenMissingBadge, Set.of("league_started", "league_rock", "league_fire"));
+        check(!gymEngine.reconcileEmberfallVictory(ashenMissingBadge),
+            "Having Fire without the Grass Badge cannot skip League order");
+        store.transition(ashenNoCanyon, "pride:rival_debate",
+            Set.of("pride:eclipse_contact"), Set.of());
+        actualMarkers.put(ashenNoCanyon, fireBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenNoCanyon),
+            "Fire Badge without the authenticated Canyon battle cannot skip story");
+        store.transition(ashenFuture, "pride:fire_district",
+            canyonFacts, Set.of());
+        actualMarkers.put(ashenFuture, fireBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenFuture)
+                && store.get(ashenFuture).storyStage().equals("pride:fire_district"),
+            "Old Gym results never rewind a progressed player");
+        check(StoryObjectiveGuide.forStage("pride:rival_debate").contains("Inferno Badge"),
+            "Canyon follow-up points to Ashen's Fire Gym");
+        check(StoryObjectiveGuide.forStage("pride:emberfall_victory").contains("Technician Sol"),
+            "Verified Inferno victory points to Technician Sol at the Foundry");
+
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
-        check(StoryObjectiveGuide.coveredStages() == 32,
+        check(StoryObjectiveGuide.coveredStages() == 33,
             "Every milestone stage and newly verified Verdant win has guidance");
 
         // Regression: Rin may be visited out of sequence without undoing a
