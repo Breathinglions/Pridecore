@@ -238,4 +238,23 @@ check('("league_rock", "ftbquests change_progress", "eco deposit 1500")'
       in unified_packager, "Rook badge, FTB task and PokéDollars remain original")
 check('expected_changed = sorted([thorn, rook]' in unified_packager,
     "Only approved League battle entries may differ from the audited original")
+# Preserve the native Ashen first-win rewards and append only a story
+# reconciliation after original badge, FTB and one-time payout commands.
+check('ashen = "data/rctmod/mobs/trainers/single/pride_ashen.json"' in unified_packager,
+    "Original RCT Ashen remains in the unified packager")
+check('ashen_commands.append("@1 pridecore story sync")' in unified_packager,
+    "Ashen verified victory callback advances the story after its rewards")
+check('("league_fire", "ftbquests change_progress", "eco deposit 2000")'
+      in unified_packager, "Original Inferno Badge, FTB Quest and ₽2,000 payout retained")
+check('expected_changed = sorted([thorn, rook, ashen]' in unified_packager,
+    "Ashen added to strictly allowlisted native Gym callback diff")
+story_engine = (root / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
+module_source = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
+check('reconcileEmberfallVictory(UUID playerId)' in story_engine,
+    "Ashen badge reconciliation exists")
+check('"league_fire"' in story_engine.split('reconcileEmberfallVictory(UUID playerId)', 1)[1].split(
+    'public synchronized void cancel(', 1)[0],
+    "The original League fire tag is required for Emberfall victory")
+check('boolean emberfallWin = active.reconcileEmberfallVictory(' in module_source,
+    "Existing Ashen winners are reconciled at login and /pridecore story sync")
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
