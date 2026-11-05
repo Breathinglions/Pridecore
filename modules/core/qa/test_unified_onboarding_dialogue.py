@@ -236,7 +236,7 @@ check('rook_commands.append("@1 pridecore story sync")' in unified_packager,
     "Rook victory triggers read-only PrideCore story reconciliation")
 check('("league_rock", "ftbquests change_progress", "eco deposit 1500")'
       in unified_packager, "Rook badge, FTB task and PokéDollars remain original")
-check('expected_changed = sorted([thorn, rook]' in unified_packager,
+check('expected_changed = sorted([thorn, rook, ashen]' in unified_packager,
     "Only approved League battle entries may differ from the audited original")
 # Preserve the native Ashen first-win rewards and append only a story
 # reconciliation after original badge, FTB and one-time payout commands.
