@@ -419,11 +419,12 @@ public final class StoryModule {
                 boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
                 boolean canyonWin = active.reconcileRinCanyonVictory(handler.getPlayer().getUuid());
                 boolean emberfallWin = active.reconcileEmberfallVictory(handler.getPlayer().getUuid());
+                boolean summitWin = active.reconcileRinSummitVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
+                if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -1154,8 +1155,11 @@ public final class StoryModule {
                     boolean canyonWin = engine != null
                         && "rin_canyon".equals(resolvedEncounter)
                         && engine.reconcileRinCanyonVictory(player.getUuid());
+                    boolean summitWin = engine != null
+                        && "rin_summit".equals(resolvedEncounter)
+                        && engine.reconcileRinSummitVictory(player.getUuid());
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
-                    if (canyonWin)
+                    if (canyonWin || summitWin)
                         sendNextObjective(player, engine.currentStage(player.getUuid()));
                     // A genuine Rin win grants the victory fact, but
                     // Ranger Mira (not the battle) advances the stage. Guide
@@ -2015,9 +2019,10 @@ public final class StoryModule {
             boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
             boolean canyonWin = active.reconcileRinCanyonVictory(player.getUuid());
             boolean emberfallWin = active.reconcileEmberfallVictory(player.getUuid());
+            boolean summitWin = active.reconcileRinSummitVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
