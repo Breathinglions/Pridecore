@@ -501,6 +501,57 @@ public final class StoryEngineTests {
         check(!gymEngine.reconcileRinSummitVictory(summitWrongStage)
                 && store.get(summitWrongStage).storyStage().equals("pride:dragon_lore"),
             "Summit fact cannot skip out-of-order story stages");
+        // Source-driven directions must reflect outstanding environmental
+        // evidence and *official* Gym badges, not prematurely route players
+        // to locked NPCs and force them to guess why dialogue is unavailable.
+        check(StoryObjectiveGuide.forStage("pride:fire_district", Set.of(), Set.of())
+                .contains("Foundry"), "Sol points at the physical Foundry clue");
+        check(StoryObjectiveGuide.forStage("pride:institute_introduction",
+                Set.of(), Set.of()).contains("Kai's Tidal Badge"),
+            "After Vela the journal requests Kai's official badge first");
+        check(StoryObjectiveGuide.forStage("pride:tidal_investigation",
+                Set.of("pride:water_evidence"), Set.of()).contains("Investigate"),
+            "Before Rowan the player must investigate the waterway pulse");
+        check(StoryObjectiveGuide.forStage("pride:tidal_investigation",
+                Set.of("pride:clue_river"), Set.of()).contains("Captain Rowan"),
+            "After real river evidence the journal directs Rowan");
+        check(StoryObjectiveGuide.forStage("pride:ranger_investigation",
+                Set.of(), Set.of()).contains("Voltage Badge"),
+            "Quill chapter directs players to earn Vega's real badge");
+        check(StoryObjectiveGuide.forStage("pride:powergrid_reveal",
+                Set.of(), Set.of()).contains("Voltaris Power Station"),
+            "Quill requires the circuit evidence before Iris");
+        check(StoryObjectiveGuide.forStage("pride:meridian_records",
+                Set.of(), Set.of()).contains("Draco Badge"),
+            "Iris's follow-up requires Draven's official badge");
+        check(StoryObjectiveGuide.forStage("pride:dragon_lore",
+                Set.of(), Set.of()).contains("Dragon statue"),
+            "Toren directs players to the actual Drakespire ward landmark");
+        check(StoryObjectiveGuide.forStage("pride:dragon_lore",
+                Set.of("pride:clue_ward"), Set.of()).contains("Glacier Badge"),
+            "After Drakespire evidence player earns Freya's badge");
+        check(StoryObjectiveGuide.forStage("pride:rival_reunited",
+                Set.of(), Set.of()).contains("Ebonreach City"),
+            "After Rin players visit Nyx's canonical Ghost city");
+        check(StoryObjectiveGuide.forStage("pride:ghost_memories",
+                Set.of(), Set.of()).contains("memory echo"),
+            "Ori requires environmental memory evidence");
+        check(StoryObjectiveGuide.forStage("pride:ghost_memories",
+                Set.of("pride:clue_echo", "pride:eclipse_lieutenant_won"),
+                Set.of()).contains("Speak to the Lieutenant"),
+            "After a genuine Lieutenant win the journal prompts the conversation");
+        check(StoryObjectiveGuide.forStage("pride:eclipse_infiltration",
+                Set.of("pride:sable_battle_won"), Set.of())
+                .contains("Speak with her"),
+            "Sable's real victory does not bypass her narrative debrief");
+        check(StoryObjectiveGuide.forStage("pride:sable_confrontation",
+                Set.of("pride:cael_battle_won"), Set.of())
+                .contains("speak to Cael"),
+            "Cael's post-battle confession remains a distinct story checkpoint");
+        check(StoryObjectiveGuide.forStage("pride:engine_confrontation",
+                Set.of(), Set.of()).contains("diagnostics"),
+            "Rowan's finale briefing requires the physical Engine clue");
+
         check(StoryObjectiveGuide.forStage("pride:ice_research").contains("archive"),
             "Sera's objective warns players to examine the Ice warning archive");
         check(StoryObjectiveGuide.forStage("pride:rival_reunited").contains("Phantom Badge"),
