@@ -104,7 +104,22 @@ assert 'progression.transition(playerId, "pride:rival_debate",' in engine
 assert 'Set.of("pride:rival_theory"), Set.of()).changed()' in engine
 assert '"rin_canyon".equals(resolvedEncounter)' in source
 assert 'engine.reconcileRinCanyonVictory(player.getUuid())' in source
-assert 'if (canyonWin)' in source
+assert 'if (canyonWin || summitWin)' in source
 assert 'boolean canyonWin = active.reconcileRinCanyonVictory(' in source
+# The third Rin battle uses the same canonical physical NPC and trusted
+# Cobblemon victory callback. A saved Summit win must complete the chapter,
+# including after disconnect/rejoin, without needing inaccessible old dialogue.
+assert 'boolean reconcileRinSummitVictory(UUID playerId)' in engine
+summit_reconcile = engine.split('boolean reconcileRinSummitVictory(UUID playerId)',1)[1].split(
+    'public synchronized boolean reconcileEmberfallVictory(',1)[0]
+for expected in ('"pride:ice_research"', '"pride:frozen_warning"',
+                 '"pride:clue_ice"', '"pride:rin_summit_won"',
+                 '"pride:rin_canyon_won"', '"pride:rival_reunited"',
+                 '"pride:rival_ally"'):
+    assert expected in summit_reconcile, f"Summit story handoff missing {expected}"
+assert '"rin_summit".equals(resolvedEncounter)' in source
+assert 'engine.reconcileRinSummitVictory(player.getUuid())' in source
+assert 'boolean summitWin = active.reconcileRinSummitVictory(' in source
+assert 'if (canyonWin || summitWin)' in source
 print("PASS: Rin battle dialogue attributed to Rin; next objectives remain system messages")
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
