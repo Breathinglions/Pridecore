@@ -38,19 +38,23 @@ public final class RinChapterGateTests {
         scene(RinChapterGate.Scene.CANYON, 8,
             "pride:rin_route1_won", "pride:eclipse_contact",
             "pride:frozen_warning");
-        // Summit needs both a genuine earlier Canyon victory and 7 badges.
+        // Summit needs both a genuine Canyon victory, the real hidden Ice
+        // archive clue, and seven verified League badges.
         scene(RinChapterGate.Scene.RETURN, 7,
             "pride:rin_route1_won", "pride:rin_canyon_won",
             "pride:eclipse_contact");
         scene(RinChapterGate.Scene.RETURN, 6,
             "pride:rin_route1_won", "pride:rin_canyon_won",
             "pride:frozen_warning");
-        scene(RinChapterGate.Scene.SUMMIT, 7,
+        scene(RinChapterGate.Scene.RETURN, 7,
             "pride:rin_route1_won", "pride:rin_canyon_won",
             "pride:frozen_warning");
+        scene(RinChapterGate.Scene.SUMMIT, 7,
+            "pride:rin_route1_won", "pride:rin_canyon_won",
+            "pride:frozen_warning", "pride:clue_ice");
         scene(RinChapterGate.Scene.RETURN, 8,
             "pride:rin_route1_won", "pride:rin_canyon_won",
-            "pride:frozen_warning", "pride:rin_summit_won");
+            "pride:frozen_warning", "pride:clue_ice", "pride:rin_summit_won");
         // An irrelevant tag does not count as an official Gym badge.
         check(RinChapterGate.choose(facts("pride:rin_route1_won",
             "pride:eclipse_contact"), Set.of("league_started","league_champion"))
