@@ -1227,7 +1227,14 @@ public final class StoryModule {
                         && "rin_summit".equals(resolvedEncounter)
                         && engine.reconcileRinSummitVictory(player.getUuid());
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
-                    if (canyonWin || summitWin)
+                    // Other story opponents have a mandatory post-battle
+                    // conversation with the same named character. Their real
+                    // victory proves only the battle; show the new objective,
+                    // but never award the authored dialogue checkpoint early.
+                    boolean aftermath = "eclipse_lieutenant".equals(resolvedEncounter)
+                        || "sable".equals(resolvedEncounter)
+                        || "director_cael".equals(resolvedEncounter);
+                    if (canyonWin || summitWin || aftermath)
                         sendNextObjective(player, engine.currentStage(player.getUuid()));
                     // A genuine Rin win grants the victory fact, but
                     // Ranger Mira (not the battle) advances the stage. Guide
