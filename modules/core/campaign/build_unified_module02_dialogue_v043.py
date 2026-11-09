@@ -496,11 +496,43 @@ def build(jar_path: Path, league_path: Path, story_path: Path, destination: Path
     if not any("@1 pridecore story sync" in line for line in ashen_commands):
         ashen_commands.append("@1 pridecore story sync")
     resources[ashen] = serialize(ashen_def)
+    # The other five Gym victories already have verified first-win callbacks,
+    # official badges and payouts. Add only a read-only next-objective prompt
+    # INSIDE the first-win marker gate, before the marker is removed. No extra
+    # badge, FTB task, cash or story fact may be granted by this command.
+    guided_gyms = (
+        ("kai", "water", 4000),
+        ("vega", "electric", 4000),
+        ("draven", "dragon", 5000),
+        ("freya", "ice", 7500),
+        ("nyx", "ghost", 10000),
+    )
+    guided_paths = []
+    for npc, element, payout in guided_gyms:
+        path = f"data/rctmod/mobs/trainers/single/pride_{npc}.json"
+        original = json.loads(resources[path])
+        commands = original["winCommands"]["1"]
+        for required in (f"league_{element}", "ftbquests change_progress",
+                         f"eco deposit {payout}"):
+            if not any(required in cmd for cmd in commands):
+                raise ValueError(f"{npc} official first-win action missing: {required}")
+        marker = f"pr_rt_{element}"
+        last = f"@1 tag @s remove {marker}"
+        addition = (f"@1 execute if entity @s[tag={marker}] "
+                    "run pridecore story objective")
+        if commands.count(last) != 1 or commands[-1] != last:
+            raise ValueError(f"{npc} first-win marker cleanup changed")
+        if addition not in commands:
+            commands.insert(len(commands)-1, addition)
+        if commands.count(addition) != 1:
+            raise ValueError(f"{npc} unexpected repeat objective callback")
+        resources[path] = serialize(original)
+        guided_paths.append(path)
     # Every original League file MUST remain byte-identical except the approved
     # 3 story-only dialogue overlays and the *additive* Thorn read-only sync.
     changed_league = sorted(k for k,v in immutable_original.items() if resources[k]!=v)
     # Explicit path comparison: only approved dialogue, kit/starter functions, and safe Thorn sync.
-    expected_changed = sorted([thorn, rook, ashen] + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
+    expected_changed = sorted([thorn, rook, ashen] + guided_paths + changed_onboarding + hardened_spawns + [f"data/pride_region/dialogues/{n}.json" for n in LAB])
     if changed_league != expected_changed:
         raise ValueError("Unexpected mutation of League resources: " + repr(changed_league))
     manifest = {
