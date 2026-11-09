@@ -546,7 +546,7 @@ public final class StoryEngineTests {
             "Sable's real victory does not bypass her narrative debrief");
         check(StoryObjectiveGuide.forStage("pride:sable_confrontation",
                 Set.of("pride:cael_battle_won"), Set.of())
-                .contains("speak to Cael"),
+                .contains("Speak with Director Cael"),
             "Cael's post-battle confession remains a distinct story checkpoint");
         check(StoryObjectiveGuide.forStage("pride:engine_confrontation",
                 Set.of(), Set.of()).contains("diagnostics"),
