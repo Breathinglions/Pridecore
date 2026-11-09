@@ -2390,6 +2390,26 @@ public final class StoryModule {
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Native story action rejected for {} npc={} choice={}: {}",
                     player.getUuid(), npc, option, ex.toString());
+            // An honest player can meet an NPC before its story prerequisites
+            // have been completed. Do not expose internal implementation
+            // errors or future chapters. Give the current objective instead.
+            // Invalid identities, commands and actor bindings still fail shut.
+            String reason = ex.getMessage();
+            if (ex instanceof IllegalStateException && reason != null
+                    && (reason.equals("This NPC has no story dialogue available yet")
+                        || reason.equals("Complete the existing starter, registration or field objective first")
+                        || reason.equals("Win the scripted story battle before advancing"))) {
+                try {
+                    player.sendMessage(Text.literal("[Pride Region] There's more to discover before this conversation can continue.")
+                        .formatted(Formatting.YELLOW), false);
+                    sendNextObjective(player, ready(source.getServer())
+                        .currentStage(player.getUuid()));
+                    return 0;
+                } catch (IOException | RuntimeException reminderFailure) {
+                    LOGGER.warn("Could not show locked NPC next-objective reminder for {}",
+                        player.getUuid(), reminderFailure);
+                }
+            }
             source.sendError(Text.literal("Story action unavailable: " + safe(ex.getMessage())));
             return 0;
         }
