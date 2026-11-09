@@ -84,6 +84,41 @@ public final class StoryModule {
         }
     }
 
+    // Per-player Rowan chapters share one actual Cobblemon NPC. Server-owned
+    // facts select the river investigation, later Engine briefing, or replay.
+    private enum RowanScene {
+        CASE, FINALE, RETURN;
+        String dialogue() {
+            return switch (this) {
+                case CASE -> "pride_story:ranger_rowan_case";
+                case FINALE -> "pride_story:ranger_rowan_finale";
+                case RETURN -> "pride_story:ranger_rowan_return";
+            };
+        }
+    }
+    private static final class RowanDialogueTicket {
+        final UUID npc;
+        final String dimension;
+        final RowanScene scene;
+        int delay = 2;
+        int remaining = 20 * 15;
+        RowanDialogueTicket(UUID npc, String dimension, RowanScene scene) {
+            this.npc = npc; this.dimension = dimension; this.scene = scene;
+        }
+    }
+    private static final Map<UUID, RowanDialogueTicket> ROWAN_DIALOGUES = new HashMap<>();
+
+    private static RowanScene rowanScene(Set<String> facts) {
+        if (facts.containsAll(Set.of("pride:cael_confronted",
+                "pride:clue_engine", "pride:cael_battle_won"))
+                && !facts.contains("pride:crisis_intel_complete"))
+            return RowanScene.FINALE;
+        if (facts.containsAll(Set.of("pride:water_evidence", "pride:clue_river"))
+                && !facts.contains("pride:ranger_probe"))
+            return RowanScene.CASE;
+        return RowanScene.RETURN;
+    }
+
     // Disabled by default. Only OP4 staging previews may initiate a scene until
     // the verified native Cobblemon NPC + owner-only renderer adapter exists.
     private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
@@ -474,6 +509,35 @@ public final class StoryModule {
                     }
                 }
             }
+            for (var it = ROWAN_DIALOGUES.entrySet().iterator(); it.hasNext();) {
+                var entry = it.next();
+                RowanDialogueTicket ticket = entry.getValue();
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(entry.getKey());
+                if (viewer == null || --ticket.remaining <= 0
+                        || !STORY_WORLDS.permits(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !ticket.dimension.equals(
+                            viewer.getWorld().getRegistryKey().getValue().toString())
+                        || !rowanNpcNearby(viewer, ticket.npc)) {
+                    it.remove();
+                    continue;
+                }
+                if (ticket.delay > 0 && --ticket.delay == 0) {
+                    it.remove();
+                    try {
+                        var p = PrideCoreMod.progression(server).orElseThrow()
+                            .get(viewer.getUuid());
+                        if (rowanScene(p.facts()) != ticket.scene) continue;
+                        server.getCommandManager().executeWithPrefix(
+                            server.getCommandSource().withSilent(),
+                            "opendialogue " + ticket.scene.dialogue() + " "
+                                + viewer.getGameProfile().getName());
+                    } catch (IOException | RuntimeException failure) {
+                        LOGGER.warn("Could not open private Rowan dialogue for {}",
+                            viewer.getUuid(), failure);
+                    }
+                }
+            }
             var recoveries = BATTLE_RETRIES.tick();
             for (var retry : recoveries.due()) {
                 try {
@@ -613,6 +677,7 @@ public final class StoryModule {
             }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            ROWAN_DIALOGUES.remove(handler.getPlayer().getUuid());
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             VERIFIED_LAB_SCENES.remove(handler.getPlayer().getUuid());
@@ -644,6 +709,7 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
         engine = null;
@@ -766,6 +832,7 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
@@ -784,6 +851,7 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             if (victoryListener != null) {
@@ -1573,6 +1641,7 @@ public final class StoryModule {
             if (engine != null) engine.cancel(target.getUuid());
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
             BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1626,6 +1695,7 @@ public final class StoryModule {
         if (engine != null) engine.cancel(target.getUuid());
         DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
         if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
         BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -2344,6 +2414,7 @@ public final class StoryModule {
             engine = next; // old conversations discarded, player progress preserved.
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
             health = "active";
             return message(source, "Story definitions reloaded: " + next.npcCount()
                 + " NPCs. Existing conversations reset; saved progress retained.");
@@ -2471,6 +2542,7 @@ public final class StoryModule {
             var response = ready(source.getServer()).begin(target.getUuid(), npc);
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
             show(target, response);
             return message(source, "Presented NPC " + npc + " dialogue to " + target.getName().getString());
         } catch (IOException | RuntimeException ex) {
