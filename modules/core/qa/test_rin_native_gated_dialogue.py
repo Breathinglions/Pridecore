@@ -104,7 +104,7 @@ assert 'progression.transition(playerId, "pride:rival_debate",' in engine
 assert 'Set.of("pride:rival_theory"), Set.of()).changed()' in engine
 assert '"rin_canyon".equals(resolvedEncounter)' in source
 assert 'engine.reconcileRinCanyonVictory(player.getUuid())' in source
-assert 'if (canyonWin || summitWin)' in source
+assert 'if (canyonWin || summitWin || aftermath)' in source
 assert 'boolean canyonWin = active.reconcileRinCanyonVictory(' in source
 # The third Rin battle uses the same canonical physical NPC and trusted
 # Cobblemon victory callback. A saved Summit win must complete the chapter,
@@ -120,6 +120,6 @@ for expected in ('"pride:ice_research"', '"pride:frozen_warning"',
 assert '"rin_summit".equals(resolvedEncounter)' in source
 assert 'engine.reconcileRinSummitVictory(player.getUuid())' in source
 assert 'boolean summitWin = active.reconcileRinSummitVictory(' in source
-assert 'if (canyonWin || summitWin)' in source
+assert 'if (canyonWin || summitWin || aftermath)' in source
 print("PASS: Rin battle dialogue attributed to Rin; next objectives remain system messages")
 print("PASS: one Rin, three isolated Cobblemon chapter screens, server-gated battle handoff")
