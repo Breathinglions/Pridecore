@@ -455,6 +455,57 @@ public final class StoryEngineTests {
         check(StoryObjectiveGuide.forStage("pride:emberfall_victory").contains("Technician Sol"),
             "Verified Inferno victory points to Technician Sol at the Foundry");
 
+        // The Summit native dialogue becomes a return-only screen once a
+        // verified Rin win is recorded. Completing the prior Ice archive and
+        // authenticated Summit victory must advance the chapter automatically.
+        UUID summitWinner = UUID.randomUUID(), summitNotWon = UUID.randomUUID(),
+            summitNoClue = UUID.randomUUID(), summitNoCanyon = UUID.randomUUID(),
+            summitAlreadyPast = UUID.randomUUID(), summitWrongStage = UUID.randomUUID();
+        Set<String> summitFacts = Set.of(
+            "pride:rin_canyon_won", "pride:frozen_warning",
+            "pride:clue_ice", "pride:rin_summit_won");
+        store.transition(summitWinner, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:clue_ice"), Set.of());
+        check(!gymEngine.reconcileRinSummitVictory(summitWinner),
+            "Summit rivalry cannot advance on dialogue before a verified victory");
+        store.grant(summitWinner, "pride:rin_summit_won");
+        check(gymEngine.reconcileRinSummitVictory(summitWinner),
+            "Real persisted Rin Summit victory finishes the third rival chapter");
+        check(store.get(summitWinner).storyStage().equals("pride:rival_reunited"),
+            "Summit win directs player to Medium Ori near the Ghost sanctuary");
+        check(store.get(summitWinner).facts().contains("pride:rival_ally"),
+            "Authenticated summit win credits the ally checkpoint");
+        long summitRevision = store.get(summitWinner).revision();
+        check(!gymEngine.reconcileRinSummitVictory(summitWinner)
+                && store.get(summitWinner).revision() == summitRevision,
+            "Summit login/sync replay is idempotent and keeps saved progress");
+        store.transition(summitNotWon, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:clue_ice"), Set.of());
+        store.transition(summitNoClue, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:rin_summit_won"), Set.of());
+        store.transition(summitNoCanyon, "pride:ice_research",
+            Set.of("pride:frozen_warning", "pride:clue_ice", "pride:rin_summit_won"), Set.of());
+        store.transition(summitAlreadyPast, "pride:ghost_memories",
+            summitFacts, Set.of());
+        store.transition(summitWrongStage, "pride:dragon_lore",
+            summitFacts, Set.of());
+        check(!gymEngine.reconcileRinSummitVictory(summitNotWon),
+            "The earlier Rin Canyon win cannot substitute for a Summit victory");
+        check(!gymEngine.reconcileRinSummitVictory(summitNoClue),
+            "A player missing the real Ice archive clue stays locked");
+        check(!gymEngine.reconcileRinSummitVictory(summitNoCanyon),
+            "Summit story handoff requires the earlier rival chapter");
+        check(!gymEngine.reconcileRinSummitVictory(summitAlreadyPast)
+                && store.get(summitAlreadyPast).storyStage().equals("pride:ghost_memories"),
+            "Summit recovery never rewinds a later story stage");
+        check(!gymEngine.reconcileRinSummitVictory(summitWrongStage)
+                && store.get(summitWrongStage).storyStage().equals("pride:dragon_lore"),
+            "Summit fact cannot skip out-of-order story stages");
+        check(StoryObjectiveGuide.forStage("pride:ice_research").contains("archive"),
+            "Sera's objective warns players to examine the Ice warning archive");
+        check(StoryObjectiveGuide.forStage("pride:rival_reunited").contains("Phantom Badge"),
+            "Summit follow-up explicitly directs players to Nyx before Medium Ori");
+
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
