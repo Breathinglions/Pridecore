@@ -1843,6 +1843,9 @@ public final class StoryModule {
                 .executes(ctx -> openRinChapter(ctx.getSource())))
             .then(CommandManager.literal("challenge")
                 .executes(ctx -> challengeRin(ctx.getSource()))));
+        story.then(CommandManager.literal("rowan")
+            .then(CommandManager.literal("open")
+                .executes(ctx -> openRowanChapter(ctx.getSource()))));
         story.then(CommandManager.literal("native")
             .then(CommandManager.argument("npc", StringArgumentType.word())
                 .then(CommandManager.argument("choice", StringArgumentType.word())
@@ -2229,6 +2232,53 @@ public final class StoryModule {
         } catch (IOException | RuntimeException failure) {
             source.sendError(Text.literal("Rin's story is unavailable right now."));
             LOGGER.warn("Rin dialogue rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    /** Read-only recheck for a specific real Rowan actor before GUI display. */
+    private static boolean rowanNpcNearby(ServerPlayerEntity player, UUID exactNpc) {
+        if (exactNpc == null) return false;
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> e.getUuid().equals(exactNpc)
+                && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains("pride_npc_ranger_rowan")
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_ranger_rowan", npcClass(e)))
+            .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
+    }
+
+    private static int openRowanChapter(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Rowan is not available in this world");
+            var nearby = player.getWorld().getOtherEntities(player,
+                player.getBoundingBox().expand(6.0),
+                e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                        .getId(e.getType()).toString())
+                    && e.getCommandTags().contains("pride_npc_ranger_rowan")
+                    && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                    && NativeNpcIdentity.matchesRequiredClass(
+                        "pride_npc_ranger_rowan", npcClass(e)))
+                .stream().filter(e -> e.squaredDistanceTo(player) <= 36.0D)
+                .findFirst().orElseThrow(
+                    () -> new IllegalStateException("Talk to Captain Rowan in person"));
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            ROWAN_DIALOGUES.put(player.getUuid(), new RowanDialogueTicket(
+                nearby.getUuid(), player.getWorld().getRegistryKey().getValue().toString(),
+                rowanScene(profile.facts())));
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Captain Rowan cannot speak right now."));
+            LOGGER.warn("Rowan dialogue denied for {}: {}",
                 player.getUuid(), failure.toString());
             return 0;
         }
