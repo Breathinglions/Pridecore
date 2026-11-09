@@ -1,0 +1,9 @@
+# Pride Community v0.4 - combined chat and Spawn Notification polish
+The **separate** Pride Community Fabric server JAR uses original badge glyphs in place of bare [QUIZ], [SCRAMBLE], [SHINY], [LEGENDARY], [RAID], [WORLD-BOSS], [EVENT] and [PRIDE] tags. Messages and leaderboard are shorter and use existing LuckPerms name/ball/badge prefixes.
+The matching ZIP `Pride_Region_Community_Identity_v0.4_1.21.1.zip` replaces the v0.3.1 identity pack in the existing Polymer **forced resource pack** pipeline; it includes the exact prior player rank fonts plus additional 8px system pill textures.
+The client resource pack adds `assets/spawn_notification/lang/en_us.json` with the correct translation keys and numbered parameters (%1$s,%2$s,%3$s), resolving raw `spawn_notification.notification.spawned` / `despawned` for clients that accept the pack. It does not clone Spawn Notification's event functionality; retain the existing server mod and do **not** add an extra client mod to test this pack.
+The third-party Spawn Notification mod is unmodified. No Cobblemon assets or other mod JARs are bundled.
+Economy payouts remain disabled by default. Leave CRZQuiz alone during smoke tests; after game QA, shut off its automatic scheduling if necessary.
+**Staging QA:** replace v0.3 Java JAR only (do not leave duplicates); update Polymer pack **filename & SHA1**; reconnect and use F3+T; run `/pridequiz force scramble`, answer, `/pridequiz leaderboard`, and `/prideannounce shiny Test`; verify actual special spawn+despawn and no raw localization keys. Then test two non-OP players, restart persistence and wallet unchanged.
+Build: `modules/community` Gradle via GitHub Actions with Java 21, Minecraft 1.21.1, Impactor 5.3.5 and LuckPerms API.
+Upstream localization reference: https://github.com/timinc-cobble/cobblemon-spawn-notification

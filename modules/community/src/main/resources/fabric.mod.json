@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "pride_community",
+  "version": "${version}",
+  "name": "Pride Community",
+  "description": "Server-side community quiz with original questions; Impactor 5.3.5 API bridge. Payouts disabled by default.",
+  "authors": [
+    "Pride Region"
+  ],
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "com.prideregion.community.PrideCommunityMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*",
+    "impactor": ">=5.3.5"
+  },
+  "suggests": {
+    "luckperms": "*"
+  }
+}
