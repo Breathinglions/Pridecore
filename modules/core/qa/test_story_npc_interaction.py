@@ -101,8 +101,8 @@ for required in (
     'String stageBeforeClick = engine.currentStage(player.getUuid());',
     'StoryEvidenceEngine.reconcileSavedObjective(',
     '|| !stageBeforeClick.equals(afterClick)',
-    'if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)',
-    'if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin)',
+    'if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)',
+    'if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)',
 ):
     assert required in module, f"Mine evidence repair not wired: {required}"
 assert 'case "mine" -> "pride:rock_investigation".equals(player.storyStage())' in evidence
