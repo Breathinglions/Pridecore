@@ -278,13 +278,32 @@ def main():
                  "action":"q.dialogue.close();"}
             ]
         if npc == "ranger_rowan":
-            d["pages"][0]["input"]["options"].insert(1, {
-                "text": "Brief the Rangers about the Resonance Engine.",
-                "value": "crisis_briefing", "action": [
-                    script_action("ranger_epilogue", "continue"),
-                    "q.dialogue.close();"
-                ]
-            })
+            # One canonical physical Rowan. Let the server pick a chapter
+            # privately from authenticated player facts. Never show the
+            # Resonance Engine finale button while the river case is active.
+            d["pages"] = [{
+                "id":"main", "speaker":"npc",
+                "lines":["The Rangers have reports coming in from across the region.",
+                         "What have you uncovered since we last spoke?"],
+                "input":{"type":"option", "vertical":True, "options":[
+                    {"text":"Talk to Captain Rowan.", "value":"talk",
+                     "action":["q.dialogue.close();",
+                               "q.player.run_command('pridecore story rowan open');"]},
+                    {"text":"Goodbye.", "value":"bye", "action":"q.dialogue.close();"}
+                ]}
+            }]
+            for role, filename in (("ranger_rowan", "ranger_rowan_case"),
+                                   ("ranger_epilogue", "ranger_rowan_finale")):
+                chapter = authored_dialogue(role, "Captain Rowan", by_id[role], "continue")
+                generated[f"data/pride_story/dialogues/{filename}.json"] = dump(chapter)
+            after = dialogue("ranger_rowan", "Captain Rowan",
+                "The Rangers are still investigating what happened across the region.",
+                "I will let you know when we have another lead.", "continue")
+            after["pages"][0]["input"]["options"] = [
+                {"text":"Until next time.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            generated["data/pride_story/dialogues/ranger_rowan_return.json"] = dump(after)
         generated[f"data/pride_story/dialogues/{npc}.json"]=dump(d)
         if npc == "rin":
             # The /opendialogue server command opens exactly one of these.
