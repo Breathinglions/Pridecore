@@ -298,6 +298,26 @@ public final class StoryEngine {
     }
 
     /**
+     * Rin's summit story chapter must complete from the real persisted battle
+     * result. After the win, Rin's canonical native dialogue switches to the
+     * non-actionable return page, so a post-battle story choice cannot finish it.
+     *
+     * Require the preceding Ice investigation, both authenticated Rin battle
+     * facts and the physical warning clue. Login/sync recovery is idempotent;
+     * no League rewards, tags, FTB tasks or unrelated chapters are changed.
+     */
+    public synchronized boolean reconcileRinSummitVictory(UUID playerId) throws IOException {
+        ProfileState current = progression.get(playerId);
+        if (!"pride:ice_research".equals(current.storyStage())
+                || !current.facts().containsAll(Set.of(
+                    "pride:rin_canyon_won", "pride:frozen_warning",
+                    "pride:clue_ice", "pride:rin_summit_won")))
+            return false;
+        return progression.transition(playerId, "pride:rival_reunited",
+            Set.of("pride:rival_ally"), Set.of()).changed();
+    }
+
+    /**
      * Ashen's RCT first-win callback is the authority for Inferno Badge and
      * rewards. This mirrors only the real league_fire tag into the current
      * story objective, without paying, crediting FTB or fabricating a win.
