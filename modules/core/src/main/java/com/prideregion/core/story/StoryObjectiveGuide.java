@@ -73,6 +73,58 @@ public final class StoryObjectiveGuide {
                 return "Your first Pokémon is caught! Challenge Rin along Route 1, "
                     + "then report to Ranger Mira.";
         }
+        // The milestone stage describes the chapter; its clue and badge
+        // requirements can still be outstanding. Explain the actual next
+        // action rather than prematurely sending players to a locked NPC.
+        Set<String> storyFacts = facts == null ? Set.of() : facts;
+        Set<String> badges = legacy == null ? Set.of() : legacy;
+        if ("pride:fire_district".equals(stage))
+            return storyFacts.contains("pride:clue_foundry")
+                ? "Bring the Foundry's unusual heat readings to Researcher Vela at Meridian Institute."
+                : "Investigate the strange heat source inside Emberfall Foundry before visiting Researcher Vela.";
+        if ("pride:institute_introduction".equals(stage))
+            return badges.contains("league_water")
+                ? "Keeper Neris is investigating a strange pulse along Azure Bay's waterways. Speak with her."
+                : "Travel to Azure Bay, earn Kai's Tidal Badge, then speak with Keeper Neris beside the waterways.";
+        if ("pride:tidal_investigation".equals(stage))
+            return storyFacts.contains("pride:clue_river")
+                ? "Bring the unusual waterway pulse evidence to Captain Rowan of the Pride Rangers."
+                : "Investigate the unusual pulse beside Azure Bay's waterway before reporting to Captain Rowan.";
+        if ("pride:ranger_investigation".equals(stage))
+            return badges.contains("league_electric")
+                ? "Meet Engineer Quill beneath Voltaris Power Station to examine the unauthorized power supply."
+                : "Earn Vega's Voltage Badge in Voltaris City, then meet Engineer Quill at the power station.";
+        if ("pride:powergrid_reveal".equals(stage))
+            return storyFacts.contains("pride:clue_grid")
+                ? "Bring the hidden circuit evidence to Aide Iris at Meridian Institute."
+                : "Inspect the concealed electrical circuit inside Voltaris Power Station before visiting Aide Iris.";
+        if ("pride:meridian_records".equals(stage))
+            return badges.contains("league_dragon")
+                ? "Meet Historian Toren near Drakespire's ancient Dragon shrine to investigate the seals."
+                : "Earn Draven's Draco Badge in Drakespire City, then speak with Historian Toren.";
+        if ("pride:dragon_lore".equals(stage)) {
+            if (!storyFacts.contains("pride:clue_ward"))
+                return "Investigate the ancient Resonance ward at Drakespire's central plaza Dragon statue.";
+            return badges.contains("league_ice")
+                ? "Bring news of the ancient ward to Archivist Sera in Frostveil's hidden archive."
+                : "The ancient ward has been examined. Earn Freya's Glacier Badge, then speak with Archivist Sera.";
+        }
+        if ("pride:ice_research".equals(stage))
+            return storyFacts.contains("pride:clue_ice")
+                ? "The concealed Meridian warning has been discovered. Meet Rin at Pride Summit."
+                : "Investigate the concealed Meridian warning archive in Frostveil, then meet Rin at Pride Summit.";
+        if ("pride:rival_reunited".equals(stage))
+            return badges.contains("league_ghost")
+                ? "Find Medium Ori near the old sanctuary in Ebonreach City and uncover its memory echoes."
+                : "Travel to Ebonreach City, earn Nyx's Phantom Badge, then find Medium Ori near the sanctuary.";
+        if ("pride:ghost_memories".equals(stage))
+            return storyFacts.contains("pride:clue_echo")
+                ? "The memory echo confirms a deeper danger. Find the Eclipse Lieutenant and hear their account."
+                : "Investigate the ancient memory echo near Ebonreach's abandoned sanctuary before seeking the Eclipse Lieutenant.";
+        if ("pride:engine_confrontation".equals(stage))
+            return storyFacts.contains("pride:clue_engine")
+                ? "Bring the Engine's diagnostics to Captain Rowan for the final Ranger briefing."
+                : "Investigate the Resonance Engine's central diagnostics before returning to Captain Rowan.";
         return forStage(stage);
     }
 
