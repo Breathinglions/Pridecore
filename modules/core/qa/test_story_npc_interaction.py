@@ -108,4 +108,10 @@ for required in (
 assert 'case "mine" -> "pride:rock_investigation".equals(player.storyStage())' in evidence
 assert 'case "pride:rock_investigation" ->' in evidence and 'player.facts().contains("pride:clue_mine")' in evidence
 assert '"pride:mine_evidence_discovered"' in evidence and guide
+# Locked but otherwise valid NPCs should never print an opaque developer
+# exception to a legitimate player. Preserve strict server-side gates while
+# pointing them to the next real objective (including saved Summit victories).
+assert 'reason.equals("This NPC has no story dialogue available yet")' in module
+assert "There's more to discover before this conversation can continue." in module
+assert 'sendNextObjective(player, ready(source.getServer())' in module
 print("PASS: story Cobblemon overlay passthrough, native action verification, and legacy service isolation")
