@@ -117,10 +117,21 @@ public final class StoryObjectiveGuide {
             return badges.contains("league_ghost")
                 ? "Find Medium Ori near the old sanctuary in Ebonreach City and uncover its memory echoes."
                 : "Travel to Ebonreach City, earn Nyx's Phantom Badge, then find Medium Ori near the sanctuary.";
-        if ("pride:ghost_memories".equals(stage))
-            return storyFacts.contains("pride:clue_echo")
-                ? "The memory echo confirms a deeper danger. Find the Eclipse Lieutenant and hear their account."
-                : "Investigate the ancient memory echo near Ebonreach's abandoned sanctuary before seeking the Eclipse Lieutenant.";
+        if ("pride:ghost_memories".equals(stage)) {
+            if (!storyFacts.contains("pride:clue_echo"))
+                return "Investigate the ancient memory echo near Ebonreach's abandoned sanctuary before seeking the Eclipse Lieutenant.";
+            return storyFacts.contains("pride:eclipse_lieutenant_won")
+                ? "The Eclipse Lieutenant's Pokémon have yielded. Speak to the Lieutenant to learn Sable's plan."
+                : "The memory echo confirms a deeper danger. Confront the Eclipse Lieutenant in a Pokémon battle.";
+        }
+        if ("pride:eclipse_infiltration".equals(stage))
+            return storyFacts.contains("pride:sable_battle_won")
+                ? "Sable has lost the battle. Speak with her to learn why Eclipse rose against Meridian."
+                : "Seek Sable at the Eclipse stronghold and confront her in a Pokémon battle.";
+        if ("pride:sable_confrontation".equals(stage))
+            return storyFacts.contains("pride:cael_battle_won")
+                ? "Speak with Director Cael about the Engine after your Pokémon battle."
+                : "Bring Sable's warning to Director Cael at Meridian Institute and confront him.";
         if ("pride:engine_confrontation".equals(stage))
             return storyFacts.contains("pride:clue_engine")
                 ? "Bring the Engine's diagnostics to Captain Rowan for the final Ranger briefing."
