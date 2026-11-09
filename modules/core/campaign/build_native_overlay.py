@@ -50,6 +50,48 @@ def dialogue(npc, name, greeting, detail, choice):
     }
 
 
+def authored_dialogue(npc, name, story_npc, choice):
+    """Use the validated story graph as the single source for NPC responses.
+
+    Native dialogue is still presentation-only. Only an actual player choice
+    runs the existing server-side PrideCore command; the engine rechecks
+    credentials, facts, badges, proximity and completed checkpoints.
+    """
+    nodes = {node["id"]: node for node in story_npc["nodes"]}
+    main = nodes[story_npc["start"]]
+    authored = [option for option in main["options"] if option["id"] == choice]
+    if len(authored) != 1:
+        raise ValueError(f"{npc}: no authored story action {choice}")
+    d = dialogue(npc, name, main["text"], "", choice)
+    page = d["pages"][0]
+    page["lines"] = [main["text"]]
+    buttons = page["input"]["options"]
+    buttons[0]["text"] = authored[0]["text"]
+    # All story NPCs with authored secondary dialogue must expose it in the
+    # Cobblemon GUI. Reading lore never grants progression or items.
+    questions = [option for option in main["options"]
+                 if option["id"] == "learn_more" and option.get("next")]
+    if len(questions) > 1:
+        raise ValueError(f"{npc}: ambiguous extra dialogue branches")
+    if questions:
+        q = questions[0]
+        target = nodes.get(q["next"])
+        if target is None:
+            raise ValueError(f"{npc}: missing detail page")
+        buttons.insert(1, {"text":q["text"], "value":"details",
+                           "action":"q.dialogue.set_page('details');"})
+        d["pages"].append({
+            "id":"details", "speaker":"npc", "lines":[target["text"]],
+            "input":{"type":"option", "vertical":True, "options":[
+                {"text":"Let's return to our conversation.", "value":"back",
+                 "action":"q.dialogue.set_page('main');"},
+                {"text":"Goodbye.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]}
+        })
+    return d
+
+
 def mom_dialogue():
     """Player-facing prologue, not a development placeholder.
 
@@ -146,6 +188,13 @@ def main():
     args=p.parse_args()
     campaign=json.loads(pathlib.Path(args.campaign).read_text(encoding="utf-8"))
     assert len(campaign["npc"]) == 21, "Unexpected campaign NPC count"
+    # Match the canonical server-side story graph, never an outdated duplicate
+    # of the quest prose. The authored native choice and validated server
+    # action must agree on their exact id.
+    story_file = pathlib.Path(__file__).resolve().parents[1] / "src/main/resources/story/default.json"
+    authored = json.loads(story_file.read_text(encoding="utf-8"))
+    by_id = {npc["id"]: npc for npc in authored["npcs"]}
+    assert len(by_id) == 27, "Unexpected authored story NPC count"
     generated={}
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
        "description":"Pride Region Story v0.3.5-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
@@ -210,7 +259,8 @@ def main():
         if npc in ids: raise ValueError("Duplicate story NPC "+npc)
         ids.add(npc)
         generated[f"data/pride_story/npcs/{npc}.json"]=dump(native_npc(npc,name))
-        d = mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice)
+        d = mom_dialogue() if npc == "mom" else authored_dialogue(
+            npc, name, by_id[npc], choice)
         if npc == "rin":
             # A single physical Rin NPC, one neutral opening screen.
             # Server computes a private chapter-specific native dialogue from
