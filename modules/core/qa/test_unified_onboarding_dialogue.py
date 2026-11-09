@@ -236,7 +236,7 @@ check('rook_commands.append("@1 pridecore story sync")' in unified_packager,
     "Rook victory triggers read-only PrideCore story reconciliation")
 check('("league_rock", "ftbquests change_progress", "eco deposit 1500")'
       in unified_packager, "Rook badge, FTB task and PokéDollars remain original")
-check('expected_changed = sorted([thorn, rook, ashen]' in unified_packager,
+check('expected_changed = sorted([thorn, rook, ashen] + guided_paths' in unified_packager,
     "Only approved League battle entries may differ from the audited original")
 # Preserve the native Ashen first-win rewards and append only a story
 # reconciliation after original badge, FTB and one-time payout commands.
@@ -246,7 +246,7 @@ check('ashen_commands.append("@1 pridecore story sync")' in unified_packager,
     "Ashen verified victory callback advances the story after its rewards")
 check('("league_fire", "ftbquests change_progress", "eco deposit 2000")'
       in unified_packager, "Original Inferno Badge, FTB Quest and ₽2,000 payout retained")
-check('expected_changed = sorted([thorn, rook, ashen]' in unified_packager,
+check('expected_changed = sorted([thorn, rook, ashen] + guided_paths' in unified_packager,
     "Ashen added to strictly allowlisted native Gym callback diff")
 story_engine = (root / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
 module_source = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
@@ -257,4 +257,16 @@ check('"league_fire"' in story_engine.split('reconcileEmberfallVictory(UUID play
     "The original League fire tag is required for Emberfall victory")
 check('boolean emberfallWin = active.reconcileEmberfallVictory(' in module_source,
     "Existing Ashen winners are reconciled at login and /pridecore story sync")
+# Each remaining Gym retains its original first-win money/badge/FTB gate
+# and displays the updated objective only while its original one-time receipt
+# marker is present. No rematch spam or new award is allowed.
+for npc, kind, amount in (("kai", "water", 4000), ("vega", "electric", 4000),
+                           ("draven", "dragon", 5000), ("freya", "ice", 7500),
+                           ("nyx", "ghost", 10000)):
+    check(f'("{npc}", "{kind}", {amount})' in unified_packager,
+          f"{npc} original payout must stay authoritative")
+check('commands.insert(len(commands)-1, addition)' in unified_packager,
+      "Read-only objective prompt must be inside existing Gym first-win receipt gate")
+check('run pridecore story objective' in unified_packager,
+      "Remaining Gym wins must show the correct story direction")
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
