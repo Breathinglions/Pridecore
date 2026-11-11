@@ -195,6 +195,10 @@ def main():
     authored = json.loads(story_file.read_text(encoding="utf-8"))
     by_id = {npc["id"]: npc for npc in authored["npcs"]}
     assert len(by_id) == 27, "Unexpected authored story NPC count"
+    battle_file = pathlib.Path(__file__).with_name("story_battles.json")
+    battles = json.loads(battle_file.read_text(encoding="utf-8"))
+    battle_intros = {battle["id"]: battle["intro"] for battle in battles["encounters"]}
+    assert len(battle_intros) == 9, "Unexpected story battle roster count"
     generated={}
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
        "description":"Pride Region Story v0.3.5-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
@@ -304,6 +308,60 @@ def main():
                  "action":"q.dialogue.close();"}
             ]
             generated["data/pride_story/dialogues/ranger_rowan_return.json"] = dump(after)
+        if npc in {"eclipse_operative", "sable", "director_cael"}:
+            # A SINGLE physical Cobblemon NPC now handles its introduction,
+            # verified RCT battle, authored confession, and repeat dialogue.
+            # The server chooses the page for the *specific player* and ties
+            # battle authorization to the exact native NPC UUID and class.
+            d["pages"] = [{
+                "id":"main", "speaker":"npc",
+                "lines":["We have unfinished business.",
+                         "Are you here to speak with me?"],
+                "input":{"type":"option", "vertical":True, "options":[
+                    {"text":"Speak with " + name + ".", "value":"talk",
+                     "action":["q.dialogue.close();",
+                               "q.player.run_command('pridecore story boss open');"]},
+                    {"text":"Not now.", "value":"bye",
+                     "action":"q.dialogue.close();"}
+                ]}
+            }]
+            battle_id = ("eclipse_lieutenant" if npc == "eclipse_operative"
+                         else npc)
+            confrontation = dialogue(npc, name, battle_intros[battle_id],
+                "If you're ready, we'll settle this with a Pokémon battle.",
+                "continue")
+            confrontation["pages"][0]["input"]["options"] = [
+                {"text":"Challenge " + name + " to a Pokémon battle.",
+                 "value":"challenge",
+                 "action":["q.dialogue.close();",
+                           "q.player.run_command('pridecore story boss challenge');"]},
+                {"text":"Not yet.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            aftermath = authored_dialogue(npc, name, by_id[npc], "continue")
+            repeat_node = next(node for node in by_id[npc]["nodes"]
+                if node["id"] == by_id[npc]["repeat"])
+            replay = dialogue(npc, name, repeat_node["text"], "",
+                "continue")
+            replay["pages"][0]["lines"] = [repeat_node["text"]]
+            replay["pages"][0]["input"]["options"] = [
+                {"text":"Until next time.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            locked = dialogue(npc, name,
+                "There is nothing more to discuss until the investigation progresses.",
+                "", "continue")
+            locked["pages"][0]["input"]["options"] = [
+                {"text":"I'll return when I have answers.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            locked["pages"][0]["lines"] = [
+                "There is nothing more to discuss until the investigation progresses."]
+            for phase, screen in (("challenge", confrontation),
+                                  ("aftermath", aftermath),
+                                  ("return", replay),
+                                  ("locked", locked)):
+                generated[f"data/pride_story/dialogues/{npc}_{phase}.json"] = dump(screen)
         generated[f"data/pride_story/dialogues/{npc}.json"]=dump(d)
         if npc == "rin":
             # The /opendialogue server command opens exactly one of these.
