@@ -1116,26 +1116,45 @@ public final class StoryModule {
     public static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
             ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
             String encounterId) throws IOException {
-        return launchRctStoryBattle(server, player, trainer, encounterId, false);
+        return launchRctStoryBattle(server, player, trainer, encounterId, false, false);
     }
 
     private static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
             ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
             String encounterId, boolean canonicalRin) throws IOException {
+        return launchRctStoryBattle(server, player, trainer, encounterId, canonicalRin, false);
+    }
+
+    private static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
+            ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
+            String encounterId, boolean canonicalRin, boolean canonicalBoss) throws IOException {
         if (liveServer != server || engine == null || launchLedger == null)
             return Optional.empty();
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         boolean sameDimension = trainer.getWorld().getRegistryKey().equals(
             player.getWorld().getRegistryKey());
+        // Native boss authorization is separate from generic world battle tags.
+        // Only the matching NPCClass and its sole authoring marker may launch
+        // an Eclipse boss fight; no fallback to another encounter is possible.
+        BossRole bossRole = canonicalBoss ? BossRole.forEncounter(encounterId) : null;
         boolean authorized = canonicalRin
             ? StoryTrainerBindingGate.permitsCanonicalRin(encounterId,
                 trainer.getCommandTags(), sameDimension,
                 trainer instanceof net.minecraft.entity.player.PlayerEntity,
                 player.squaredDistanceTo(trainer))
-            : StoryTrainerBindingGate.permits(encounterId,
-                trainer.getCommandTags(), sameDimension,
-                trainer instanceof net.minecraft.entity.player.PlayerEntity,
-                player.squaredDistanceTo(trainer));
+            : canonicalBoss
+                ? bossRole != null
+                    && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                        .getId(trainer.getType()).toString())
+                    && bossRole.npcClassId().equals(npcClass(trainer))
+                    && StoryTrainerBindingGate.permitsCanonicalBoss(encounterId,
+                        trainer.getCommandTags(), sameDimension,
+                        trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                        player.squaredDistanceTo(trainer))
+                : StoryTrainerBindingGate.permits(encounterId,
+                    trainer.getCommandTags(), sameDimension,
+                    trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                    player.squaredDistanceTo(trainer));
         if (!authorized) return Optional.empty();
         if (!reserveStoryBattleLaunch(server, player.getUuid(),
                 encounterId, trainer.getUuid())) return Optional.empty();
@@ -2403,6 +2422,125 @@ public final class StoryModule {
         } catch (IOException | RuntimeException failure) {
             source.sendError(Text.literal("Captain Rowan cannot speak right now."));
             LOGGER.warn("Rowan dialogue denied for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    private record BossActor(BossRole role, net.minecraft.entity.LivingEntity npc) {}
+
+    private static Optional<BossActor> findStoryBoss(ServerPlayerEntity player) {
+        var candidates = player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                .getId(e.getType()).toString())
+                && e instanceof net.minecraft.entity.LivingEntity
+                && e.squaredDistanceTo(player) <= 36.0D);
+        List<BossActor> matching = new ArrayList<>();
+        for (Entity entity : candidates) {
+            for (BossRole role : BossRole.values()) {
+                if (entity.getCommandTags().contains(role.tag())
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(
+                            entity.getCommandTags())
+                        && role.npcClassId().equals(npcClass(entity))) {
+                    matching.add(new BossActor(role,
+                        (net.minecraft.entity.LivingEntity)entity));
+                }
+            }
+        }
+        // A command issued by a native GUI must identify one unambiguous
+        // person, not accidentally choose a different boss in a crowded room.
+        return matching.size() == 1 ? Optional.of(matching.getFirst())
+            : Optional.empty();
+    }
+
+    private static boolean bossNpcNearby(ServerPlayerEntity player,
+            BossRole role, UUID exactNpc) {
+        if (exactNpc == null) return false;
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> e.getUuid().equals(exactNpc)
+                && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains(role.tag())
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && role.npcClassId().equals(npcClass(e)))
+            .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
+    }
+
+    private static int openStoryBoss(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("This encounter is unavailable here");
+            BossActor actor = findStoryBoss(player).orElseThrow(
+                () -> new IllegalStateException(
+                    "Stand close to one Eclipse story character to speak"));
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            BossScene phase = bossScene(actor.role(), profile, player.getCommandTags());
+            BOSS_DIALOGUES.put(player.getUuid(), new BossDialogueTicket(
+                actor.npc().getUuid(),
+                player.getWorld().getRegistryKey().getValue().toString(),
+                actor.role(), phase));
+            if (phase == BossScene.LOCKED)
+                sendNextObjective(player, profile.storyStage());
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("This character cannot speak right now. "
+                + safe(failure.getMessage())));
+            LOGGER.warn("Eclipse story actor dialogue rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    private static int challengeStoryBoss(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("This encounter is unavailable here");
+            BossDialogueTicket ticket = BOSS_DIALOGUES.get(player.getUuid());
+            if (ticket == null || ticket.delay > 0
+                    || ticket.scene != BossScene.CHALLENGE
+                    || !ticket.dimension.equals(player.getWorld()
+                        .getRegistryKey().getValue().toString())
+                    || !bossNpcNearby(player, ticket.role, ticket.npc))
+                throw new IllegalStateException(
+                    "Speak with the story character before challenging them");
+            BossActor actor = findStoryBoss(player).orElseThrow(
+                () -> new IllegalStateException(
+                    "Return to the same story character to challenge them"));
+            if (actor.role() != ticket.role
+                    || !actor.npc().getUuid().equals(ticket.npc))
+                throw new IllegalStateException(
+                    "This conversation belongs to another character");
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            if (bossScene(ticket.role, profile, player.getCommandTags())
+                    != BossScene.CHALLENGE)
+                throw new IllegalStateException(
+                    "The story has changed. Talk to this character again");
+            var roster = StoryBattleRosters.active().find(ticket.role.encounter)
+                .orElseThrow();
+            if (!StoryLeagueBadgeGate.allows(roster.minBadges(), player.getCommandTags()))
+                throw new IllegalStateException(
+                    "Earn the required Gym badges before the confrontation");
+            var battle = launchRctStoryBattle(source.getServer(), player,
+                actor.npc(), ticket.role.encounter, false, true);
+            if (battle.isEmpty())
+                throw new IllegalStateException(
+                    "This character is busy or the story battle is unavailable");
+            BOSS_DIALOGUES.remove(player.getUuid());
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Challenge unavailable: "
+                + safe(failure.getMessage())));
+            LOGGER.warn("Eclipse story boss challenge rejected for {}: {}",
                 player.getUuid(), failure.toString());
             return 0;
         }
