@@ -119,6 +119,75 @@ public final class StoryModule {
         return RowanScene.RETURN;
     }
 
+    /**
+     * One canonical physical actor for each late-game antagonist. The visible
+     * Cobblemon NPC is never double-tagged as a battle marker; a private
+     * per-player page changes from challenge -> confession -> return.
+     * Saved facts, official badges and the active story stage determine state.
+     */
+    private enum BossRole {
+        LIEUTENANT("eclipse_operative", "eclipse_lieutenant",
+            "pride:ghost_memories", "pride:eclipse_lieutenant_won",
+            "pride:eclipse_assault",
+            Set.of("pride:memory_truth", "pride:clue_echo")),
+        SABLE("sable", "sable", "pride:eclipse_infiltration",
+            "pride:sable_battle_won", "pride:sable_warning",
+            Set.of("pride:eclipse_assault")),
+        CAEL("director_cael", "director_cael", "pride:sable_confrontation",
+            "pride:cael_battle_won", "pride:cael_confronted",
+            Set.of("pride:sable_warning", "pride:sable_battle_won"));
+
+        final String npcId, encounter, stage, winFact, completedFact;
+        final Set<String> requiredFacts;
+        BossRole(String npcId, String encounter, String stage, String winFact,
+                String completedFact, Set<String> requiredFacts) {
+            this.npcId = npcId; this.encounter = encounter;
+            this.stage = stage; this.winFact = winFact;
+            this.completedFact = completedFact; this.requiredFacts = requiredFacts;
+        }
+        String tag() { return "pride_npc_" + npcId; }
+        String npcClassId() { return "pride_story:" + npcId; }
+        static BossRole forEncounter(String encounter) {
+            for (BossRole role : values())
+                if (role.encounter.equals(encounter)) return role;
+            return null;
+        }
+    }
+    private enum BossScene {
+        CHALLENGE("challenge"), AFTERMATH("aftermath"),
+        RETURN("return"), LOCKED("locked");
+        final String suffix;
+        BossScene(String suffix) { this.suffix = suffix; }
+    }
+    private static BossScene bossScene(BossRole role,
+            ProfileState profile, Collection<String> leagueTags) {
+        Set<String> facts = profile.facts();
+        if (facts.contains(role.completedFact)) return BossScene.RETURN;
+        if (!role.stage.equals(profile.storyStage())
+                || !facts.containsAll(role.requiredFacts))
+            return BossScene.LOCKED;
+        if (facts.contains(role.winFact)) return BossScene.AFTERMATH;
+        return StoryLeagueBadgeGate.count(leagueTags) >= 8
+            ? BossScene.CHALLENGE : BossScene.LOCKED;
+    }
+    private static final class BossDialogueTicket {
+        final UUID npc;
+        final String dimension;
+        final BossRole role;
+        final BossScene scene;
+        int delay = 2;
+        int remaining = 20 * 60 * 10;
+        BossDialogueTicket(UUID npc, String dimension,
+                BossRole role, BossScene scene) {
+            this.npc = npc; this.dimension = dimension;
+            this.role = role; this.scene = scene;
+        }
+        String dialogue() {
+            return "pride_story:" + role.npcId + "_" + scene.suffix;
+        }
+    }
+    private static final Map<UUID, BossDialogueTicket> BOSS_DIALOGUES = new HashMap<>();
+
     // Disabled by default. Only OP4 staging previews may initiate a scene until
     // the verified native Cobblemon NPC + owner-only renderer adapter exists.
     private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
@@ -538,6 +607,42 @@ public final class StoryModule {
                     }
                 }
             }
+            // Opening the exact boss's native phase screen is a private
+            // continuation of that player's own initial NPC interaction.
+            for (var it = BOSS_DIALOGUES.entrySet().iterator(); it.hasNext();) {
+                var entry = it.next();
+                var ticket = entry.getValue();
+                var viewer = server.getPlayerManager().getPlayer(entry.getKey());
+                if (viewer == null || --ticket.remaining <= 0
+                        || !STORY_WORLDS.permits(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !ticket.dimension.equals(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !bossNpcNearby(viewer, ticket.role, ticket.npc)) {
+                    it.remove();
+                    continue;
+                }
+                if (ticket.delay > 0 && --ticket.delay == 0) {
+                    try {
+                        var profile = PrideCoreMod.progression(server).orElseThrow()
+                            .get(viewer.getUuid());
+                        if (bossScene(ticket.role, profile, viewer.getCommandTags())
+                                != ticket.scene) {
+                            it.remove();
+                            continue;
+                        }
+                        server.getCommandManager().executeWithPrefix(
+                            server.getCommandSource().withSilent(),
+                            "opendialogue " + ticket.dialogue() + " "
+                                + viewer.getGameProfile().getName());
+                        if (ticket.scene != BossScene.CHALLENGE) it.remove();
+                    } catch (IOException | RuntimeException failure) {
+                        LOGGER.warn("Could not open private {} boss dialogue for {}",
+                            ticket.role, viewer.getUuid(), failure);
+                        it.remove();
+                    }
+                }
+            }
             var recoveries = BATTLE_RETRIES.tick();
             for (var retry : recoveries.due()) {
                 try {
@@ -678,6 +783,7 @@ public final class StoryModule {
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             ROWAN_DIALOGUES.remove(handler.getPlayer().getUuid());
+            BOSS_DIALOGUES.remove(handler.getPlayer().getUuid());
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             VERIFIED_LAB_SCENES.remove(handler.getPlayer().getUuid());
@@ -710,6 +816,7 @@ public final class StoryModule {
         DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
         engine = null;
@@ -833,6 +940,7 @@ public final class StoryModule {
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
@@ -852,6 +960,7 @@ public final class StoryModule {
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             if (victoryListener != null) {
@@ -1649,6 +1758,7 @@ public final class StoryModule {
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
         ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
             BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1703,6 +1813,7 @@ public final class StoryModule {
         DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
         ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
         if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
         BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1853,6 +1964,11 @@ public final class StoryModule {
         story.then(CommandManager.literal("rowan")
             .then(CommandManager.literal("open")
                 .executes(ctx -> openRowanChapter(ctx.getSource()))));
+        story.then(CommandManager.literal("boss")
+            .then(CommandManager.literal("open")
+                .executes(ctx -> openStoryBoss(ctx.getSource())))
+            .then(CommandManager.literal("challenge")
+                .executes(ctx -> challengeStoryBoss(ctx.getSource()))));
         story.then(CommandManager.literal("native")
             .then(CommandManager.argument("npc", StringArgumentType.word())
                 .then(CommandManager.argument("choice", StringArgumentType.word())
@@ -2492,6 +2608,7 @@ public final class StoryModule {
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
         ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             health = "active";
             return message(source, "Story definitions reloaded: " + next.npcCount()
                 + " NPCs. Existing conversations reset; saved progress retained.");
@@ -2620,6 +2737,7 @@ public final class StoryModule {
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
         ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
             show(target, response);
             return message(source, "Presented NPC " + npc + " dialogue to " + target.getName().getString());
         } catch (IOException | RuntimeException ex) {
