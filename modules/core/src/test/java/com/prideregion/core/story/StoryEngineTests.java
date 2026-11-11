@@ -55,6 +55,21 @@ public final class StoryEngineTests {
             "Trainer registration gives a useful next destination");
         check(StoryObjectiveGuide.forStage("pride:route1_orientation").contains("Rin"),
             "Route 1 objective requires the scripted rival battle");
+        check(StoryObjectiveGuide.forStage("pride:forest_investigation")
+                .contains("Right-click the crystals"),
+            "Before the clue, the objective tells players to interact with amethyst");
+        check(StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
+                .contains("Miner Lyra")
+                && StoryObjectiveGuide.forStage("pride:forest_traces_discovered")
+                    .contains("Rook's Bastion Badge"),
+            "After the clue, the objective sends players to Stonehaven for the Rock Badge first");
+
+        check(StoryObjectiveGuide.forStage("pride:rock_investigation")
+                .contains("Examine the marked evidence"),
+            "Miner Lyra asks player to examine the Rock Mine survey evidence");
+        check(StoryObjectiveGuide.forStage("pride:mine_evidence_discovered")
+                .contains("Eclipse Scout"),
+            "After surveying the mine, the objective directs players to the Eclipse Scout");
         check(StoryObjectiveGuide.forStage("pride:eclipse_detected").contains("canyon"),
             "Canyon rivalry is identified in the player's campaign directions");
         check(StoryObjectiveGuide.forStage("pride:ice_research").contains("summit"),
@@ -63,7 +78,7 @@ public final class StoryEngineTests {
             "Eclipse Lieutenant battle is a required stage");
         check(StoryObjectiveGuide.forStage("pride:crisis_briefed").contains("ancient seals"),
             "The Resonance crisis remains visible through narrative direction");
-        check(StoryObjectiveGuide.coveredStages() == 29,
+        check(StoryObjectiveGuide.coveredStages() == 33,
             "All 27 milestone stages and the empty profile have directions");
         check(StoryObjectiveGuide.forStage("pride:unmapped").contains("journey continues"),
             "Unknown custom stages fall back to immersive, nontechnical story direction");
@@ -308,10 +323,244 @@ public final class StoryEngineTests {
         actualMarkers.put(veteranGym, Set.of("league_started", "league_grass"));
         check(!gymEngine.reconcileVerdantVictory(veteranGym),
             "Verified legacy Gym win can never regress later campaign stages");
+        // Rook's original RCT victory writes the official league_rock tag.
+        // A callback/returning-player sync may advance ONLY after the Warden
+        // briefing and real forest evidence, without re-awarding anything.
+        UUID rookWinner = UUID.randomUUID(), missingCrystal = UUID.randomUUID(),
+            noRockBadge = UUID.randomUUID(), laterChapter = UUID.randomUUID();
+        var fullForest = Set.of(
+            "pride:met_thorn", "pride:forest_evidence", "pride:clue_forest");
+        var rockLegacy = Set.of("league_started", "league_grass", "league_rock");
+        store.transition(rookWinner, "pride:forest_traces_discovered",
+            fullForest, Set.of());
+        actualMarkers.put(rookWinner, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileStonehavenVictory(rookWinner),
+            "Rock victory cannot be forged without the official Bastion Badge");
+        actualMarkers.put(rookWinner, rockLegacy);
+        check(gymEngine.reconcileStonehavenVictory(rookWinner),
+            "Real Rook badge and completed crystal clue open Stonehaven objective");
+        check(store.get(rookWinner).storyStage().equals("pride:stonehaven_victory"),
+            "Bastion victory directs player to Miner Lyra");
+        long rookRevision = store.get(rookWinner).revision();
+        check(!gymEngine.reconcileStonehavenVictory(rookWinner)
+                && store.get(rookWinner).revision() == rookRevision,
+            "Replayed badge sync is idempotent");
+        check(!store.get(rookWinner).facts().contains("pride:league_rock"),
+            "PrideCore never fabricates a native League badge or payout");
+
+        store.transition(missingCrystal, "pride:forest_investigation",
+            Set.of("pride:met_thorn", "pride:forest_evidence"), Set.of());
+        actualMarkers.put(missingCrystal, rockLegacy);
+        check(!gymEngine.reconcileStonehavenVictory(missingCrystal),
+            "Early Rook win cannot bypass the required glowing forest crystals");
+        check(store.get(missingCrystal).storyStage().equals("pride:forest_investigation"),
+            "Early Rock badge preserves the outstanding forest quest");
+        store.grant(missingCrystal, "pride:clue_forest");
+        check(gymEngine.reconcileStonehavenVictory(missingCrystal),
+            "Already-earned Rock badge advances immediately after late crystal discovery");
+        check(store.get(missingCrystal).storyStage().equals("pride:stonehaven_victory"),
+            "Late evidence and real badge open Lyra without a Rook rematch");
+
+        store.transition(noRockBadge, "pride:forest_traces_discovered",
+            fullForest, Set.of());
+        actualMarkers.put(noRockBadge, Set.of("league_started", "league_grass"));
+        check(!gymEngine.reconcileStonehavenVictory(noRockBadge),
+            "Another player's Rock badge cannot promote this profile");
+        store.transition(laterChapter, "pride:rock_investigation",
+            fullForest, Set.of());
+        actualMarkers.put(laterChapter, rockLegacy);
+        check(!gymEngine.reconcileStonehavenVictory(laterChapter)
+                && store.get(laterChapter).storyStage().equals("pride:rock_investigation"),
+            "Late legacy Rook recovery cannot rewind a more advanced chapter");
+        check(StoryObjectiveGuide.forStage("pride:stonehaven_victory")
+                .contains("Miner Lyra"),
+            "Post-Rook guidance names the next story investigator");
+
+        // Rin's chapter-specific native dialogue becomes a return
+        // conversation after the genuine Canyon victory. An authenticated win
+        // must itself finish the chapter so players aren't trapped at Rin.
+        UUID canyonWinner = UUID.randomUUID();
+        store.transition(canyonWinner, "pride:eclipse_detected",
+            Set.of("pride:eclipse_contact"), Set.of());
+        check(!gymEngine.reconcileRinCanyonVictory(canyonWinner),
+            "Talking to Rin or encountering Eclipse cannot fake Canyon victory");
+        store.grant(canyonWinner, "pride:rin_canyon_won");
+        check(gymEngine.reconcileRinCanyonVictory(canyonWinner),
+            "Verified Canyon win opens the next story chapter");
+        check(store.get(canyonWinner).storyStage().equals("pride:rival_debate"),
+            "Canyon Rin victory directs the player toward Emberfall");
+        check(store.get(canyonWinner).facts().contains("pride:rival_theory"),
+            "Canyon storyline checkpoint completes after the real win");
+        long canyonRevision = store.get(canyonWinner).revision();
+        check(!gymEngine.reconcileRinCanyonVictory(canyonWinner)
+                && store.get(canyonWinner).revision() == canyonRevision,
+            "Rejoining after Canyon victory never repeats progress");
+        UUID alreadyPastCanyon = UUID.randomUUID(), wrongChapterCanyon = UUID.randomUUID();
+        store.transition(alreadyPastCanyon, "pride:fire_district",
+            Set.of("pride:eclipse_contact", "pride:rin_canyon_won"), Set.of());
+        store.transition(wrongChapterCanyon, "pride:rock_investigation",
+            Set.of("pride:eclipse_contact", "pride:rin_canyon_won"), Set.of());
+        check(!gymEngine.reconcileRinCanyonVictory(alreadyPastCanyon)
+                && store.get(alreadyPastCanyon).storyStage().equals("pride:fire_district"),
+            "Canyon reconciliation never rewinds a later chapter");
+        check(!gymEngine.reconcileRinCanyonVictory(wrongChapterCanyon)
+                && store.get(wrongChapterCanyon).storyStage().equals("pride:rock_investigation"),
+            "Having a past battle fact cannot skip an unrelated current stage");
+        check(StoryObjectiveGuide.forStage("pride:rival_debate").contains("foundry"),
+            "Next objective after verified Canyon victory points toward Emberfall");
+
+        // Ashen's official RCT first-win callback grants league_fire before
+        // PrideCore sees the new objective. Stages/facts may only change after
+        // real three-badge League proof AND the verified Rin Canyon chapter.
+        UUID ashenWinner = UUID.randomUUID(), ashenMissingBadge = UUID.randomUUID(),
+            ashenNoCanyon = UUID.randomUUID(), ashenFuture = UUID.randomUUID();
+        Set<String> canyonFacts = Set.of(
+            "pride:eclipse_contact", "pride:rin_canyon_won", "pride:rival_theory");
+        Set<String> twoBadges = Set.of("league_started", "league_grass", "league_rock");
+        Set<String> fireBadges = Set.of(
+            "league_started", "league_grass", "league_rock", "league_fire");
+        store.transition(ashenWinner, "pride:rival_debate", canyonFacts, Set.of());
+        actualMarkers.put(ashenWinner, twoBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenWinner),
+            "Ashen cannot clear the story without an official Inferno Badge");
+        actualMarkers.put(ashenWinner, fireBadges);
+        check(gymEngine.reconcileEmberfallVictory(ashenWinner),
+            "Verified Ashen win advances the Foundry objective");
+        check(store.get(ashenWinner).storyStage().equals("pride:emberfall_victory"),
+            "Ashen victory directs players to Technician Sol");
+        long ashenRevision = store.get(ashenWinner).revision();
+        check(!gymEngine.reconcileEmberfallVictory(ashenWinner)
+                && store.get(ashenWinner).revision() == ashenRevision,
+            "Ashen story sync is safe on replay/reconnect");
+        check(!store.get(ashenWinner).facts().contains("pride:league_fire"),
+            "No native badge or payout is forged in PrideCore profile");
+        store.transition(ashenMissingBadge, "pride:rival_debate",
+            canyonFacts, Set.of());
+        actualMarkers.put(ashenMissingBadge, Set.of("league_started", "league_rock", "league_fire"));
+        check(!gymEngine.reconcileEmberfallVictory(ashenMissingBadge),
+            "Having Fire without the Grass Badge cannot skip League order");
+        store.transition(ashenNoCanyon, "pride:rival_debate",
+            Set.of("pride:eclipse_contact"), Set.of());
+        actualMarkers.put(ashenNoCanyon, fireBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenNoCanyon),
+            "Fire Badge without the authenticated Canyon battle cannot skip story");
+        store.transition(ashenFuture, "pride:fire_district",
+            canyonFacts, Set.of());
+        actualMarkers.put(ashenFuture, fireBadges);
+        check(!gymEngine.reconcileEmberfallVictory(ashenFuture)
+                && store.get(ashenFuture).storyStage().equals("pride:fire_district"),
+            "Old Gym results never rewind a progressed player");
+        check(StoryObjectiveGuide.forStage("pride:rival_debate").contains("Inferno Badge"),
+            "Canyon follow-up points to Ashen's Fire Gym");
+        check(StoryObjectiveGuide.forStage("pride:emberfall_victory").contains("Technician Sol"),
+            "Verified Inferno victory points to Technician Sol at the Foundry");
+
+        // The Summit native dialogue becomes a return-only screen once a
+        // verified Rin win is recorded. Completing the prior Ice archive and
+        // authenticated Summit victory must advance the chapter automatically.
+        UUID summitWinner = UUID.randomUUID(), summitNotWon = UUID.randomUUID(),
+            summitNoClue = UUID.randomUUID(), summitNoCanyon = UUID.randomUUID(),
+            summitAlreadyPast = UUID.randomUUID(), summitWrongStage = UUID.randomUUID();
+        Set<String> summitFacts = Set.of(
+            "pride:rin_canyon_won", "pride:frozen_warning",
+            "pride:clue_ice", "pride:rin_summit_won");
+        store.transition(summitWinner, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:clue_ice"), Set.of());
+        check(!gymEngine.reconcileRinSummitVictory(summitWinner),
+            "Summit rivalry cannot advance on dialogue before a verified victory");
+        store.grant(summitWinner, "pride:rin_summit_won");
+        check(gymEngine.reconcileRinSummitVictory(summitWinner),
+            "Real persisted Rin Summit victory finishes the third rival chapter");
+        check(store.get(summitWinner).storyStage().equals("pride:rival_reunited"),
+            "Summit win directs player to Medium Ori near the Ghost sanctuary");
+        check(store.get(summitWinner).facts().contains("pride:rival_ally"),
+            "Authenticated summit win credits the ally checkpoint");
+        long summitRevision = store.get(summitWinner).revision();
+        check(!gymEngine.reconcileRinSummitVictory(summitWinner)
+                && store.get(summitWinner).revision() == summitRevision,
+            "Summit login/sync replay is idempotent and keeps saved progress");
+        store.transition(summitNotWon, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:clue_ice"), Set.of());
+        store.transition(summitNoClue, "pride:ice_research",
+            Set.of("pride:rin_canyon_won", "pride:frozen_warning", "pride:rin_summit_won"), Set.of());
+        store.transition(summitNoCanyon, "pride:ice_research",
+            Set.of("pride:frozen_warning", "pride:clue_ice", "pride:rin_summit_won"), Set.of());
+        store.transition(summitAlreadyPast, "pride:ghost_memories",
+            summitFacts, Set.of());
+        store.transition(summitWrongStage, "pride:dragon_lore",
+            summitFacts, Set.of());
+        check(!gymEngine.reconcileRinSummitVictory(summitNotWon),
+            "The earlier Rin Canyon win cannot substitute for a Summit victory");
+        check(!gymEngine.reconcileRinSummitVictory(summitNoClue),
+            "A player missing the real Ice archive clue stays locked");
+        check(!gymEngine.reconcileRinSummitVictory(summitNoCanyon),
+            "Summit story handoff requires the earlier rival chapter");
+        check(!gymEngine.reconcileRinSummitVictory(summitAlreadyPast)
+                && store.get(summitAlreadyPast).storyStage().equals("pride:ghost_memories"),
+            "Summit recovery never rewinds a later story stage");
+        check(!gymEngine.reconcileRinSummitVictory(summitWrongStage)
+                && store.get(summitWrongStage).storyStage().equals("pride:dragon_lore"),
+            "Summit fact cannot skip out-of-order story stages");
+        // Source-driven directions must reflect outstanding environmental
+        // evidence and *official* Gym badges, not prematurely route players
+        // to locked NPCs and force them to guess why dialogue is unavailable.
+        check(StoryObjectiveGuide.forStage("pride:fire_district", Set.of(), Set.of())
+                .contains("Foundry"), "Sol points at the physical Foundry clue");
+        check(StoryObjectiveGuide.forStage("pride:institute_introduction",
+                Set.of(), Set.of()).contains("Kai's Tidal Badge"),
+            "After Vela the journal requests Kai's official badge first");
+        check(StoryObjectiveGuide.forStage("pride:tidal_investigation",
+                Set.of("pride:water_evidence"), Set.of()).contains("Investigate"),
+            "Before Rowan the player must investigate the waterway pulse");
+        check(StoryObjectiveGuide.forStage("pride:tidal_investigation",
+                Set.of("pride:clue_river"), Set.of()).contains("Captain Rowan"),
+            "After real river evidence the journal directs Rowan");
+        check(StoryObjectiveGuide.forStage("pride:ranger_investigation",
+                Set.of(), Set.of()).contains("Voltage Badge"),
+            "Quill chapter directs players to earn Vega's real badge");
+        check(StoryObjectiveGuide.forStage("pride:powergrid_reveal",
+                Set.of(), Set.of()).contains("Voltaris Power Station"),
+            "Quill requires the circuit evidence before Iris");
+        check(StoryObjectiveGuide.forStage("pride:meridian_records",
+                Set.of(), Set.of()).contains("Draco Badge"),
+            "Iris's follow-up requires Draven's official badge");
+        check(StoryObjectiveGuide.forStage("pride:dragon_lore",
+                Set.of(), Set.of()).contains("Dragon statue"),
+            "Toren directs players to the actual Drakespire ward landmark");
+        check(StoryObjectiveGuide.forStage("pride:dragon_lore",
+                Set.of("pride:clue_ward"), Set.of()).contains("Glacier Badge"),
+            "After Drakespire evidence player earns Freya's badge");
+        check(StoryObjectiveGuide.forStage("pride:rival_reunited",
+                Set.of(), Set.of()).contains("Ebonreach City"),
+            "After Rin players visit Nyx's canonical Ghost city");
+        check(StoryObjectiveGuide.forStage("pride:ghost_memories",
+                Set.of(), Set.of()).contains("memory echo"),
+            "Ori requires environmental memory evidence");
+        check(StoryObjectiveGuide.forStage("pride:ghost_memories",
+                Set.of("pride:clue_echo", "pride:eclipse_lieutenant_won"),
+                Set.of()).contains("Speak to the Lieutenant"),
+            "After a genuine Lieutenant win the journal prompts the conversation");
+        check(StoryObjectiveGuide.forStage("pride:eclipse_infiltration",
+                Set.of("pride:sable_battle_won"), Set.of())
+                .contains("Speak with her"),
+            "Sable's real victory does not bypass her narrative debrief");
+        check(StoryObjectiveGuide.forStage("pride:sable_confrontation",
+                Set.of("pride:cael_battle_won"), Set.of())
+                .contains("Speak with Director Cael"),
+            "Cael's post-battle confession remains a distinct story checkpoint");
+        check(StoryObjectiveGuide.forStage("pride:engine_confrontation",
+                Set.of(), Set.of()).contains("diagnostics"),
+            "Rowan's finale briefing requires the physical Engine clue");
+
+        check(StoryObjectiveGuide.forStage("pride:ice_research").contains("archive"),
+            "Sera's objective warns players to examine the Ice warning archive");
+        check(StoryObjectiveGuide.forStage("pride:rival_reunited").contains("Phantom Badge"),
+            "Summit follow-up explicitly directs players to Nyx before Medium Ori");
+
         check(StoryObjectiveGuide.forStage("pride:verdant_victory")
                 .contains("Warden Elowen"),
             "Genuine Verdant win gives a concrete quest-book-compatible followup");
-        check(StoryObjectiveGuide.coveredStages() == 29,
+        check(StoryObjectiveGuide.coveredStages() == 33,
             "Every milestone stage and newly verified Verdant win has guidance");
 
         // Regression: Rin may be visited out of sequence without undoing a
@@ -440,6 +689,71 @@ public final class StoryEngineTests {
         check(!store.get(bystander).facts().contains("pride:sable_warning"),
             "Sable battle story completion remains player-isolated");
 
+        // The authenticated Rin battle (persisted by StoryBattleProof) can
+        // substitute for an old first_battle_win marker at Ranger Mira ONLY.
+        // A real first_catch marker remains mandatory, and other NPCs cannot
+        // borrow this narrow substitution.
+        var miraNpc = new StoryDefinition.Npc("ranger", "Ranger Mira",
+            Set.of("pride:rin_route1_won"), "pride:route1_briefed",
+            "hello", "return", Map.of(
+                "hello", new StoryDefinition.Node("hello", "The trees are glowing.",
+                    List.of(new StoryDefinition.Option("explore", "I'll investigate.",
+                        null, "pride:verdant_approach",
+                        Set.of("pride:route1_briefed"), Set.of(), Set.of(),
+                        Set.of("first_catch", "first_battle_win")))),
+                "return", new StoryDefinition.Node("return", "Stay safe.", List.of())));
+        Map<UUID, Set<String>> route1Tags = new HashMap<>();
+        var miraStory = new StoryEngine(new StoryDefinition(Map.of("ranger", miraNpc)),
+            store, id -> route1Tags.getOrDefault(id, Set.of()));
+        UUID route1Player = UUID.randomUUID();
+        rejected(() -> miraStory.begin(route1Player, "ranger"));
+        route1Tags.put(route1Player, Set.of("first_catch", "first_battle_win"));
+        rejected(() -> miraStory.begin(route1Player, "ranger"));
+        check(!store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Legacy catch and battle markers cannot bypass Rin's actual story win");
+        route1Tags.put(route1Player, Set.of());
+        store.grant(route1Player, "pride:rin_route1_won");
+        check(miraStory.begin(route1Player, "ranger").options().isEmpty(),
+            "Rin victory alone does not bypass the real first-catch gate");
+        rejected(() -> miraStory.choose(route1Player, "explore"));
+        check(!store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Missing first catch cannot advance Verdant progression");
+        route1Tags.put(route1Player, Set.of("first_catch"));
+        check(miraStory.begin(route1Player, "ranger").options().size() == 1,
+            "Verified Rin win plus first catch unlocks Mira's investigation");
+        check(miraStory.choose(route1Player, "explore").options().isEmpty(),
+            "Mira route progression completes after both independent milestones");
+        check(store.get(route1Player).facts().contains("pride:route1_briefed"),
+            "Mira writes only Pride-owned route checkpoint");
+        check(!route1Tags.get(route1Player).contains("first_battle_win"),
+            "Rin battle credit does not manufacture external battle-win tag");
+
+        check(NativeNpcIdentity.matchesRequiredClass("pride_npc_mom", "pride_story:mom"),
+            "Mom's real NPC class is accepted");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_mom", "pride_region:resource_ranger"),
+            "Resource Ranger cannot act as Mom merely by adopting Mom's tag or skin");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_professor_sequoia", "pride_region:professor_sequoia"),
+            "Original Sequoia service retains its correct class");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_professor_sequoia", "pride_story:mom"),
+            "Another story NPC cannot masquerade as Sequoia");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_technician_theo", "pride_region:technician_theo"),
+            "Theo's original class retains registration privileges");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_avery", "pride_region:avery"),
+            "Avery's original class retains field kit privileges");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_avery", "pride_region:resource_ranger"),
+            "Resource Ranger cannot claim a field kit authorization");
+        check(NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_rin", "pride_story:rin"),
+            "Rin's canonical class works in every chapter");
+        check(!NativeNpcIdentity.matchesRequiredClass(
+                "pride_npc_rin", "pride_story:ranger"),
+            "Retagged Ranger cannot launch Rin battles");
         System.out.println("PASS: "+assertions+" dialogue tests, guard rails, persistence and player isolation");
     }
 }

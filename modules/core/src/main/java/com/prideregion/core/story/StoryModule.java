@@ -1,9 +1,12 @@
 package com.prideregion.core.story;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.nbt.NbtCompound;
 import com.prideregion.core.PrideCoreMod;
+import com.prideregion.core.ProfileState;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -14,6 +17,8 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.entity.Entity;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.sound.SoundCategory;
@@ -26,6 +31,9 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +85,110 @@ public final class StoryModule {
         }
     }
 
+    // Per-player Rowan chapters share one actual Cobblemon NPC. Server-owned
+    // facts select the river investigation, later Engine briefing, or replay.
+    private enum RowanScene {
+        CASE, FINALE, RETURN;
+        String dialogue() {
+            return switch (this) {
+                case CASE -> "pride_story:ranger_rowan_case";
+                case FINALE -> "pride_story:ranger_rowan_finale";
+                case RETURN -> "pride_story:ranger_rowan_return";
+            };
+        }
+    }
+    private static final class RowanDialogueTicket {
+        final UUID npc;
+        final String dimension;
+        final RowanScene scene;
+        int delay = 2;
+        int remaining = 20 * 15;
+        RowanDialogueTicket(UUID npc, String dimension, RowanScene scene) {
+            this.npc = npc; this.dimension = dimension; this.scene = scene;
+        }
+    }
+    private static final Map<UUID, RowanDialogueTicket> ROWAN_DIALOGUES = new HashMap<>();
+
+    private static RowanScene rowanScene(Set<String> facts) {
+        if (facts.containsAll(Set.of("pride:cael_confronted",
+                "pride:clue_engine", "pride:cael_battle_won"))
+                && !facts.contains("pride:crisis_intel_complete"))
+            return RowanScene.FINALE;
+        if (facts.containsAll(Set.of("pride:water_evidence", "pride:clue_river"))
+                && !facts.contains("pride:ranger_probe"))
+            return RowanScene.CASE;
+        return RowanScene.RETURN;
+    }
+
+    /**
+     * One canonical physical actor for each late-game antagonist. The visible
+     * Cobblemon NPC is never double-tagged as a battle marker; a private
+     * per-player page changes from challenge -> confession -> return.
+     * Saved facts, official badges and the active story stage determine state.
+     */
+    private enum BossRole {
+        LIEUTENANT("eclipse_operative", "eclipse_lieutenant",
+            "pride:ghost_memories", "pride:eclipse_lieutenant_won",
+            "pride:eclipse_assault",
+            Set.of("pride:memory_truth", "pride:clue_echo")),
+        SABLE("sable", "sable", "pride:eclipse_infiltration",
+            "pride:sable_battle_won", "pride:sable_warning",
+            Set.of("pride:eclipse_assault")),
+        CAEL("director_cael", "director_cael", "pride:sable_confrontation",
+            "pride:cael_battle_won", "pride:cael_confronted",
+            Set.of("pride:sable_warning", "pride:sable_battle_won"));
+
+        final String npcId, encounter, stage, winFact, completedFact;
+        final Set<String> requiredFacts;
+        BossRole(String npcId, String encounter, String stage, String winFact,
+                String completedFact, Set<String> requiredFacts) {
+            this.npcId = npcId; this.encounter = encounter;
+            this.stage = stage; this.winFact = winFact;
+            this.completedFact = completedFact; this.requiredFacts = requiredFacts;
+        }
+        String tag() { return "pride_npc_" + npcId; }
+        String npcClassId() { return "pride_story:" + npcId; }
+        static BossRole forEncounter(String encounter) {
+            for (BossRole role : values())
+                if (role.encounter.equals(encounter)) return role;
+            return null;
+        }
+    }
+    private enum BossScene {
+        CHALLENGE("challenge"), AFTERMATH("aftermath"),
+        RETURN("return"), LOCKED("locked");
+        final String suffix;
+        BossScene(String suffix) { this.suffix = suffix; }
+    }
+    private static BossScene bossScene(BossRole role,
+            ProfileState profile, Collection<String> leagueTags) {
+        Set<String> facts = profile.facts();
+        if (facts.contains(role.completedFact)) return BossScene.RETURN;
+        if (!role.stage.equals(profile.storyStage())
+                || !facts.containsAll(role.requiredFacts))
+            return BossScene.LOCKED;
+        if (facts.contains(role.winFact)) return BossScene.AFTERMATH;
+        return StoryLeagueBadgeGate.count(leagueTags) >= 8
+            ? BossScene.CHALLENGE : BossScene.LOCKED;
+    }
+    private static final class BossDialogueTicket {
+        final UUID npc;
+        final String dimension;
+        final BossRole role;
+        final BossScene scene;
+        int delay = 2;
+        int remaining = 20 * 60 * 10;
+        BossDialogueTicket(UUID npc, String dimension,
+                BossRole role, BossScene scene) {
+            this.npc = npc; this.dimension = dimension;
+            this.role = role; this.scene = scene;
+        }
+        String dialogue() {
+            return "pride_story:" + role.npcId + "_" + scene.suffix;
+        }
+    }
+    private static final Map<UUID, BossDialogueTicket> BOSS_DIALOGUES = new HashMap<>();
+
     // Disabled by default. Only OP4 staging previews may initiate a scene until
     // the verified native Cobblemon NPC + owner-only renderer adapter exists.
     private static final StoryPrivateSceneDirector PRIVATE_SCENES = new StoryPrivateSceneDirector();
@@ -93,6 +205,59 @@ public final class StoryModule {
     }
 
     private StoryModule() {}
+
+    /** Actual saved Cobblemon NPC class, independent of visible name and skin. */
+    private static String npcClass(Entity npc) {
+        return npc.writeNbt(new NbtCompound()).getString("NPCClass");
+    }
+
+    /** Story characters speak for themselves; quest updates keep the server label. */
+    private static String battleDialoguePrefix(String encounterId) {
+        return encounterId != null && encounterId.startsWith("rin_")
+            ? "Rin: " : "[Pride Region] ";
+    }
+
+    // The terrain is decoration; only a deliberately placed clue marker
+    // authorizes a story discovery. Players can click the amethyst blocks
+    // themselves even if the invisible interaction entity is inside the build.
+    private static final Set<Block> FOREST_CRYSTAL_BLOCKS = Set.of(
+        Blocks.AMETHYST_BLOCK, Blocks.BUDDING_AMETHYST, Blocks.SMALL_AMETHYST_BUD,
+        Blocks.MEDIUM_AMETHYST_BUD, Blocks.LARGE_AMETHYST_BUD, Blocks.AMETHYST_CLUSTER
+    );
+
+    private static ActionResult discoverStoryEvidence(ServerPlayerEntity player, String clueId) {
+        try {
+            if (liveServer != player.getServer() || engine == null)
+                throw new IllegalStateException("Story module is not active");
+            var service = PrideCoreMod.progression(player.getServer())
+                .orElseThrow(() -> new IOException("Progression unavailable"));
+            var evidence = new StoryEvidenceEngine(service,
+                id -> id.equals(player.getUuid())
+                    ? Set.copyOf(player.getCommandTags()) : Set.of());
+            String stageBeforeClick = engine.currentStage(player.getUuid());
+            var result = evidence.complete(player.getUuid(), clueId);
+            // If Rook was already defeated, the now-complete forest evidence
+            // can immediately open the Stonehaven follow-up without a rematch.
+            boolean stonehavenWin = engine.reconcileStonehavenVictory(player.getUuid());
+            StoryAdvancementBridge.synchronize(player, engine);
+            player.sendMessage(Text.literal(result.firstDiscovery()
+                ? "[Pride Region] Evidence discovered: " + result.clue().title()
+                : "[Pride Region] You've already examined this evidence.")
+                .formatted(Formatting.AQUA), false);
+            // A legacy stored clue may advance its stage on a repeat click:
+            // display the new objective once even though the fact is old.
+            String afterClick = engine.currentStage(player.getUuid());
+            if (result.firstDiscovery() || stonehavenWin
+                    || !stageBeforeClick.equals(afterClick))
+                sendNextObjective(player, afterClick);
+        } catch (IOException | RuntimeException ex) {
+            LOGGER.warn("Story evidence interaction failed for {} clue={}: {}",
+                player.getUuid(), clueId, ex.toString());
+            player.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
+                .formatted(Formatting.RED), false);
+        }
+        return ActionResult.SUCCESS;
+    }
 
     public static void registerHooks() {
         // Module 02 is a Pokémon trainer battle, NEVER a hybrid Minecraft
@@ -113,6 +278,31 @@ public final class StoryModule {
                 STORY_WORLDS.permits(entity.getWorld().getRegistryKey().getValue().toString()),
                 entity instanceof net.minecraft.entity.player.PlayerEntity);
             return !protectedTrainer;
+        });
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
+            if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND
+                    || liveServer != sp.getServer() || engine == null
+                    || !STORY_WORLDS.permits(sp.getWorld().getRegistryKey().getValue().toString()))
+                return ActionResult.PASS;
+            BlockPos clicked = hitResult.getBlockPos();
+            if (!FOREST_CRYSTAL_BLOCKS.contains(world.getBlockState(clicked).getBlock()))
+                return ActionResult.PASS;
+            Vec3d crystalCenter = Vec3d.ofCenter(clicked);
+            if (sp.getPos().squaredDistanceTo(crystalCenter) > 36.0D)
+                return ActionResult.PASS;
+            // Don't make every amethyst crystal in the world a storyline
+            // shortcut. The author must place pride_clue_forest nearby.
+            boolean authoredFormation = world.getOtherEntities(sp,
+                new Box(clicked).expand(3.0D),
+                markerEntity -> markerEntity.getType() == EntityType.INTERACTION
+                    && markerEntity.getCommandTags().contains("pride_clue_forest")
+                    && StoryWorldMarkerCatalog.exclusiveStoryMarker(
+                        markerEntity.getCommandTags())
+                    && markerEntity.getPos().squaredDistanceTo(crystalCenter) <= 9.0D
+                    && markerEntity.squaredDistanceTo(sp) <= 36.0D
+            ).stream().findAny().isPresent();
+            if (!authoredFormation) return ActionResult.PASS;
+            return discoverStoryEvidence(sp, "forest");
         });
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (!(player instanceof ServerPlayerEntity sp) || hand != Hand.MAIN_HAND)
@@ -228,23 +418,7 @@ public final class StoryModule {
                 if (clues.size() != 1 || entity.squaredDistanceTo(sp) > 36.0D
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
-                try {
-                    var service = PrideCoreMod.progression(sp.getServer())
-                        .orElseThrow(() -> new IOException("Progression unavailable"));
-                    var evidence = new StoryEvidenceEngine(service,
-                        id -> id.equals(sp.getUuid()) ? Set.copyOf(sp.getCommandTags()) : Set.of());
-                    var result = evidence.complete(sp.getUuid(), clues.getFirst().id());
-                    StoryEngine running = liveServer == sp.getServer() ? engine : null;
-                    if (running != null) StoryAdvancementBridge.synchronize(sp, running);
-                    sp.sendMessage(Text.literal(result.firstDiscovery()
-                            ? "[Pride Region] Evidence discovered: " + result.clue().title()
-                            : "[Pride Region] You've already examined this evidence.")
-                        .formatted(Formatting.AQUA), false);
-                } catch (IOException | RuntimeException ex) {
-                    sp.sendMessage(Text.literal("Story evidence unavailable: " + safe(ex.getMessage()))
-                        .formatted(Formatting.RED), false);
-                }
-                return ActionResult.SUCCESS;
+                return discoverStoryEvidence(sp, clues.getFirst().id());
             }
             // Intentionally placed story battle trainers. Only living
             // entities carrying one exact, registered encounter tag qualify.
@@ -293,6 +467,15 @@ public final class StoryModule {
                 if (nativeTags.size() != 1
                         || StoryNpcDialogueResolver.reservedNativeService(nativeTags.getFirst()))
                     return ActionResult.PASS;
+                if (!NativeNpcIdentity.matchesRequiredClass(
+                        nativeTags.getFirst(), npcClass(entity))) {
+                    LOGGER.warn("Wrong native story NPC class for entity {} tag={} actual={}",
+                        entity.getUuid(), nativeTags.getFirst(), npcClass(entity));
+                    sp.sendMessage(Text.literal(
+                        "[Pride Region] This NPC's story identity is incorrect; contact an admin.")
+                        .formatted(Formatting.RED), false);
+                    return ActionResult.FAIL;
+                }
                 if (entity.squaredDistanceTo(sp) > StoryDialogueAnchorLedger.MAX_DISTANCE_SQUARED
                         || !entity.getWorld().getRegistryKey().equals(sp.getWorld().getRegistryKey()))
                     return ActionResult.FAIL;
@@ -331,14 +514,22 @@ public final class StoryModule {
                     handler.getPlayer().getWorld().getRegistryKey().getValue().toString()))
                 return;
             try {
-                // Read old *verified* onboarding markers, then project owned checkpoints.
+                // Reconcile the already-authenticated Rin win before projecting
+                // native onboarding. This repairs disconnects after a genuine win.
+                synchronizeFirstTrainerVictoryFromRin(handler.getPlayer());
                 var migrated = active.reconcileOnboarding(handler.getPlayer().getUuid());
                 boolean verdantWin = active.reconcileVerdantVictory(handler.getPlayer().getUuid());
+                boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
+                    PrideCoreMod.progression(server).orElseThrow(), handler.getPlayer().getUuid());
+                boolean stonehavenWin = active.reconcileStonehavenVictory(handler.getPlayer().getUuid());
+                boolean canyonWin = active.reconcileRinCanyonVictory(handler.getPlayer().getUuid());
+                boolean emberfallWin = active.reconcileEmberfallVictory(handler.getPlayer().getUuid());
+                boolean summitWin = active.reconcileRinSummitVictory(handler.getPlayer().getUuid());
                 StoryAdvancementBridge.synchronize(handler.getPlayer(), active);
                 if (!migrated.isEmpty())
                     LOGGER.info("Reconciled legacy onboarding for {}: {}",
                         handler.getPlayer().getUuid(), migrated);
-                if (verdantWin)
+                if (verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)
                     sendNextObjective(handler.getPlayer(),
                         active.currentStage(handler.getPlayer().getUuid()));
             } catch (IOException | RuntimeException ex) {
@@ -384,6 +575,71 @@ public final class StoryModule {
                     } catch (IOException | RuntimeException failure) {
                         LOGGER.warn("Could not open private Rin native overlay for {}",
                             viewer.getUuid(), failure);
+                        it.remove();
+                    }
+                }
+            }
+            for (var it = ROWAN_DIALOGUES.entrySet().iterator(); it.hasNext();) {
+                var entry = it.next();
+                RowanDialogueTicket ticket = entry.getValue();
+                ServerPlayerEntity viewer = server.getPlayerManager().getPlayer(entry.getKey());
+                if (viewer == null || --ticket.remaining <= 0
+                        || !STORY_WORLDS.permits(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !ticket.dimension.equals(
+                            viewer.getWorld().getRegistryKey().getValue().toString())
+                        || !rowanNpcNearby(viewer, ticket.npc)) {
+                    it.remove();
+                    continue;
+                }
+                if (ticket.delay > 0 && --ticket.delay == 0) {
+                    it.remove();
+                    try {
+                        var p = PrideCoreMod.progression(server).orElseThrow()
+                            .get(viewer.getUuid());
+                        if (rowanScene(p.facts()) != ticket.scene) continue;
+                        server.getCommandManager().executeWithPrefix(
+                            server.getCommandSource().withSilent(),
+                            "opendialogue " + ticket.scene.dialogue() + " "
+                                + viewer.getGameProfile().getName());
+                    } catch (IOException | RuntimeException failure) {
+                        LOGGER.warn("Could not open private Rowan dialogue for {}",
+                            viewer.getUuid(), failure);
+                    }
+                }
+            }
+            // Opening the exact boss's native phase screen is a private
+            // continuation of that player's own initial NPC interaction.
+            for (var it = BOSS_DIALOGUES.entrySet().iterator(); it.hasNext();) {
+                var entry = it.next();
+                var ticket = entry.getValue();
+                var viewer = server.getPlayerManager().getPlayer(entry.getKey());
+                if (viewer == null || --ticket.remaining <= 0
+                        || !STORY_WORLDS.permits(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !ticket.dimension.equals(viewer.getWorld()
+                            .getRegistryKey().getValue().toString())
+                        || !bossNpcNearby(viewer, ticket.role, ticket.npc)) {
+                    it.remove();
+                    continue;
+                }
+                if (ticket.delay > 0 && --ticket.delay == 0) {
+                    try {
+                        var profile = PrideCoreMod.progression(server).orElseThrow()
+                            .get(viewer.getUuid());
+                        if (bossScene(ticket.role, profile, viewer.getCommandTags())
+                                != ticket.scene) {
+                            it.remove();
+                            continue;
+                        }
+                        server.getCommandManager().executeWithPrefix(
+                            server.getCommandSource().withSilent(),
+                            "opendialogue " + ticket.dialogue() + " "
+                                + viewer.getGameProfile().getName());
+                        if (ticket.scene != BossScene.CHALLENGE) it.remove();
+                    } catch (IOException | RuntimeException failure) {
+                        LOGGER.warn("Could not open private {} boss dialogue for {}",
+                            ticket.role, viewer.getUuid(), failure);
                         it.remove();
                     }
                 }
@@ -527,6 +783,8 @@ public final class StoryModule {
             }
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            ROWAN_DIALOGUES.remove(handler.getPlayer().getUuid());
+            BOSS_DIALOGUES.remove(handler.getPlayer().getUuid());
             CINEMATICS.cancel(handler.getPlayer().getUuid());
             PRIVATE_SCENES.cancel(handler.getPlayer().getUuid());
             VERIFIED_LAB_SCENES.remove(handler.getPlayer().getUuid());
@@ -536,6 +794,9 @@ public final class StoryModule {
             BATTLE_RETRIES.cancelPlayer(handler.getPlayer().getUuid());
             StoryEngine running = liveServer == server ? engine : null;
             if (running != null) running.cancel(handler.getPlayer().getUuid());
+            // Stop all owned live RCT fights before discarding their routing
+            // tickets; otherwise the temporary NPC could outlive the player.
+            abortOwnedStoryBattles(server, handler.getPlayer().getUuid());
             StoryBattleSessionRouter router = liveServer == server ? battleRouter : null;
             if (router != null) router.disconnect(handler.getPlayer().getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(handler.getPlayer().getUuid());
@@ -555,6 +816,8 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
         DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
         BATTLE_PHASES.clear();
         BATTLE_RETRIES.clear();
         engine = null;
@@ -677,6 +940,8 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             STORY_WORLDS = StoryDimensionGate.open();
@@ -695,6 +960,8 @@ public final class StoryModule {
         STAGING_LAB_TEST_SCENES.clear();
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             BATTLE_PHASES.clear();
             BATTLE_RETRIES.clear();
             if (victoryListener != null) {
@@ -849,26 +1116,45 @@ public final class StoryModule {
     public static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
             ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
             String encounterId) throws IOException {
-        return launchRctStoryBattle(server, player, trainer, encounterId, false);
+        return launchRctStoryBattle(server, player, trainer, encounterId, false, false);
     }
 
     private static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
             ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
             String encounterId, boolean canonicalRin) throws IOException {
+        return launchRctStoryBattle(server, player, trainer, encounterId, canonicalRin, false);
+    }
+
+    private static Optional<UUID> launchRctStoryBattle(MinecraftServer server,
+            ServerPlayerEntity player, net.minecraft.entity.LivingEntity trainer,
+            String encounterId, boolean canonicalRin, boolean canonicalBoss) throws IOException {
         if (liveServer != server || engine == null || launchLedger == null)
             return Optional.empty();
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
         boolean sameDimension = trainer.getWorld().getRegistryKey().equals(
             player.getWorld().getRegistryKey());
+        // Native boss authorization is separate from generic world battle tags.
+        // Only the matching NPCClass and its sole authoring marker may launch
+        // an Eclipse boss fight; no fallback to another encounter is possible.
+        BossRole bossRole = canonicalBoss ? BossRole.forEncounter(encounterId) : null;
         boolean authorized = canonicalRin
             ? StoryTrainerBindingGate.permitsCanonicalRin(encounterId,
                 trainer.getCommandTags(), sameDimension,
                 trainer instanceof net.minecraft.entity.player.PlayerEntity,
                 player.squaredDistanceTo(trainer))
-            : StoryTrainerBindingGate.permits(encounterId,
-                trainer.getCommandTags(), sameDimension,
-                trainer instanceof net.minecraft.entity.player.PlayerEntity,
-                player.squaredDistanceTo(trainer));
+            : canonicalBoss
+                ? bossRole != null
+                    && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                        .getId(trainer.getType()).toString())
+                    && bossRole.npcClassId().equals(npcClass(trainer))
+                    && StoryTrainerBindingGate.permitsCanonicalBoss(encounterId,
+                        trainer.getCommandTags(), sameDimension,
+                        trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                        player.squaredDistanceTo(trainer))
+                : StoryTrainerBindingGate.permits(encounterId,
+                    trainer.getCommandTags(), sameDimension,
+                    trainer instanceof net.minecraft.entity.player.PlayerEntity,
+                    player.squaredDistanceTo(trainer));
         if (!authorized) return Optional.empty();
         if (!reserveStoryBattleLaunch(server, player.getUuid(),
                 encounterId, trainer.getUuid())) return Optional.empty();
@@ -914,7 +1200,7 @@ public final class StoryModule {
                     }
                 }
                 var roster = StoryBattleRosters.active().find(encounterId).orElseThrow();
-                player.sendMessage(Text.literal("[Pride Region] " + roster.intro())
+                player.sendMessage(Text.literal(battleDialoguePrefix(encounterId) + roster.intro())
                     .formatted(Formatting.GOLD), false);
             } catch (IOException | RuntimeException presentationFailure) {
                 LOGGER.warn("RCT battle {} launched but cinematic introduction failed",
@@ -934,14 +1220,39 @@ public final class StoryModule {
 
     /** Failed ownership handshake must never leave an orphaned RCT fight. */
     private static void abortUnconfirmedStoryBattle(MinecraftServer server, UUID battleId) {
-        nativeStoryBattleCancelled(server, battleId);
         try {
             if (!RctStoryBattleLauncher.abort(battleId,
                     StoryModule.class.getClassLoader()))
                 LOGGER.error("Unconfirmed RCT battle {} could not be aborted", battleId);
         } catch (ReflectiveOperationException | RuntimeException abortError) {
             LOGGER.error("Failed to abort unconfirmed RCT battle {}", battleId, abortError);
+        } finally {
+            nativeStoryBattleCancelled(server, battleId);
         }
+    }
+
+    /**
+     * Original League onboarding did not observe every custom RCT rival win.
+     * The persisted PrideCore proof is signed off only by the authoritative
+     * Cobblemon/RCT victory callback. Mirror that REAL trainer victory through
+     * the original League's one-time battle function (and its original FTB ID).
+     * It never grants a catch, a badge, money, or a second battle result.
+     *
+     * Replaying on join/sync repairs an interrupted post-victory handoff.
+     */
+    private static void synchronizeFirstTrainerVictoryFromRin(
+            ServerPlayerEntity player) throws IOException {
+        if (player.getCommandTags().contains("first_battle_win")) return;
+        var profile = PrideCoreMod.progression(player.getServer())
+            .orElseThrow(() -> new IOException("Progression unavailable"))
+            .get(player.getUuid());
+        if (!profile.facts().contains("pride:rin_route1_won")) return;
+        player.getServer().getCommandManager().executeWithPrefix(
+            player.getCommandSource().withLevel(4),
+            "function prideregion:onboarding/first_battle");
+        if (!player.getCommandTags().contains("first_battle_win"))
+            LOGGER.warn("Rin first-trainer victory did not reach League onboarding for {}",
+                player.getUuid());
     }
 
     /** Process only genuine resolved native battle results. */
@@ -981,6 +1292,7 @@ public final class StoryModule {
         // battle-intro cues. Never overlay an ended battle with stale prompts.
         if (battleOwner != null) CINEMATICS.cancel(battleOwner);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
         if (result && resolvedEncounter != null && resolvedEncounter.startsWith("shield_")) {
             if (finale != null && winnerId != null) {
                 // The victory fact was already persisted by StoryBattleProof.
@@ -1014,6 +1326,14 @@ public final class StoryModule {
         if (result && winnerId != null) {
             ServerPlayerEntity player = server.getPlayerManager().getPlayer(winnerId);
             if (player != null) {
+                if ("rin_route1".equals(resolvedEncounter)) {
+                    try {
+                        synchronizeFirstTrainerVictoryFromRin(player);
+                    } catch (IOException | RuntimeException milestoneError) {
+                        LOGGER.warn("Rin victory was persisted but native first-trainer "
+                            + "milestone sync failed for {}", winnerId, milestoneError);
+                    }
+                }
                 String victoryLine = "The road ahead is opening.";
                 try {
                     if (resolvedEncounter != null)
@@ -1027,9 +1347,24 @@ public final class StoryModule {
                 // Credit was already durably written. Presentation and
                 // advancement UI synchronization may fail independently.
                 try {
-                    player.sendMessage(Text.literal("[Pride Region] " + victoryLine)
+                    player.sendMessage(Text.literal(battleDialoguePrefix(resolvedEncounter) + victoryLine)
                         .formatted(Formatting.GREEN), false);
+                    boolean canyonWin = engine != null
+                        && "rin_canyon".equals(resolvedEncounter)
+                        && engine.reconcileRinCanyonVictory(player.getUuid());
+                    boolean summitWin = engine != null
+                        && "rin_summit".equals(resolvedEncounter)
+                        && engine.reconcileRinSummitVictory(player.getUuid());
                     if (engine != null) StoryAdvancementBridge.synchronize(player, engine);
+                    // Other story opponents have a mandatory post-battle
+                    // conversation with the same named character. Their real
+                    // victory proves only the battle; show the new objective,
+                    // but never award the authored dialogue checkpoint early.
+                    boolean aftermath = "eclipse_lieutenant".equals(resolvedEncounter)
+                        || "sable".equals(resolvedEncounter)
+                        || "director_cael".equals(resolvedEncounter);
+                    if (canyonWin || summitWin || aftermath)
+                        sendNextObjective(player, engine.currentStage(player.getUuid()));
                     // A genuine Rin win grants the victory fact, but
                     // Ranger Mira (not the battle) advances the stage. Guide
                     // the winner there immediately instead of advertising
@@ -1043,8 +1378,8 @@ public final class StoryModule {
                                 reminderFailure);
                         }
                     }
-                } catch (RuntimeException presentationError) {
-                    LOGGER.warn("Verified story victory {} persisted but player UI update failed",
+                } catch (IOException | RuntimeException presentationError) {
+                    LOGGER.warn("Verified story victory {} persisted but post-win story/UI handoff failed",
                         battleId, presentationError);
                 }
             }
@@ -1071,6 +1406,17 @@ public final class StoryModule {
         });
     }
 
+    private static void releaseTemporaryRinTrainer(UUID battleId) {
+        try {
+            RctStoryBattleLauncher.release(battleId, StoryModule.class.getClassLoader());
+        } catch (ReflectiveOperationException | RuntimeException cleanupError) {
+            // Keep permanent story victory/cancellation bookkeeping intact if
+            // a third-party RCT registry fails to release the temporary NPC.
+            LOGGER.error("Failed to release Route 1 Rin RCT trainer for {}",
+                battleId, cleanupError);
+        }
+    }
+
     public static void nativeStoryBattleCancelled(MinecraftServer server, UUID battleId) {
         if (liveServer != server || battleRouter == null) return;
         if (!server.isOnThread()) throw new IllegalStateException("Must run on server thread");
@@ -1080,6 +1426,7 @@ public final class StoryModule {
         BATTLE_RETRIES.forget(battleId);
         BATTLE_PHASES.finish(battleId);
         if (launchLedger != null) launchLedger.finished(battleId);
+        releaseTemporaryRinTrainer(battleId);
     }
 
     /** Show each encounter's prerequisite and verified-win status; never grants anything. */
@@ -1167,6 +1514,10 @@ public final class StoryModule {
                 throw new IllegalArgumentException(
                     "Marker requires the correct entity type: npc=registered Cobblemon NPC, "
                     + "battle=living non-player, clue/finale=minecraft:interaction");
+            if (cobblemonNpc && !NativeNpcIdentity.matchesRequiredClass(tag, npcClass(entity)))
+                throw new IllegalStateException("Cannot assign " + tag
+                    + " to NPCClass=" + npcClass(entity)
+                    + "; expected " + NativeNpcIdentity.requiredClassForStoryTag(tag));
             if (!StoryWorldMarkerCatalog.canBind(entity.getCommandTags(), tag))
                 throw new IllegalStateException(
                     "Remove the conflicting story tag with admin unbind first");
@@ -1218,11 +1569,16 @@ public final class StoryModule {
             boolean valid = tags.size() == 1
                 && StoryWorldMarkerCatalog.validOnEntity(tags.getFirst(),
                     livingNonPlayer, cobblemonNpc,
-                    entity.getType() == EntityType.INTERACTION);
+                    entity.getType() == EntityType.INTERACTION)
+                && (!cobblemonNpc || NativeNpcIdentity.matchesRequiredClass(
+                    tags.getFirst(), npcClass(entity)));
             if (valid) healthy++; else invalid++;
             if (!valid)
                 source.sendFeedback(() -> Text.literal(
-                    "INVALID story marker on " + entity.getUuid() + ": " + tags), false);
+                    "INVALID story marker on " + entity.getUuid() + ": " + tags
+                    + (cobblemonNpc ? " NPCClass=" + npcClass(entity)
+                        + " expected=" + NativeNpcIdentity.requiredClassForStoryTag(
+                            tags.isEmpty() ? null : tags.getFirst()) : "")), false);
         }
         return message(source, "Story marker audit (32 blocks): " +
             healthy + " valid, " + invalid + " invalid, " + tagged.size() + " tagged total");
@@ -1421,6 +1777,8 @@ public final class StoryModule {
             if (engine != null) engine.cancel(target.getUuid());
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
             if (battleRouter != null) battleRouter.disconnect(target.getUuid());
             if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
             BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1474,6 +1832,8 @@ public final class StoryModule {
         if (engine != null) engine.cancel(target.getUuid());
         DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
         if (battleRouter != null) battleRouter.disconnect(target.getUuid());
         if (launchLedger != null) launchLedger.cancelPlayer(target.getUuid());
         BATTLE_PHASES.cancelPlayer(target.getUuid());
@@ -1621,6 +1981,14 @@ public final class StoryModule {
                 .executes(ctx -> openRinChapter(ctx.getSource())))
             .then(CommandManager.literal("challenge")
                 .executes(ctx -> challengeRin(ctx.getSource()))));
+        story.then(CommandManager.literal("rowan")
+            .then(CommandManager.literal("open")
+                .executes(ctx -> openRowanChapter(ctx.getSource()))));
+        story.then(CommandManager.literal("boss")
+            .then(CommandManager.literal("open")
+                .executes(ctx -> openStoryBoss(ctx.getSource())))
+            .then(CommandManager.literal("challenge")
+                .executes(ctx -> challengeStoryBoss(ctx.getSource()))));
         story.then(CommandManager.literal("native")
             .then(CommandManager.argument("npc", StringArgumentType.word())
                 .then(CommandManager.argument("choice", StringArgumentType.word())
@@ -1751,6 +2119,8 @@ public final class StoryModule {
             player.getBoundingBox().expand(6.0D),
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_professor_sequoia")
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_professor_sequoia", npcClass(e))
                 && e.getCommandTags().stream().filter(t -> t.startsWith(PREFIX)).count() == 1
                 && e.squaredDistanceTo(player) <= 36.0D)
             .stream().findAny().isPresent();
@@ -1857,11 +2227,18 @@ public final class StoryModule {
             if (!STORY_WORLDS.permits(player.getWorld().getRegistryKey().getValue().toString()))
                 throw new IllegalStateException("Story synchronization is disabled in this dimension");
             StoryEngine active = ready(source.getServer());
+            synchronizeFirstTrainerVictoryFromRin(player);
             List<String> changes = active.reconcileOnboarding(player.getUuid());
             boolean verdantWin = active.reconcileVerdantVictory(player.getUuid());
+            boolean clueObjective = StoryEvidenceEngine.reconcileSavedObjective(
+                PrideCoreMod.progression(source.getServer()).orElseThrow(), player.getUuid());
+            boolean stonehavenWin = active.reconcileStonehavenVictory(player.getUuid());
+            boolean canyonWin = active.reconcileRinCanyonVictory(player.getUuid());
+            boolean emberfallWin = active.reconcileEmberfallVictory(player.getUuid());
+            boolean summitWin = active.reconcileRinSummitVictory(player.getUuid());
             StoryAdvancementBridge.synchronize(player, active);
             String newStage = active.currentStage(player.getUuid());
-            if (!changes.isEmpty() || verdantWin)
+            if (!changes.isEmpty() || verdantWin || stonehavenWin || clueObjective || canyonWin || emberfallWin || summitWin)
                 sendNextObjective(player, newStage);
             // The Professor's legacy return tag is not proof of a genuinely
             // selected starter. If the original League marker is absent, say
@@ -1925,7 +2302,8 @@ public final class StoryModule {
             .get(player.getUuid()).facts();
         player.sendMessage(Text.literal("[Pride Region] Next objective: ")
             .formatted(Formatting.GOLD)
-            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts))
+            .append(Text.literal(StoryObjectiveGuide.forStage(stage, facts,
+                    LegacyOnboardingGate.filter(player.getCommandTags())))
                 .formatted(Formatting.YELLOW)), false);
     }
 
@@ -1959,7 +2337,9 @@ public final class StoryModule {
                 && "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
     }
 
@@ -1969,7 +2349,9 @@ public final class StoryModule {
             e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
                     .getId(e.getType()).toString())
                 && e.getCommandTags().contains("pride_npc_rin")
-                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_rin", npcClass(e)))
             .stream().filter(e -> e instanceof net.minecraft.entity.LivingEntity
                 && e.squaredDistanceTo(player) <= 36.0D)
             .map(e -> (net.minecraft.entity.LivingEntity)e).findFirst();
@@ -1993,6 +2375,172 @@ public final class StoryModule {
         } catch (IOException | RuntimeException failure) {
             source.sendError(Text.literal("Rin's story is unavailable right now."));
             LOGGER.warn("Rin dialogue rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    /** Read-only recheck for a specific real Rowan actor before GUI display. */
+    private static boolean rowanNpcNearby(ServerPlayerEntity player, UUID exactNpc) {
+        if (exactNpc == null) return false;
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> e.getUuid().equals(exactNpc)
+                && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains("pride_npc_ranger_rowan")
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && NativeNpcIdentity.matchesRequiredClass(
+                    "pride_npc_ranger_rowan", npcClass(e)))
+            .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
+    }
+
+    private static int openRowanChapter(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("Rowan is not available in this world");
+            var nearby = player.getWorld().getOtherEntities(player,
+                player.getBoundingBox().expand(6.0),
+                e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                        .getId(e.getType()).toString())
+                    && e.getCommandTags().contains("pride_npc_ranger_rowan")
+                    && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                    && NativeNpcIdentity.matchesRequiredClass(
+                        "pride_npc_ranger_rowan", npcClass(e)))
+                .stream().filter(e -> e.squaredDistanceTo(player) <= 36.0D)
+                .findFirst().orElseThrow(
+                    () -> new IllegalStateException("Talk to Captain Rowan in person"));
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            ROWAN_DIALOGUES.put(player.getUuid(), new RowanDialogueTicket(
+                nearby.getUuid(), player.getWorld().getRegistryKey().getValue().toString(),
+                rowanScene(profile.facts())));
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Captain Rowan cannot speak right now."));
+            LOGGER.warn("Rowan dialogue denied for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    private record BossActor(BossRole role, net.minecraft.entity.LivingEntity npc) {}
+
+    private static Optional<BossActor> findStoryBoss(ServerPlayerEntity player) {
+        var candidates = player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                .getId(e.getType()).toString())
+                && e instanceof net.minecraft.entity.LivingEntity
+                && e.squaredDistanceTo(player) <= 36.0D);
+        List<BossActor> matching = new ArrayList<>();
+        for (Entity entity : candidates) {
+            for (BossRole role : BossRole.values()) {
+                if (entity.getCommandTags().contains(role.tag())
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(
+                            entity.getCommandTags())
+                        && role.npcClassId().equals(npcClass(entity))) {
+                    matching.add(new BossActor(role,
+                        (net.minecraft.entity.LivingEntity)entity));
+                }
+            }
+        }
+        // A command issued by a native GUI must identify one unambiguous
+        // person, not accidentally choose a different boss in a crowded room.
+        return matching.size() == 1 ? Optional.of(matching.getFirst())
+            : Optional.empty();
+    }
+
+    private static boolean bossNpcNearby(ServerPlayerEntity player,
+            BossRole role, UUID exactNpc) {
+        if (exactNpc == null) return false;
+        return player.getWorld().getOtherEntities(player,
+            player.getBoundingBox().expand(6.0),
+            e -> e.getUuid().equals(exactNpc)
+                && "cobblemon:npc".equals(Registries.ENTITY_TYPE
+                    .getId(e.getType()).toString())
+                && e.getCommandTags().contains(role.tag())
+                && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                && role.npcClassId().equals(npcClass(e)))
+            .stream().anyMatch(e -> e.squaredDistanceTo(player) <= 36.0D);
+    }
+
+    private static int openStoryBoss(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("This encounter is unavailable here");
+            BossActor actor = findStoryBoss(player).orElseThrow(
+                () -> new IllegalStateException(
+                    "Stand close to one Eclipse story character to speak"));
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            BossScene phase = bossScene(actor.role(), profile, player.getCommandTags());
+            BOSS_DIALOGUES.put(player.getUuid(), new BossDialogueTicket(
+                actor.npc().getUuid(),
+                player.getWorld().getRegistryKey().getValue().toString(),
+                actor.role(), phase));
+            if (phase == BossScene.LOCKED)
+                sendNextObjective(player, profile.storyStage());
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("This character cannot speak right now. "
+                + safe(failure.getMessage())));
+            LOGGER.warn("Eclipse story actor dialogue rejected for {}: {}",
+                player.getUuid(), failure.toString());
+            return 0;
+        }
+    }
+
+    private static int challengeStoryBoss(ServerCommandSource source) {
+        ServerPlayerEntity player = source.getPlayer();
+        if (player == null) return 0;
+        try {
+            if (!STORY_WORLDS.permits(player.getWorld()
+                    .getRegistryKey().getValue().toString()))
+                throw new IllegalStateException("This encounter is unavailable here");
+            BossDialogueTicket ticket = BOSS_DIALOGUES.get(player.getUuid());
+            if (ticket == null || ticket.delay > 0
+                    || ticket.scene != BossScene.CHALLENGE
+                    || !ticket.dimension.equals(player.getWorld()
+                        .getRegistryKey().getValue().toString())
+                    || !bossNpcNearby(player, ticket.role, ticket.npc))
+                throw new IllegalStateException(
+                    "Speak with the story character before challenging them");
+            BossActor actor = findStoryBoss(player).orElseThrow(
+                () -> new IllegalStateException(
+                    "Return to the same story character to challenge them"));
+            if (actor.role() != ticket.role
+                    || !actor.npc().getUuid().equals(ticket.npc))
+                throw new IllegalStateException(
+                    "This conversation belongs to another character");
+            var profile = PrideCoreMod.progression(source.getServer()).orElseThrow()
+                .get(player.getUuid());
+            if (bossScene(ticket.role, profile, player.getCommandTags())
+                    != BossScene.CHALLENGE)
+                throw new IllegalStateException(
+                    "The story has changed. Talk to this character again");
+            var roster = StoryBattleRosters.active().find(ticket.role.encounter)
+                .orElseThrow();
+            if (!StoryLeagueBadgeGate.allows(roster.minBadges(), player.getCommandTags()))
+                throw new IllegalStateException(
+                    "Earn the required Gym badges before the confrontation");
+            var battle = launchRctStoryBattle(source.getServer(), player,
+                actor.npc(), ticket.role.encounter, false, true);
+            if (battle.isEmpty())
+                throw new IllegalStateException(
+                    "This character is busy or the story battle is unavailable");
+            BOSS_DIALOGUES.remove(player.getUuid());
+            return 1;
+        } catch (IOException | RuntimeException failure) {
+            source.sendError(Text.literal("Challenge unavailable: "
+                + safe(failure.getMessage())));
+            LOGGER.warn("Eclipse story boss challenge rejected for {}: {}",
                 player.getUuid(), failure.toString());
             return 0;
         }
@@ -2066,7 +2614,9 @@ public final class StoryModule {
                     player.getBoundingBox().expand(5.0),
                     e -> "cobblemon:npc".equals(Registries.ENTITY_TYPE.getId(e.getType()).toString())
                         && e.getCommandTags().contains(nativeTag)
-                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags()))) {
+                        && StoryWorldMarkerCatalog.exclusiveStoryMarker(e.getCommandTags())
+                        && NativeNpcIdentity.matchesRequiredClass(
+                            nativeTag, npcClass(e)))) {
                 if (candidate.squaredDistanceTo(player) <= 36.0D) {
                     nearby = true;
                     break;
@@ -2095,6 +2645,26 @@ public final class StoryModule {
         } catch (IOException | RuntimeException ex) {
             LOGGER.warn("Native story action rejected for {} npc={} choice={}: {}",
                     player.getUuid(), npc, option, ex.toString());
+            // An honest player can meet an NPC before its story prerequisites
+            // have been completed. Do not expose internal implementation
+            // errors or future chapters. Give the current objective instead.
+            // Invalid identities, commands and actor bindings still fail shut.
+            String reason = ex.getMessage();
+            if (ex instanceof IllegalStateException && reason != null
+                    && (reason.equals("This NPC has no story dialogue available yet")
+                        || reason.equals("Complete the existing starter, registration or field objective first")
+                        || reason.equals("Win the scripted story battle before advancing"))) {
+                try {
+                    player.sendMessage(Text.literal("[Pride Region] There's more to discover before this conversation can continue.")
+                        .formatted(Formatting.YELLOW), false);
+                    sendNextObjective(player, ready(source.getServer())
+                        .currentStage(player.getUuid()));
+                    return 0;
+                } catch (IOException | RuntimeException reminderFailure) {
+                    LOGGER.warn("Could not show locked NPC next-objective reminder for {}",
+                        player.getUuid(), reminderFailure);
+                }
+            }
             source.sendError(Text.literal("Story action unavailable: " + safe(ex.getMessage())));
             return 0;
         }
@@ -2176,6 +2746,8 @@ public final class StoryModule {
             engine = next; // old conversations discarded, player progress preserved.
             DIALOGUE_ANCHORS.clearAll();
         RIN_DIALOGUES.clear();
+        ROWAN_DIALOGUES.clear();
+        BOSS_DIALOGUES.clear();
             health = "active";
             return message(source, "Story definitions reloaded: " + next.npcCount()
                 + " NPCs. Existing conversations reset; saved progress retained.");
@@ -2303,6 +2875,8 @@ public final class StoryModule {
             var response = ready(source.getServer()).begin(target.getUuid(), npc);
             DIALOGUE_ANCHORS.clear(target.getUuid());
             RIN_DIALOGUES.remove(target.getUuid());
+        ROWAN_DIALOGUES.remove(target.getUuid());
+        BOSS_DIALOGUES.remove(target.getUuid());
             show(target, response);
             return message(source, "Presented NPC " + npc + " dialogue to " + target.getName().getString());
         } catch (IOException | RuntimeException ex) {

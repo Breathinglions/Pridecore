@@ -16,7 +16,29 @@ Use the player-facing command prefix `/pridecore story`:
 
 **Two different story actor roles:** `npc` requires a real `cobblemon:npc` entity. It binds one of the 27 authored dialogue identities from `story/default.json`. In contrast, `battle` requires a living non-player entity representing the scripted opponent. Choose an actual RCT-compatible staging trainer entity instead of a villager for live integration; the villager selector above demonstrates syntax only, not a validated RCT trainer.
 
-**Do not combine dialogue and battle markers on the same physical entity.** Module 2 currently routes a marked battle actor to the battle launcher before dialogue, so separate physical actors are needed for dialogue and battle. The catalog rejects competing story marker tags to make this limitation explicit. `rin_canyon` and `rin_summit` intentionally map to the same existing Cobblemon dialogue marker `pride_npc_rin`; the story prerequisites decide which conversation is eligible. The existing `ranger_epilogue` marker likewise reuses `pride_npc_ranger_rowan`.
+**Do not combine dialogue and battle markers on the same physical entity.** The catalog rejects competing story marker tags, and Module 2 handles registered battle props before opening ordinary NPC dialogue. The canonical Rin tag `pride_npc_rin` serves all three rival chapters. Captain Rowan similarly reuses `pride_npc_ranger_rowan`.
+
+### Single-actor Eclipse bosses (new default)
+
+The **Eclipse Lieutenant, Sable, and Director Cael** now use exactly one canonical `cobblemon:npc` each. Their normal native identity tag is sufficient for BOTH their authenticated RCT battle and the post-battle story dialogue. The native GUI requests a server-selected private chapter screen; the server uses this player's facts, official badges, current stage, NPC UUID, NPCClass, proximity, and world before any battle.
+
+Place only one actor per role. Stand at the desired location and run:
+
+```mcfunction
+/function pride_story:spawn/eclipse_operative
+/function pride_story:spawn/sable
+/function pride_story:spawn/director_cael
+```
+
+Run each function only once **at its character's separate location**, not all three together. Required classes and tags:
+
+- Lieutenant: `pride_story:eclipse_operative` / `pride_npc_eclipse_operative` → `eclipse_lieutenant`
+- Sable: `pride_story:sable` / `pride_npc_sable` → `sable`
+- Cael: `pride_story:director_cael` / `pride_npc_director_cael` → `director_cael`
+
+**Do NOT add a `pride_battle_*` tag to any of these canonical NPCs.** The normal native interaction offers a chapter-appropriate Pokémon challenge until victory is actually persisted, then the **same physical NPC** offers its authored confession and one-time checkpoint. Other players see their own state. Repeated interaction after the checkpoint shows return-only dialogue.
+
+For compatibility with already built worlds, separate actors marked `pride_battle_eclipse_lieutenant`, `pride_battle_sable`, or `pride_battle_director_cael` continue to use the older explicit battle-prop route. They are **not required** for new builds. If an older duplicate battle actor remains nearby, relocate or explicitly unbind that exact entity during a supervised staging cleanup; do not broadly kill NPCs or strip other mods' tags.
 
 Allowed battle IDs are the nine exact IDs defined by StoryBattleSessionRouter (`rin_route1`, `rin_canyon`, `rin_summit`, `eclipse_lieutenant`, `sable`, `director_cael`, `shield_alpha`, `shield_beta`, `shield_gamma`). Allowed clue IDs: `forest`, `mine`, `foundry`, `river`, `grid`, `ward`, `ice`, `echo`, `engine`. Allowed finale IDs: `north`, `south`, `east`, `west`, `core`.
 

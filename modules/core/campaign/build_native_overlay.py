@@ -50,6 +50,48 @@ def dialogue(npc, name, greeting, detail, choice):
     }
 
 
+def authored_dialogue(npc, name, story_npc, choice):
+    """Use the validated story graph as the single source for NPC responses.
+
+    Native dialogue is still presentation-only. Only an actual player choice
+    runs the existing server-side PrideCore command; the engine rechecks
+    credentials, facts, badges, proximity and completed checkpoints.
+    """
+    nodes = {node["id"]: node for node in story_npc["nodes"]}
+    main = nodes[story_npc["start"]]
+    authored = [option for option in main["options"] if option["id"] == choice]
+    if len(authored) != 1:
+        raise ValueError(f"{npc}: no authored story action {choice}")
+    d = dialogue(npc, name, main["text"], "", choice)
+    page = d["pages"][0]
+    page["lines"] = [main["text"]]
+    buttons = page["input"]["options"]
+    buttons[0]["text"] = authored[0]["text"]
+    # All story NPCs with authored secondary dialogue must expose it in the
+    # Cobblemon GUI. Reading lore never grants progression or items.
+    questions = [option for option in main["options"]
+                 if option["id"] == "learn_more" and option.get("next")]
+    if len(questions) > 1:
+        raise ValueError(f"{npc}: ambiguous extra dialogue branches")
+    if questions:
+        q = questions[0]
+        target = nodes.get(q["next"])
+        if target is None:
+            raise ValueError(f"{npc}: missing detail page")
+        buttons.insert(1, {"text":q["text"], "value":"details",
+                           "action":"q.dialogue.set_page('details');"})
+        d["pages"].append({
+            "id":"details", "speaker":"npc", "lines":[target["text"]],
+            "input":{"type":"option", "vertical":True, "options":[
+                {"text":"Let's return to our conversation.", "value":"back",
+                 "action":"q.dialogue.set_page('main');"},
+                {"text":"Goodbye.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]}
+        })
+    return d
+
+
 def mom_dialogue():
     """Player-facing prologue, not a development placeholder.
 
@@ -146,6 +188,17 @@ def main():
     args=p.parse_args()
     campaign=json.loads(pathlib.Path(args.campaign).read_text(encoding="utf-8"))
     assert len(campaign["npc"]) == 21, "Unexpected campaign NPC count"
+    # Match the canonical server-side story graph, never an outdated duplicate
+    # of the quest prose. The authored native choice and validated server
+    # action must agree on their exact id.
+    story_file = pathlib.Path(__file__).resolve().parents[1] / "src/main/resources/story/default.json"
+    authored = json.loads(story_file.read_text(encoding="utf-8"))
+    by_id = {npc["id"]: npc for npc in authored["npcs"]}
+    assert len(by_id) == 27, "Unexpected authored story NPC count"
+    battle_file = pathlib.Path(__file__).with_name("story_battles.json")
+    battles = json.loads(battle_file.read_text(encoding="utf-8"))
+    battle_intros = {battle["id"]: battle["intro"] for battle in battles["encounters"]}
+    assert len(battle_intros) == 9, "Unexpected story battle roster count"
     generated={}
     generated["pack.mcmeta"]=dump({"pack":{"pack_format":48,
        "description":"Pride Region Story v0.3.5-rc1: native Cobblemon NPC overlay for League v7.10.10"}})
@@ -193,8 +246,8 @@ def main():
        "When you're ready, promise you'll look after your partner and explore every road.",
        "begin"),
       ("ranger","Ranger Mira",
-       "You've made it to Route 1. Something has the wild Pokémon uneasy.",
-       "Catch your first Pokémon and win your first battle, then report back for field guidance.",
+       "Rin told me about your battle! Welcome to Route 1.",
+       "Before we investigate the glow near the trees, have you caught your first wild Pokémon?",
        "explore"),
     ]
     # Recurring characters have ONE canonical physical actor, not a second
@@ -210,7 +263,8 @@ def main():
         if npc in ids: raise ValueError("Duplicate story NPC "+npc)
         ids.add(npc)
         generated[f"data/pride_story/npcs/{npc}.json"]=dump(native_npc(npc,name))
-        d = mom_dialogue() if npc == "mom" else dialogue(npc,name,greeting,detail,choice)
+        d = mom_dialogue() if npc == "mom" else authored_dialogue(
+            npc, name, by_id[npc], choice)
         if npc == "rin":
             # A single physical Rin NPC, one neutral opening screen.
             # Server computes a private chapter-specific native dialogue from
@@ -228,13 +282,86 @@ def main():
                  "action":"q.dialogue.close();"}
             ]
         if npc == "ranger_rowan":
-            d["pages"][0]["input"]["options"].insert(1, {
-                "text": "Brief the Rangers about the Resonance Engine.",
-                "value": "crisis_briefing", "action": [
-                    script_action("ranger_epilogue", "continue"),
-                    "q.dialogue.close();"
-                ]
-            })
+            # One canonical physical Rowan. Let the server pick a chapter
+            # privately from authenticated player facts. Never show the
+            # Resonance Engine finale button while the river case is active.
+            d["pages"] = [{
+                "id":"main", "speaker":"npc",
+                "lines":["The Rangers have reports coming in from across the region.",
+                         "What have you uncovered since we last spoke?"],
+                "input":{"type":"option", "vertical":True, "options":[
+                    {"text":"Talk to Captain Rowan.", "value":"talk",
+                     "action":["q.dialogue.close();",
+                               "q.player.run_command('pridecore story rowan open');"]},
+                    {"text":"Goodbye.", "value":"bye", "action":"q.dialogue.close();"}
+                ]}
+            }]
+            for role, filename in (("ranger_rowan", "ranger_rowan_case"),
+                                   ("ranger_epilogue", "ranger_rowan_finale")):
+                chapter = authored_dialogue(role, "Captain Rowan", by_id[role], "continue")
+                generated[f"data/pride_story/dialogues/{filename}.json"] = dump(chapter)
+            after = dialogue("ranger_rowan", "Captain Rowan",
+                "The Rangers are still investigating what happened across the region.",
+                "I will let you know when we have another lead.", "continue")
+            after["pages"][0]["input"]["options"] = [
+                {"text":"Until next time.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            generated["data/pride_story/dialogues/ranger_rowan_return.json"] = dump(after)
+        if npc in {"eclipse_operative", "sable", "director_cael"}:
+            # A SINGLE physical Cobblemon NPC now handles its introduction,
+            # verified RCT battle, authored confession, and repeat dialogue.
+            # The server chooses the page for the *specific player* and ties
+            # battle authorization to the exact native NPC UUID and class.
+            d["pages"] = [{
+                "id":"main", "speaker":"npc",
+                "lines":["We have unfinished business.",
+                         "Are you here to speak with me?"],
+                "input":{"type":"option", "vertical":True, "options":[
+                    {"text":"Speak with " + name + ".", "value":"talk",
+                     "action":["q.dialogue.close();",
+                               "q.player.run_command('pridecore story boss open');"]},
+                    {"text":"Not now.", "value":"bye",
+                     "action":"q.dialogue.close();"}
+                ]}
+            }]
+            battle_id = ("eclipse_lieutenant" if npc == "eclipse_operative"
+                         else npc)
+            confrontation = dialogue(npc, name, battle_intros[battle_id],
+                "If you're ready, we'll settle this with a Pokémon battle.",
+                "continue")
+            confrontation["pages"][0]["input"]["options"] = [
+                {"text":"Challenge " + name + " to a Pokémon battle.",
+                 "value":"challenge",
+                 "action":["q.dialogue.close();",
+                           "q.player.run_command('pridecore story boss challenge');"]},
+                {"text":"Not yet.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            aftermath = authored_dialogue(npc, name, by_id[npc], "continue")
+            repeat_node = next(node for node in by_id[npc]["nodes"]
+                if node["id"] == by_id[npc]["repeat"])
+            replay = dialogue(npc, name, repeat_node["text"], "",
+                "continue")
+            replay["pages"][0]["lines"] = [repeat_node["text"]]
+            replay["pages"][0]["input"]["options"] = [
+                {"text":"Until next time.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            locked = dialogue(npc, name,
+                "There is nothing more to discuss until the investigation progresses.",
+                "", "continue")
+            locked["pages"][0]["input"]["options"] = [
+                {"text":"I'll return when I have answers.", "value":"bye",
+                 "action":"q.dialogue.close();"}
+            ]
+            locked["pages"][0]["lines"] = [
+                "There is nothing more to discuss until the investigation progresses."]
+            for phase, screen in (("challenge", confrontation),
+                                  ("aftermath", aftermath),
+                                  ("return", replay),
+                                  ("locked", locked)):
+                generated[f"data/pride_story/dialogues/{npc}_{phase}.json"] = dump(screen)
         generated[f"data/pride_story/dialogues/{npc}.json"]=dump(d)
         if npc == "rin":
             # The /opendialogue server command opens exactly one of these.
@@ -284,15 +411,17 @@ def main():
             }
             generated["data/pride_story/dialogues/rin_return.json"] = dump(after)
         # Compatible with existing League spawn runtime function.
+        # Only tag the exact Cobblemon NPCClass we intentionally spawned.
+        expected_nbt = f'nbt={{NPCClass:"pride_story:{npc}"}}'
         generated[f"data/pride_story/function/spawn/{npc}.mcfunction"] = (
             f"# Pride Story native NPC: {name}. Run as a player, away from other NPCs.\n"
             f"# Mark existing NPCs BEFORE spawning: never attach this identity to a neighbor.\n"
             f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,distance=..2.5] add pride_story_spawn_existing\n"
             f"function prideregion:npc_services/spawn/_spawn_runtime {{npc:\"pride_story:{npc}\"}}\n"
             f"# Match the original League helper's zero-pitch rotation and exclude existing NPCs.\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] add pride_npc_{npc}\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 as @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,sort=nearest,limit=1,distance=..0.75] run attribute @s minecraft:generic.knockback_resistance base set 1\n"
-            f"execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,distance=..0.75] run tellraw @s {{\"text\":\"Pride Story spawn warning: {npc} was not tagged. Move to a clear area and inspect the new NPC.\",\"color\":\"red\"}}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=!pride_story_spawn_existing,{expected_nbt},sort=nearest,limit=1,distance=..0.75] add pride_npc_{npc}\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 as @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,{expected_nbt},sort=nearest,limit=1,distance=..0.75] run attribute @s minecraft:generic.knockback_resistance base set 1\n"
+            f"execute rotated ~ 0 positioned ^ ^ ^1.5 unless entity @e[type=cobblemon:npc,tag=pride_npc_{npc},tag=!pride_story_spawn_existing,{expected_nbt},distance=..0.75] run tellraw @s {{\"text\":\"Pride Story spawn warning: {npc} was not tagged. Move to a clear area and inspect the new NPC.\",\"color\":\"red\"}}\n"
             f"execute rotated ~ 0 positioned ^ ^ ^1.5 run tag @e[type=cobblemon:npc,tag=pride_story_spawn_existing,distance=..2.5] remove pride_story_spawn_existing\n"
         ).encode("utf-8")
     # No physical items or commands are awarded by these checkpoints.

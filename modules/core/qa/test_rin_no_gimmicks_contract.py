@@ -28,4 +28,21 @@ assert source.index('requireNoGimmicksForRoute1(opponent') < source.index('getMe
 assert 'setCanDynamax' not in source, "Do not mutate player-facing battle UI"
 assert '"rin_canyon".equals(encounterId)' not in source
 assert '"rin_summit".equals(encounterId)' not in source
-print("PASS: explicit opponent-only Rin Route 1 no-gimmicks guard, no global/RCT Gym modification")
+# RCTBattleAI resolves an NPC by the Pokemon's registered OT, not by a
+# directly constructed TrainerNPC instance. Missing registry enrollment lets
+# Mega Showdown's raw canDynamax=true reach the AI unchecked.
+for required in (
+    'getMethod("getTrainerRegistry")',
+    'getMethod("registerNPC", String.class, trainerNpc)',
+    'getMethod("getByOT", pokemonType)',
+    'getMethod("unregisterById", String.class)',
+    'RIN_BATTLE_REGISTRATIONS.put(id, temporaryRegistryId)',
+    'RIN_BATTLE_REGISTRATIONS.remove(battleId)',
+):
+    assert required in source, required
+assert source.index('getMethod("registerNPC"') < source.index('getMethod("startBattle"')
+module = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
+assert 'releaseTemporaryRinTrainer(battleId)' in module
+assert 'abortOwnedStoryBattles(server, handler.getPlayer().getUuid());' in module
+assert 'nativeStoryBattleCancelled(server, battleId);' in module
+print("PASS: Route 1 no-gimmicks trainer is registered for RCT AI lookup and safely released")

@@ -140,6 +140,17 @@ public final class StoryConfigManager {
                     continue;
                 }
                 migrateStockText(originalNode, stockNode, proposed);
+                // Route 1 now has a real, server-verified rival battle. The
+                // previous Mira briefing still referred to the pre-rival
+                // onboarding flow. Update only the exact shipped text.
+                if ("ranger".equals(npcId)
+                        && "hello".equals(proposed.get("id").getAsString())
+                        && originalNode.has("text")
+                        && "Something strange moved through the woods last night. "
+                            .concat("The Pokémon are unsettled, and there's a pale glow ")
+                            .concat("between the trees. Rin was asking about it earlier.")
+                            .equals(originalNode.get("text").getAsString()))
+                    originalNode.add("text", proposed.get("text").deepCopy());
                 JsonArray oldOptions = originalNode.getAsJsonArray("options");
                 for (JsonElement opt : proposed.getAsJsonArray("options")) {
                     JsonObject newerOption = opt.getAsJsonObject();
@@ -153,6 +164,10 @@ public final class StoryConfigManager {
                         continue;
                     }
                     migrateStockText(previousOption, stockOption, newerOption);
+                    // Legacy first-catch and first-battle requirements stay
+                    // in the on-disk Ranger briefing. The actual Rin victory
+                    // satisfies the battle condition in StoryEngine; only a
+                    // genuine first_catch can satisfy the catch condition.
                     if (!newerOption.has("requiresLegacy")) continue;
                     TreeSet<String> allowed = new TreeSet<>();
                     if (previousOption.has("requiresLegacy"))

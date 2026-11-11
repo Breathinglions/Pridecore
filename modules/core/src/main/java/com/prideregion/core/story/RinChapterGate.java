@@ -32,7 +32,8 @@ public final class RinChapterGate {
         // Completing later chapters never authorizes skipping an earlier win.
         if (facts.contains("pride:rin_canyon_won")
                 && facts.contains("pride:rin_route1_won")
-                && facts.contains("pride:frozen_warning") && badges >= 7
+                && facts.contains("pride:frozen_warning")
+                && facts.contains("pride:clue_ice") && badges >= 7
                 && !facts.contains("pride:rin_summit_won")) return Scene.SUMMIT;
         if (facts.contains("pride:rin_route1_won")
                 && facts.contains("pride:eclipse_contact") && badges >= 2

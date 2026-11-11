@@ -27,6 +27,45 @@ public final class NativeNpcIdentity {
     public static boolean isAllowed(String id) { return ALLOWED.contains(id); }
 
     private NativeNpcIdentity() {}
+
+    /**
+     * Native NPC classes are not equivalent to their command tags, display
+     * names, skins or ForcedResourceIdentifier. Only the canonical class
+     * may own a story role; a retagged Resource Ranger is not Mom.
+     *
+     * The three original lab services have their own verified League
+     * namespace NPC classes; RCT Thorn retains its provider-owned identity.
+     */
+    public static String requiredClassForStoryTag(String tag) {
+        if (tag == null) return null;
+        // Native onboarding services are packaged from the original League.
+        // Guard them as strictly as the newly authored Pride Story NPCs.
+        String serviceClass = switch (tag) {
+            case "pride_npc_professor_sequoia" -> "pride_region:professor_sequoia";
+            case "pride_npc_technician_theo" -> "pride_region:technician_theo";
+            case "pride_npc_avery" -> "pride_region:avery";
+            default -> null;
+        };
+        if (serviceClass != null) return serviceClass;
+        for (String id : ALLOWED) {
+            if (Set.of("sequoia", "theo", "avery", "thorn").contains(id))
+                continue;
+            if (!tagFor(id).equals(tag)) continue;
+            String canonical = switch (id) {
+                case "rin_canyon", "rin_summit" -> "rin";
+                case "ranger_epilogue" -> "ranger_rowan";
+                default -> id;
+            };
+            return "pride_story:" + canonical;
+        }
+        return null;
+    }
+
+    public static boolean matchesRequiredClass(String tag, String actualClass) {
+        String required = requiredClassForStoryTag(tag);
+        return required == null || required.equals(actualClass);
+    }
+
     public static String tagFor(String storyId) {
         if (!StoryDefinition.validId(storyId) || !isAllowed(storyId))
             throw new IllegalArgumentException("Invalid story NPC identifier");

@@ -113,4 +113,160 @@ check("then register with Technician Theo." not in
 check("ftbquests change_progress @s complete 2D7D171369126710" in
     starter_resources[starter_function].decode(),
     "Original FTB starter quest ID preserved")
+# The original 24 League service spawn helpers must not retag a nearby
+# wrong NPC class when the requested spawn fails or an entity overlaps.
+def service_spawn(name):
+    return (f"# Pride Region reload-safe NPC placement helper: {name}\n"
+        f'function prideregion:npc_services/spawn/_spawn_runtime {{npc:"pride_region:{name}"}}\n'
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tp "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] ~ ~ ~ ~ 0\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_service_npc\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run tag "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] add pride_npc_" + name + "\n")
+        + ("execute rotated ~ 0 positioned ^ ^ ^1.5 run attribute "
+           "@e[type=cobblemon:npc,sort=nearest,limit=1,distance=..0.35] "
+           "minecraft:generic.knockback_resistance base set 1\n")).encode()
+all_services = [
+    "aide_nia", "avery", "backpack_outfitter", "battle_mechanics_specialist",
+    "battle_tower_receptionist", "card_collector", "daycare_attendant",
+    "expedition_guide", "field_scout", "housing_agent", "league_registrar",
+    "market_registrar", "move_tutor", "pokemon_center_nurse",
+    "pokemon_specialist", "pokemon_work_foreman", "professor_sequoia",
+    "raid_researcher", "ranked_official", "researcher_mira",
+    "resource_ranger", "technician_theo", "tournament_director",
+    "transit_attendant"
+]
+original_spawns = {
+    f"data/prideregion/function/npc_services/spawn/{n}.mcfunction": service_spawn(n)
+    for n in all_services
+}
+guarded_spawns = original_spawns.copy()
+changed_spawns = module.harden_original_service_spawn_helpers(guarded_spawns)
+check(set(changed_spawns) == set(original_spawns), "All 24 League service spawns hardened")
+for n in all_services:
+    p = f"data/prideregion/function/npc_services/spawn/{n}.mcfunction"
+    text = guarded_spawns[p].decode("utf8")
+    check(f'nbt={{NPCClass:"pride_region:{n}"}}' in text,
+        n + " must verify original NPCClass")
+    check("tag=!pride_service_spawn_existing" in text,
+        n + " must exclude existing NPCs")
+    check("remove pride_service_spawn_existing" in text,
+        n + " must clear temporary tags")
+    check(f'{{npc:"pride_region:{n}"}}' in text,
+        n + " must preserve original /spawnnpc class")
+check(original_spawns != guarded_spawns, "Original unsafe nearest selectors replaced")
+try:
+    module.harden_original_service_spawn_helpers({
+        "data/prideregion/function/npc_services/spawn/only_one.mcfunction":
+            service_spawn("only_one")})
+    raise AssertionError("Unsafe incomplete helper set was accepted")
+except ValueError:
+    checks += 1
+
+# First battle is a genuine trainer result from either Cobblemon pvn or
+# PrideCore's separately verified Rin RCT victory. The original FTB task IDs
+# and the two independent catch/battle prerequisites must remain intact.
+first_battle_adv = "data/prideregion/advancement/onboarding/first_battle_event.json"
+first_battle_fn = "data/prideregion/function/onboarding/first_battle.mcfunction"
+first_catch_fn = "data/prideregion/function/onboarding/first_catch.mcfunction"
+begin_league_fn = "data/prideregion/function/onboarding/begin_league.mcfunction"
+original_milestones = {
+    first_battle_adv: module.serialize({
+        "criteria": {kind: {"trigger": "cobblemon:battles_won",
+                            "conditions": {"count": 0, "battle_types": [code]}}
+            for kind, code in (("wild", "pvw"), ("npc", "pvn"), ("pvp", "pvp"))},
+        "requirements": [["wild", "npc", "pvp"]],
+        "rewards": {"function": "prideregion:onboarding/first_battle"}
+    }),
+    first_battle_fn: (
+        'execute unless entity @s[tag=first_catch] run advancement revoke @s only prideregion:onboarding/first_battle_event\n'
+        'execute if entity @s[tag=first_catch] unless entity @s[tag=first_battle_win] run tellraw @s [{"text":"First battle won!"}]\n'
+        'execute if entity @s[tag=first_catch] run tag @s add first_battle_win\n'
+        'execute if entity @s[tag=first_battle_win] run ftbquests change_progress @s complete 70B779849A4D0F73\n'
+        'execute if entity @s[tag=first_battle_win] run function prideregion:onboarding/begin_league\n'
+    ).encode("utf8"),
+    first_catch_fn: (
+        'execute unless entity @s[tag=trainer_guide_received] run advancement revoke @s only prideregion:onboarding/first_catch_event\n'
+        'execute if entity @s[tag=trainer_guide_received] unless entity @s[tag=first_catch] run tellraw @s [{"text":"First Pokémon caught!"}]\n'
+        'execute if entity @s[tag=trainer_guide_received] run tag @s add first_catch\n'
+        'execute if entity @s[tag=first_catch] run ftbquests change_progress @s complete 008C694ADAE81F20\n'
+    ).encode("utf8"),
+    begin_league_fn: (
+        'execute if entity @s[tag=first_battle_win] unless entity @s[tag=league_started] run tellraw @s [{"text":"Next: Challenge Gym Leader Thorn"}]\n'
+        'execute if entity @s[tag=first_battle_win] run tag @s add league_started\n'
+        'execute if entity @s[tag=league_started] run advancement grant @s only prideregion:onboarding/begin_league\n'
+        'execute if entity @s[tag=league_started] run ftbquests change_progress @s complete 7436AE3F5EDD8DC9\n'
+    ).encode("utf8")
+}
+adapted = dict(original_milestones)
+changed_milestones = module.wire_first_trainer_battle_onboarding(adapted)
+check(set(changed_milestones) == set(adapted),
+      "Exactly four legacy onboarding resources edited")
+miles = json.loads(adapted[first_battle_adv])
+check(list(miles["criteria"]) == ["npc"]
+      and miles["criteria"]["npc"]["conditions"]["battle_types"] == ["pvn"],
+      "Wild and PvP battles cannot satisfy first trainer victory")
+check("unless entity @s[tag=first_battle_win] run tag @s add first_battle_win"
+      in adapted[first_battle_fn].decode(), "First trainer win is recorded once")
+check("if entity @s[tag=first_battle_win,tag=first_catch]"
+      in adapted[first_battle_fn].decode(), "League waits for first catch")
+check("if entity @s[tag=first_catch,tag=first_battle_win]"
+      in adapted[first_catch_fn].decode(), "Capture after victory can unlock League")
+check("unless entity @s[tag=league_grass]"
+      in adapted[begin_league_fn].decode(),
+      "Never tell a player with Verdant badge to challenge Thorn again")
+check("complete 70B779849A4D0F73" in adapted[first_battle_fn].decode()
+      and "complete 7436AE3F5EDD8DC9" in adapted[begin_league_fn].decode(),
+      "Original FTB first battle and League IDs retained")
+story_source = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
+check('synchronizeFirstTrainerVictoryFromRin(player);' in story_source,
+      "Rin victory and native FTB milestone must be synchronized")
+check('pride:rin_route1_won' in story_source.split(
+      'private static void synchronizeFirstTrainerVictoryFromRin(', 1)[1].split(
+      'public static boolean nativeStoryBattleEnded(', 1)[0],
+      "Only a persisted, authenticated Rin win can invoke the native milestone")
+
+# Preserve the official Rook victory, FTB checkpoint and ₽1,500 reward.
+# The one extra command must come LAST so PrideCore sees league_rock.
+unified_packager = source.read_text(encoding="utf8")
+check('rook = "data/rctmod/mobs/trainers/single/pride_rook.json"' in unified_packager,
+    "Rook original RCT trainer is present in the unified overlay")
+check('rook_commands.append("@1 pridecore story sync")' in unified_packager,
+    "Rook victory triggers read-only PrideCore story reconciliation")
+check('("league_rock", "ftbquests change_progress", "eco deposit 1500")'
+      in unified_packager, "Rook badge, FTB task and PokéDollars remain original")
+check('expected_changed = sorted([thorn, rook, ashen] + guided_paths' in unified_packager,
+    "Only approved League battle entries may differ from the audited original")
+# Preserve the native Ashen first-win rewards and append only a story
+# reconciliation after original badge, FTB and one-time payout commands.
+check('ashen = "data/rctmod/mobs/trainers/single/pride_ashen.json"' in unified_packager,
+    "Original RCT Ashen remains in the unified packager")
+check('ashen_commands.append("@1 pridecore story sync")' in unified_packager,
+    "Ashen verified victory callback advances the story after its rewards")
+check('("league_fire", "ftbquests change_progress", "eco deposit 2000")'
+      in unified_packager, "Original Inferno Badge, FTB Quest and ₽2,000 payout retained")
+check('expected_changed = sorted([thorn, rook, ashen] + guided_paths' in unified_packager,
+    "Ashen added to strictly allowlisted native Gym callback diff")
+story_engine = (root / "src/main/java/com/prideregion/core/story/StoryEngine.java").read_text()
+module_source = (root / "src/main/java/com/prideregion/core/story/StoryModule.java").read_text()
+check('reconcileEmberfallVictory(UUID playerId)' in story_engine,
+    "Ashen badge reconciliation exists")
+check('"league_fire"' in story_engine.split('reconcileEmberfallVictory(UUID playerId)', 1)[1].split(
+    'public synchronized void cancel(', 1)[0],
+    "The original League fire tag is required for Emberfall victory")
+check('boolean emberfallWin = active.reconcileEmberfallVictory(' in module_source,
+    "Existing Ashen winners are reconciled at login and /pridecore story sync")
+# Each remaining Gym retains its original first-win money/badge/FTB gate
+# and displays the updated objective only while its original one-time receipt
+# marker is present. No rematch spam or new award is allowed.
+for npc, kind, amount in (("kai", "water", 4000), ("vega", "electric", 4000),
+                           ("draven", "dragon", 5000), ("freya", "ice", 7500),
+                           ("nyx", "ghost", 10000)):
+    check(f'("{npc}", "{kind}", {amount})' in unified_packager,
+          f"{npc} original payout must stay authoritative")
+check('commands.insert(len(commands)-1, addition)' in unified_packager,
+      "Read-only objective prompt must be inside existing Gym first-win receipt gate")
+check('run pridecore story objective' in unified_packager,
+      "Remaining Gym wins must show the correct story direction")
 print(f"PASS: {checks} synthetic unified onboarding dialogue contracts")
