@@ -3,6 +3,7 @@ package com.prideregion.core.story;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.nbt.NbtCompound;
 import com.prideregion.core.PrideCoreMod;
+import com.prideregion.core.ProfileState;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
